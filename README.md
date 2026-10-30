@@ -45,3 +45,11 @@ See [API README](apps/api/README.md) for endpoints and the remaining verificatio
 See [audit and actual verification results](docs/phase0-audit.md) and
 [setup, migrations, operations and deployment gates](docs/setup-and-deployment.md).
 Phase 0 remains blocked until the required Prisma/build/integration and GitHub checks finish.
+
+## Continuing development
+
+Start with [AGENTS.md](AGENTS.md) and the
+[implementation status](docs/IMPLEMENTATION_STATUS.md). The version-controlled
+[requirements](docs/PRODUCT_REQUIREMENTS.md), [architecture](docs/ARCHITECTURE.md),
+[phase plan](docs/IMPLEMENTATION_PLAN.md), [design reference status](docs/DESIGN_SYSTEM.md)
+and [decision log](docs/DECISIONS.md) preserve scope and handoff context across agents.
