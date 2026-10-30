@@ -1,3 +1,4 @@
+import { readRuntimeConfig } from "./config/runtime.js";
 import { Module } from "@nestjs/common";
 import { CommerceService } from "./application/commerce.service.js";
 import { COMMERCE_REPOSITORY } from "./application/commerce.port.js";
@@ -13,7 +14,7 @@ import { AdminCommerceController, HealthController, LocalDemoAuthGuard, Storefro
     {
       provide: COMMERCE_REPOSITORY,
       useFactory: async (): Promise<CommerceRepository> => {
-        const driver = process.env.DATA_DRIVER || "memory";
+        const { driver } = readRuntimeConfig();
         if (driver === "memory") return new MemoryCommerceRepository();
         if (driver === "postgres") {
           // Delay importing the Prisma-generated client so demo mode can run without code generation.

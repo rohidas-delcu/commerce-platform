@@ -42,6 +42,8 @@ test("product validation enforces merchant SKU and pricing invariants", () => {
 test("stock changes validate reasons, bounds and no-op movements", () => {
   assert.equal(checkedStockChange(10, 15, "RECEIVED"), 5);
   assert.equal(checkedStockChange(10, 2, "DAMAGED"), -8);
+  assert.throws(() => checkedStockChange(-1, 10, "RECEIVED"), DomainError);
+  assert.throws(() => checkedStockChange(2_000_000_001, 10, "DAMAGED"), DomainError);
   assert.throws(() => checkedStockChange(10, 10, "STOCK_COUNT"), DomainError);
   assert.throws(() => checkedStockChange(10, -1, "OTHER"), DomainError);
   assert.throws(() => checkedStockChange(10, 11, "NOT_ALLOWED"), DomainError);

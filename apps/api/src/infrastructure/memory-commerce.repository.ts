@@ -10,7 +10,10 @@ export class MemoryCommerceRepository implements CommerceRepository {
   private readonly products = new Map<string, Product>();
   private readonly movements: InventoryMovement[] = [];
 
+  async checkHealth() {}
+
   constructor(seed = true) {
+    if (process.env.NODE_ENV === "production") throw new Error("Memory mode is development-only.");
     if (!seed) return;
     const store: Store = {
       id: randomUUID(), ownerSubjectId: "demo-merchant", name: "Northline Goods",
@@ -18,7 +21,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
       status: "PUBLISHED", createdAt: new Date().toISOString()
     };
     const product: Product = {
-      id: randomUUID(), storeId: store.id, name: "Everyday Essentials Watch",
+      id: randomUUID(), storeId: store.id, version: 0, name: "Everyday Essentials Watch",
       handle: "everyday-essentials-watch", description: "Everyday comfort and timeless style.",
       collection: "Accessories", priceMinor: "249900", compareMinor: "319900",
       status: "ACTIVE", createdAt: new Date().toISOString(),
@@ -45,7 +48,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
     if ([...this.products.values()].some(p => p.storeId === product.storeId && p.handle === product.handle))
       throw new DomainError("CONFLICT", "Product handle already exists in this store.");
     for (const variant of product.variants) {
-      if (await this.skuExists(product.storeId, variant.sku))
+      if ([...this.products.values()].some(p => p.storeId === product.storeId && p.variants.some(v => v.sku === variant.sku)))
         throw new DomainError("CONFLICT", "SKU already exists in this store.");
     }
     this.products.set(product.id, clone(product)); return clone(product);
@@ -58,9 +61,12 @@ export class MemoryCommerceRepository implements CommerceRepository {
   async saveProduct(product: Product) {
     const current = this.products.get(product.id);
     if (!current || current.storeId !== product.storeId) throw new DomainError("NOT_FOUND", "Product not found.");
+    if (current.version !== product.version) throw new DomainError("CONFLICT", "Product changed. Refresh and retry the update.");
     if ([...this.products.values()].some(p => p.storeId === product.storeId && p.handle === product.handle && p.id !== product.id))
       throw new DomainError("CONFLICT", "Product handle already exists in this store.");
-    this.products.set(product.id, clone(product)); return clone(product);
+    // Metadata writes must not replace inventory read before a concurrent adjustment.
+    const saved = { ...product, version: current.version + 1, variants: current.variants };
+    this.products.set(product.id, clone(saved)); return clone(saved);
   }
   async skuExists(storeId: string, sku: string, exceptProductId?: string) {
     return [...this.products.values()].some(p => p.storeId === storeId && p.id !== exceptProductId && p.variants.some(v => v.sku === sku));
@@ -79,5 +85,5 @@ export class MemoryCommerceRepository implements CommerceRepository {
     this.movements.unshift(movement);
     return clone(movement);
   }
-  async listMovements(storeId: string) { return clone(this.movements.filter(m => m.storeId === storeId)); }
+  async listMovements(storeId: string) { return clone(this.movements.filter(m => m.storeId === storeId).slice(0, 200)); }
 }

@@ -44,7 +44,7 @@ export class CommerceService {
     await this.ownedStore(storeId, subjectId);
     const validated = validateProductInput(input);
     const product: Product = {
-      id: randomUUID(), storeId, ...validated,
+      id: randomUUID(), storeId, version: 0, ...validated,
       description: (input.description || "").trim(), collection: (input.collection || "").trim(),
       status: "DRAFT", createdAt: new Date().toISOString(),
       variants: validated.variants.map(v => ({ ...v, id: randomUUID() }))

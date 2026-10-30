@@ -10,16 +10,22 @@
   "scripts": {
     "dev": "pnpm --filter @commerce/api dev",
     "build": "pnpm --filter @commerce/api build",
-    "typecheck": "pnpm --filter @commerce/api typecheck",
-    "test": "node --test apps/api/test/*.test.mjs",
+    "typecheck": "pnpm --filter @commerce/database typecheck && pnpm --filter @commerce/api typecheck",
+    "test": "tsx --tsconfig apps/api/tsconfig.json --test apps/api/test/*.test.mjs",
     "db:generate": "prisma generate --config packages/database/prisma.config.ts",
     "db:migrate": "prisma migrate dev --config packages/database/prisma.config.ts",
     "db:deploy": "prisma migrate deploy --config packages/database/prisma.config.ts",
-    "test:integration": "pnpm build && node --test apps/api/test/integration/*.test.mjs"
+    "test:integration": "pnpm build && node --test apps/api/test/integration/*.test.mjs",
+    "test:postgres": "pnpm build && TEST_DATA_DRIVER=postgres node --test apps/api/test/integration/*.test.mjs apps/api/test/postgres/*.test.mjs",
+    "db:validate": "prisma validate --config packages/database/prisma.config.ts",
+    "db:status": "prisma migrate status --config packages/database/prisma.config.ts",
+    "db:drift": "prisma migrate diff --from-config-datasource --to-schema packages/database/prisma/schema.prisma --exit-code --config packages/database/prisma.config.ts",
+    "test:database": "node --test apps/api/test/postgres/schema.test.mjs"
   },
   "devDependencies": {
     "dotenv": "^17.0.0",
     "prisma": "^7.0.0",
+    "tsx": "^4.23.15",
     "turbo": "^2.5.0",
     "typescript": "^5.9.0"
   }

@@ -3,6 +3,7 @@ import type { InventoryMovement, Product, Store } from "../domain/commerce.js";
 export const COMMERCE_REPOSITORY = Symbol("COMMERCE_REPOSITORY");
 
 export interface CommerceRepository {
+  checkHealth(): Promise<void>;
   createStore(store: Store): Promise<Store>;
   findStoreById(id: string): Promise<Store | null>;
   findStoreByHandle(handle: string): Promise<Store | null>;

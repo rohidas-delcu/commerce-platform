@@ -21,12 +21,12 @@ pnpm --filter @commerce/api dev
 
 Demo API: set `NODE_ENV=development`, `DATA_DRIVER=memory` and `DEMO_AUTH_ENABLED=true`. The demo merchant principal is identified by `x-demo-subject-id: demo-merchant`. Sample store `northline-goods` is seeded in memory. Data resets when the process restarts.
 
-Postgres: set `DATA_DRIVER=postgres`, `DATABASE_URL`, then run `pnpm db:generate` and `pnpm db:migrate`. Demo authentication remains strictly a local/testing mechanism. A production-grade authentication provider is required before deployment.
+Postgres: set `DATA_DRIVER=postgres`, `DATABASE_URL`, then run `pnpm db:generate` and `pnpm db:deploy`. Demo authentication remains strictly a local/testing mechanism. A production-grade authentication provider is required before deployment.
 
-Domain invariants (no package install required):
+Domain invariants (Node.js 24; no package install required):
 
 ```sh
-node --test apps/api/test/*.test.mjs
+node --test apps/api/test/domain.test.mjs
 ```
 
 See [API README](apps/api/README.md) for endpoints and the remaining verification gates.
@@ -39,3 +39,9 @@ See [API README](apps/api/README.md) for endpoints and the remaining verificatio
 - Money uses minor-unit decimal strings, never JavaScript floating-point prices.
 - The memory adapter is for development only and cannot run in production.
 - Storefront UI and the full order/payment lifecycle will be migrated and implemented in later milestones.
+
+## Phase 0 verification
+
+See [audit and actual verification results](docs/phase0-audit.md) and
+[setup, migrations, operations and deployment gates](docs/setup-and-deployment.md).
+Phase 0 remains blocked until the required Prisma/build/integration and GitHub checks finish.

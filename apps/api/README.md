@@ -47,7 +47,7 @@ Example product body:
 
 ## Persistent data
 
-Use PostgreSQL and `DATA_DRIVER=postgres`. Set `DATABASE_URL` in `apps/api/.env`, run `pnpm db:generate`, `pnpm db:migrate`, then start API. The PostgreSQL adapter provides unique constraints, ownership-scoped reads, and transactional optimistic stock updates with movement history.
+Use PostgreSQL and `DATA_DRIVER=postgres`. Set `DATABASE_URL` in `apps/api/.env`, run `pnpm db:generate`, `pnpm db:deploy`, then start API. The PostgreSQL adapter provides unique constraints, ownership-scoped reads, and transactional optimistic stock updates with movement history.
 
 ## Deferred security and business features
 
@@ -73,3 +73,7 @@ default. To exercise PostgreSQL, migrate a disposable database first, then run
 PostgreSQL tests leave their uniquely named stores in that disposable database.
 Demo authentication requires explicit development mode and is rejected in test,
 staging, unset, and production modes. Production startup always refuses to run.
+
+See the root [Phase 0 audit](../../docs/phase0-audit.md) for executed results and
+[operations guide](../../docs/setup-and-deployment.md) for readiness, migrations,
+shutdown and deployment requirements. `GET /health/ready` checks repository readiness.

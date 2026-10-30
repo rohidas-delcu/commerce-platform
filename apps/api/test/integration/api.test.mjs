@@ -16,7 +16,7 @@ async function request(path, method = 'GET', body, subject = 'test-merchant') {
   return { status: response.status, body: await response.json() };
 }
 
-test('store, product and inventory flow preserves ownership and storefront privacy', async t => {
+test('store, product and inventory flow preserves ownership and storefront privacy', { timeout: 20000 }, async t => {
   const child = spawn(process.execPath, ['dist/main.js'], {
     cwd: new URL('../../', import.meta.url), env, stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -26,8 +26,14 @@ test('store, product and inventory flow preserves ownership and storefront priva
   t.after(async () => {
     if (child.exitCode === null && child.signalCode === null) {
       const exited = once(child, 'exit');
+      const deadline = setTimeout(() => child.kill('SIGKILL'), 5000);
+      deadline.unref();
       child.kill('SIGTERM');
-      await exited;
+      try {
+        const [code, signal] = await exited;
+        assert.notEqual(signal, 'SIGKILL', 'API must release resources on shutdown.');
+        assert.ok(code === 0 || signal === 'SIGTERM');
+      } finally { clearTimeout(deadline); }
     }
   });
   let ready = false;
@@ -38,6 +44,10 @@ test('store, product and inventory flow preserves ownership and storefront priva
     await delay(100);
   }
   assert.ok(ready, output);
+  assert.deepEqual((await request('/health')).body, { status: 'ok' });
+  assert.deepEqual((await request('/health/ready')).body, { status: 'ready' });
+  assert.deepEqual((await request('/missing-route')).body, { statusCode: 404, code: 'NOT_FOUND', message: 'Cannot GET /missing-route' });
+  assert.equal((await request('/v1/admin/stores/not-a-uuid/products')).body.code, 'INVALID');
   assert.equal((await request('/v1/admin/stores', 'GET', undefined, null)).status, 403);
   assert.equal((await request('/v1/admin/stores', 'POST', { name: 'Invalid', handle: 'bad', extra: true })).status, 400);
   const handle = `test-${Date.now()}`;
@@ -53,6 +63,27 @@ test('store, product and inventory flow preserves ownership and storefront priva
     variants: [{ name: 'Black', sku: 'BAG-001', stock: 10 }]
   });
   assert.equal(product.status, 201);
+  for (const [path, method, body] of [
+    [`${admin}/publish`, 'POST'], [`${admin}/products`, 'POST', { name: 'Other', handle: 'other', priceMinor: '100', variants: [{ name: 'One', sku: 'OTHER', stock: 0 }] }],
+    [`${admin}/products/${product.body.id}`, 'PATCH', { name: 'Stolen' }],
+    [`${admin}/products/${product.body.id}/activate`, 'POST'],
+    [`${admin}/variants/${product.body.variants[0].id}/stock-adjustments`, 'POST', { quantity: 1, reason: 'DAMAGED' }],
+    [`${admin}/inventory-movements`, 'GET']
+  ]) assert.equal((await request(path, method, body, 'other-merchant')).status, 404);
+  const duplicateBody = { name: 'Other', handle: 'backpack', priceMinor: '100', variants: [{ name: 'One', sku: 'OTHER', stock: 0 }] };
+  assert.equal((await request(`${admin}/products`, 'POST', duplicateBody)).status, 409);
+  assert.equal((await request(`${admin}/products`, 'POST', { ...duplicateBody, handle: 'other', variants: [{ name: 'One', sku: 'bag-001', stock: 0 }] })).status, 409);
+  for (const field of ['name', 'handle', 'description', 'collection', 'priceMinor']) {
+    const invalid = await request(`${admin}/products/${product.body.id}`, 'PATCH', { [field]: null });
+    assert.equal(invalid.status, 400); assert.equal(invalid.body.code, 'INVALID');
+  }
+  for (const priceMinor of [199900, '1.5', '0', '1000000000000000000']) {
+    assert.equal((await request(`${admin}/products/${product.body.id}`, 'PATCH', { priceMinor })).status, 400);
+  }
+  const exact = await request(`${admin}/products/${product.body.id}`, 'PATCH', { priceMinor: '999999999999999999' });
+  assert.equal(exact.body.priceMinor, '999999999999999999');
+  assert.equal((await request(`${admin}/products/${product.body.id}`, 'PATCH', { compareMinor: '1' })).status, 400);
+  assert.equal((await request(`${admin}/products/${product.body.id}`, 'PATCH', { compareMinor: null })).status, 200);
   assert.equal((await request(`${admin}/publish`, 'POST')).status, 201);
   assert.deepEqual((await request(`/v1/storefront/${handle}/products`)).body.products, []);
   assert.equal((await request(`${admin}/products/${product.body.id}/activate`, 'POST')).status, 201);
@@ -71,6 +102,14 @@ test('store, product and inventory flow preserves ownership and storefront priva
   assert.equal(catalog.body.products[0].variants[0].stock, 15);
   assert.equal('sku' in catalog.body.products[0].variants[0], false);
   assert.equal('ownerSubjectId' in catalog.body.store, false);
+  assert.equal('storeId' in catalog.body.products[0], false);
+  assert.equal('version' in catalog.body.products[0], false);
+  const racing = { name: 'Race', handle: 'race', priceMinor: '100', variants: [{ name: 'One', sku: 'RACE-1', stock: 1 }] };
+  const races = await Promise.all([request(`${admin}/products`, 'POST', racing), request(`${admin}/products`, 'POST', { ...racing, handle: 'race-other' })]);
+  assert.deepEqual(races.map(r => r.status).sort(), [201, 409]);
+  assert.equal((await request(`/v1/storefront/${handle}/products`)).body.products.length, 1);
+  assert.ok(!output.includes('x-demo-subject-id:'));
+  if (process.env.DATABASE_URL) assert.ok(!output.includes(process.env.DATABASE_URL));
 });
 
 test('production startup refuses demo authentication', async () => {
@@ -80,6 +119,7 @@ test('production startup refuses demo authentication', async () => {
   });
   let output = '';
   child.stderr.on('data', b => { output += b; });
+  child.stdout.on('data', b => { output += b; });
   const [code] = await once(child, 'exit');
   assert.equal(code, 1);
   assert.match(output, /Production mode requires real merchant authentication/);

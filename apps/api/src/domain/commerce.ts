@@ -21,6 +21,7 @@ export interface Variant {
 }
 
 export interface Product {
+  version: number;
   id: string;
   storeId: string;
   name: string;
@@ -106,7 +107,7 @@ export function validateProductInput(input: {
 }
 
 export function checkedStockChange(before: number, after: number, reason: string): number {
-  if (!Number.isSafeInteger(before) || !Number.isSafeInteger(after) || after < 0 || after > 2_000_000_000) {
+  if (!Number.isSafeInteger(before) || before < 0 || before > 2_000_000_000 || !Number.isSafeInteger(after) || after < 0 || after > 2_000_000_000) {
     throw new DomainError("INVALID", "Stock must be a non-negative integer.");
   }
   if (before === after) throw new DomainError("INVALID", "Inventory is unchanged.");
