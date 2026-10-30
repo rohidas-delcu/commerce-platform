@@ -6,7 +6,7 @@ import {IdentityError} from '../../identity/domain/identity.js';
 import {assertOwner, assertPermission, assertRemainingOwner, locale, type Permission} from '../domain/access.js';
 import type {MerchantRepositoryPort, MerchantPrincipal, StoreSettings, StoreView} from '../application/merchant.port.js';
 
-const storeSelect = {id:true,merchantId:true,name:true,handle:true,status:true,settingsVersion:true,onboardingState:true,countryCode:true,currencyCode:true,timezone:true,contactEmail:true,brandingName:true,suspended:true,archivedAt:true} as const;
+const storeSelect = {logoAssetId:true,id:true,merchantId:true,name:true,handle:true,status:true,settingsVersion:true,onboardingState:true,countryCode:true,currencyCode:true,timezone:true,contactEmail:true,brandingName:true,suspended:true,archivedAt:true} as const;
 export class PrismaMerchantRepository implements MerchantRepositoryPort {
   private client?: PrismaClient;
   private get db() {
@@ -95,6 +95,10 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     const {expectedVersion,...changes}=input;
     const country=changes.countryCode??store.countryCode,currency=changes.currencyCode??store.currencyCode;locale(country,currency);
     if(currency!==store.currencyCode && (await tx.product.count({where:{storeId}})||await tx.storePricing.count({where:{storeId}})||await tx.discountCoupon.count({where:{storeId}})))throw new IdentityError(409,'Currency cannot change after catalog or pricing configuration exists.');
+    if(changes.logoAssetId!==undefined&&changes.logoAssetId!==null){
+      await tx.$queryRaw`SELECT id FROM "MediaAsset" WHERE id=${changes.logoAssetId}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;
+      if(!await tx.mediaAsset.count({where:{id:changes.logoAssetId,storeId,status:'COMPLETE'}}))throw new IdentityError(400,'Logo must be a verified asset of this store.');
+    }
     const updated=await tx.store.update({where:{id:storeId,settingsVersion:expectedVersion},data:{...changes,settingsVersion:{increment:1}},select:storeSelect});
     await tx.identityAudit.create({data:{identityId:p.identityId!,action:`STORE_SETTINGS_CHANGED:${storeId}`}});return updated;
   });}

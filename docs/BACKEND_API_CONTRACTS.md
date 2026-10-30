@@ -71,7 +71,7 @@ Lists currently return bounded arrays (max 100), not a completed cursor-paginati
 contract. No API to claim quarantined legacy ownership or transfer legal tenancy.
 Supported country/currency pairs: IN/INR, US/USD, GB/GBP, CA/CAD, AU/AUD; these are
 locale validation only, not a claim of supported shipping/tax/payment jurisdictions.
-Store logo/branding asset settings remain pending; product media and shipping/payment
+Verified store logo/branding asset settings, product media and shipping/payment
 configuration APIs are described below.
 
 ## Product lifecycle/search checkpoint
@@ -349,3 +349,16 @@ remain blocked while commerce is unavailable. Existing wishlist removal is allow
 Never-used closed store namespaces return404, including CSRF bootstrap. This does
 not grant merchant authority or reactivate a closed store. Merchant business APIs
 continue enforcing their original store/account availability rules.
+
+
+## Store logo and safe public metadata
+
+Merchant `PATCH /v1/merchant/stores/:id/settings` additionally accepts logoAssetId
+(UUID or null) with expectedVersion. A logo must be a COMPLETE asset of that store;
+pending/foreign assets400, stale settings409. It reuses upload reservation/completion,
+not arbitrary external URLs. Clear the reference before deleting the asset; deletion
+while referenced by a product or logo409. Branding name remains part of settings.
+`GET /v1/storefront/:handle` returns only `{handle,name,countryCode,currencyCode,
+branding:{name,logo:{id,url,altText}|null}}`. Logo bytes are public only while the
+store is available/published. No merchant identity, private object key or token leaks.
+Existing catalog response shapes remain compatible. No frontend/design is implemented.

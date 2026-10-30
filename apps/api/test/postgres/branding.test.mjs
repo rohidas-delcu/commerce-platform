@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {createHash} from 'node:crypto';
+import sharp from 'sharp';
+import {storefrontFixture} from '../support/storefront.mjs';
+test('store branding uses verified tenant-owned assets, safe public metadata and protected logo deletion',{timeout:60000},async t=>{
+  const f=await storefrontFixture(t),{request,db}=f,owner=await f.register(),store=await f.store(owner,1),other=await f.store(owner,1);
+  const bytes=await sharp({create:{width:2,height:2,channels:4,background:{r:10,g:20,b:30,alpha:1}}}).png().toBuffer();
+  const reserved=await request(owner,store.path+'/media/reservations','POST',{contentType:'image/png',size:bytes.length,checksum:createHash('sha256').update(bytes).digest('hex')});assert.equal(reserved.status,201);const assetId=reserved.body.assetId;
+  const settings=(await request(owner,store.path)).body;
+  assert.equal((await request(owner,store.path+'/settings','PATCH',{expectedVersion:settings.settingsVersion,logoAssetId:assetId})).status,400,'Pending objects cannot become logos.');
+  assert.equal((await fetch(f.base+reserved.body.upload.url,{method:'PUT',headers:reserved.body.upload.headers,body:bytes})).status,200);assert.equal((await request(owner,store.path+'/media/'+assetId+'/complete','POST',{})).status,201);
+  assert.equal((await request({},'/v1/media/'+assetId)).status,404,'Unlinked verified objects remain private.');
+  const otherSettings=(await request(owner,other.path)).body;assert.equal((await request(owner,other.path+'/settings','PATCH',{expectedVersion:otherSettings.settingsVersion,logoAssetId:assetId})).status,400,'Even the same owner cannot cross store asset scope.');await assert.rejects(db.store.update({where:{id:other.id},data:{logoAssetId:assetId}}));
+  const assigned=await request(owner,store.path+'/settings','PATCH',{expectedVersion:settings.settingsVersion,logoAssetId:assetId});assert.equal(assigned.status,200);assert.equal(assigned.body.logoAssetId,assetId);assert.equal((await request(owner,store.path+'/settings','PATCH',{expectedVersion:settings.settingsVersion,logoAssetId:null})).status,409);
+  const profile=await request({},store.root);assert.equal(profile.status,200);assert.deepEqual(Object.keys(profile.body).sort(),['branding','countryCode','currencyCode','handle','name']);assert.equal(profile.body.branding.logo.id,assetId);assert.equal(profile.body.branding.name,'Journey brand');assert.equal(profile.body.branding.logo.url,'/v1/media/'+assetId);
+  const image=await fetch(f.base+profile.body.branding.logo.url);assert.equal(image.status,200);assert.equal(image.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await image.arrayBuffer()),bytes);
+  assert.equal((await request(owner,store.path+'/media/'+assetId,'DELETE')).status,409,'Clear the logo reference before deleting its bytes.');
+  assert.equal((await request(owner,store.path+'/unpublish','POST',{})).status,201);assert.equal((await request({},store.root)).status,404);assert.equal((await request({},'/v1/media/'+assetId)).status,404);assert.equal((await request(owner,store.path+'/publish','POST',{})).status,201);
+  assert.equal((await request(owner,store.path+'/settings','PATCH',{expectedVersion:assigned.body.settingsVersion,logoAssetId:null})).status,200);assert.equal((await request({},store.root)).body.branding.logo,null);assert.equal((await request({},'/v1/media/'+assetId)).status,404);assert.equal((await request(owner,store.path+'/media/'+assetId,'DELETE')).status,200);
+});

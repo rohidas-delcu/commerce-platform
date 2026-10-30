@@ -14,7 +14,7 @@ export class PrismaMediaRepository implements MediaRepositoryPort {
   async remove(storeId:string,id:string){return this.transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "MediaAsset" WHERE id=${id}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;
     const row=await tx.mediaAsset.findFirst({where:{id,storeId}});if(!row)throw new DomainError('NOT_FOUND','Asset not found.');
-    if(await tx.productMedia.count({where:{assetId:id,storeId}}))throw new DomainError('CONFLICT','Detach referenced images before deleting an asset.');
+    if(await tx.productMedia.count({where:{assetId:id,storeId}})||await tx.store.count({where:{id:storeId,logoAssetId:id}}))throw new DomainError('CONFLICT','Detach referenced images or store logo before deleting an asset.');
     const saved=await tx.mediaAsset.update({where:{id},data:{status:'DELETED'}});return{...saved,status:saved.status as MediaAsset['status']};
   });}
   async setImages(storeId:string,productId:string,images:ProductImage[],version:number){await this.transaction(async tx=>{

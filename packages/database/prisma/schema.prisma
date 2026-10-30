@@ -21,6 +21,8 @@ enum ProductStatus {
 }
 
 model Store {
+  logoAssetId String? @db.Uuid
+  logo MediaAsset? @relation("StoreLogo",fields:[logoAssetId,id],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
   coupons DiscountCoupon[]
   orders Order[]
   orderCounter StoreOrderCounter?
@@ -311,6 +313,7 @@ model CollectionProduct {
 }
 
 model MediaAsset {
+  logoStores Store[] @relation("StoreLogo")
   id String @id @db.Uuid
   storeId String @db.Uuid
   store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)

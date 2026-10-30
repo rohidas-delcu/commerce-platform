@@ -5,6 +5,8 @@ export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER" | "ORDER_COMMITTED" | "ORDER_CANCELLED";
 
 export interface Store {
+  brandingName?:string;
+  logoAssetId?:string|null;
   merchantManaged?: boolean;
   suspended?: boolean;
   archivedAt?: string | null;

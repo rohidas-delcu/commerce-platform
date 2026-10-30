@@ -62,7 +62,7 @@ No frontend, automatic merge, production deployment or unsafe provider fallback.
 Provider credentials/sandbox acceptance remain required for live activation.
 See IMPLEMENTATION_STATUS.md for actual delivered scope, not this authorization.
 
-## Next executable slice after shipping/tax estimates
+## Checkout/COD implementation sequence (delivered; remaining work in status)
 
 Implement verified-customer checkout and COD orders first, then expand payment
 providers/lifecycles. Preserve the shared transactional storefront authority helper.

@@ -15,7 +15,8 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   within the same transaction as commerce writes. Legacy data stays quarantined.
 - Onboarding foundation: idempotent store creation, resumable/versioned locale,
   timezone/contact/brand settings, complete vs publish separation and archive safeguards.
-  Shipping/payment configuration now gates completion/publication; logo settings remain pending.
+  Shipping/payment configuration gates completion/publication; verified logo settings
+  now support tenant-safe assignment/removal and public branding metadata.
 - Catalog: product/variant metadata and lifecycle, SEO, exact prices, scoped handles/
   SKUs, search/sort/bounded offset pages; normalized collections with ordered links.
 - Media: bounded reservations, real PNG/JPEG raster/checksum verification, local
@@ -86,14 +87,19 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Never-used closed namespaces stay private. Namespace/session/tenant/revocation
   checks remain mandatory; historical access does not reactivate a store.
 
+- Store branding: logo settings reuse verified tenant-owned media with optimistic
+  settings versions and a compound FK. Public store metadata exposes only approved
+  name/locale/branding fields. Logo images follow store publication and cannot be
+  deleted while referenced. No frontend/mockup/palette/design changes were made.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 39 passed, 0 failed/skipped.
+- `pnpm test`: 40 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 17 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 18 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not17 independent purchase flows.
+  and SQL checks; these totals include shared suites, not18 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -106,16 +112,16 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before account continuity: `42d6da3692624237012acefc128c950d8de227fa`. Actions succeeded:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41085205485
-  Fulfillment `5188e4f` also passed run41080618341. Check account-continuity CI
-  after pushing; local results do not establish remote CI success.
+- Latest pushed verified implementation before branding: `0c48ab33441e79eb4d84910db84f7a22d436c790`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41086962712
+  Coupons `42d6da3` also passed run41085205485. Check branding CI after pushing;
+  local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Commit account-continuity checkpoint/inspect CI; finish store logo/branding
-   asset settings with tenant/verification/deletion safeguards and safe public metadata.
-2. Finish logo/branding settings and review all onboarding/publication prerequisites.
+1. Commit branding checkpoint/inspect CI; implement the durable notification
+   delivery worker, private development mailbox and SES adapter boundary/retries.
+2. Review final onboarding/publication and operational lifecycle prerequisites.
 3. Complete remaining payment/simulator/reconciliation/refund lifecycles and security
    acceptance; never infer captured payment from a browser callback.
 4. Add supported refund workflows and late/unknown-payment recovery without
@@ -141,7 +147,8 @@ remain unavailable. Merchant business mutations remain subject to store/account 
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030155000_coupon_redemption` (coupon quota leases/immutable usage ledgers)
+Migration history now includes `20261030160000_store_branding` (nullable tenant-scoped logo reference),
+`20261030155000_coupon_redemption` (coupon quota leases/immutable usage ledgers)
 and `20261030155100_zero_amount_orders` (NOT_REQUIRED, preserving amounts/IDs),
 `20261030154000_manual_fulfillment` (command ledger, event data and cancellation
 movement reason) and `20261030153000_cod_orders` (immutable snapshots/items/events, staged outbox,

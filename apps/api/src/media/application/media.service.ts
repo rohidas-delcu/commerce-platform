@@ -17,8 +17,8 @@ export class MediaService {
   async publicRead(id:string){
     const asset=await this.repo.media.asset(id);if(!asset||asset.status!=='COMPLETE')throw new DomainError('NOT_FOUND','Image not found.');
     const store=await this.repo.findStoreById(asset.storeId);if(!store)throw new DomainError('NOT_FOUND','Image not found.');
-    const service=new CommerceService(this.repo);let visible=false;
-    for(const productId of await this.repo.media.links(id)){
+    const service=new CommerceService(this.repo),published=await service.publicStore(store.handle);let visible=published.branding.logo?.id===id;
+    if(!visible)for(const productId of await this.repo.media.links(id)){
       const product=await this.repo.findProduct(asset.storeId,productId);if(!product)continue;
       try{const publicProduct=await service.publicProductDetail(store.handle,product.handle);if(publicProduct.images.some(image=>image.id===id)){visible=true;break;}}
       catch(error){if(!(error instanceof DomainError)||error.code!=='NOT_FOUND')throw error;}

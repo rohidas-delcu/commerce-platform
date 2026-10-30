@@ -169,3 +169,12 @@ An unused closed namespace remains404. The shared transactional authority helper
 still checks exact store/customer/session namespace, revocation and tenant references;
 account mode changes only publication availability. Controller metadata selects a
 use-case intent; policy is centralized, not independent controller role logic.
+
+## Store branding assets (implementation, 2026-10-30)
+
+Store logo is an optional verified MediaAsset reference, never an external URL.
+Composite tenant FK and settings/asset locks prevent foreign/pending assignment;
+logo references protect deletion like product images. Clear a logo explicitly before
+deleting its bytes. Public store profile selects only name/locale/branding fields;
+logo publication uses the same store availability policy as catalog/media. Keep logo
+optional rather than inventing placeholder artwork, colors or a new storefront design.

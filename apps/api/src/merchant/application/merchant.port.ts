@@ -3,8 +3,8 @@ import type { BrowserSession } from '../../identity/domain/identity.js';
 import type { Permission } from '../domain/access.js';
 export type MerchantPrincipal = Pick<BrowserSession,'id'|'identityId'>;
 export interface AccountView {id: string; name: string; status: string}
-export interface StoreView {id: string; merchantId: string; name: string; handle: string; status: string; settingsVersion: number; onboardingState: string; countryCode: string; currencyCode: string; timezone: string; contactEmail: string; brandingName: string; suspended: boolean; archivedAt: Date | null}
-export interface StoreSettings {expectedVersion: number; name?: string; contactEmail?: string; brandingName?: string; countryCode?: string; currencyCode?: string; timezone?: string}
+export interface StoreView {logoAssetId:string|null;id: string; merchantId: string; name: string; handle: string; status: string; settingsVersion: number; onboardingState: string; countryCode: string; currencyCode: string; timezone: string; contactEmail: string; brandingName: string; suspended: boolean; archivedAt: Date | null}
+export interface StoreSettings {logoAssetId?:string|null;expectedVersion: number; name?: string; contactEmail?: string; brandingName?: string; countryCode?: string; currencyCode?: string; timezone?: string}
 export interface MerchantRepositoryPort {
   checkHealth(): Promise<void>;
   invite(p: MerchantPrincipal, merchantId: string, storeId: string | null, email: string, role: string, tokenDigest: string, mail: string): Promise<{id:string;email:string;role:string;expiresAt:Date}>;

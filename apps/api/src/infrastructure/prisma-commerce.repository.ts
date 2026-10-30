@@ -10,11 +10,13 @@ import type { Store, Product, InventoryMovement, ProductQuery, Variant, Collecti
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 function storeDomain(row: {
+  brandingName?:string;logoAssetId?:string|null;
   merchant?: {status: string}; suspended?: boolean; archivedAt?: Date | null;
   id: string; ownerSubjectId: string; name: string; handle: string;
   countryCode: string; currencyCode: string; status: string; createdAt: Date;
 }): Store {
   return {
+    brandingName:row.brandingName??row.name,logoAssetId:row.logoAssetId??null,
     merchantManaged: row.merchant ? row.merchant.status !== "QUARANTINED" : false, merchantStatus: row.merchant?.status, suspended: row.suspended, archivedAt: row.archivedAt?.toISOString() ?? null,
     id: row.id, ownerSubjectId: row.ownerSubjectId, name: row.name, handle: row.handle,
     countryCode: row.countryCode, currencyCode: row.currencyCode,
@@ -78,7 +80,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
   async checkHealth() {
     // Adapter-generated queries honor the configured PostgreSQL schema.
     await Promise.all([
-      this.db.store.findFirst({ select: { id: true, merchantId:true, settingsVersion:true } }),
+      this.db.store.findFirst({ select: { id: true, merchantId:true, settingsVersion:true,logoAssetId:true } }),
       this.db.product.findFirst({ select: { version: true, seoTitle:true } }),
       this.db.productVariant.findFirst({ select: { stock: true, reserved:true, active:true,priceMinor:true,options:true } }),
       this.db.collection.findFirst({select:{id:true}}),

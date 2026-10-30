@@ -87,6 +87,9 @@ export class AdminCommerceController {
 export class StorefrontCommerceController {
   constructor(private readonly commerce: CommerceService) {}
 
+  @Get(':handle')
+  store(@Param('handle') handle:string){return this.commerce.publicStore(handle);}
+
   @Get(":handle/products")
   products(@Param("handle") handle: string,@Query() query:PublicProductQueryDto) { return this.commerce.publicCatalog(handle,query); }
 

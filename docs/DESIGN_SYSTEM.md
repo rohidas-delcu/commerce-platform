@@ -28,3 +28,7 @@ Record confirmations here and substantive decisions in `DECISIONS.md`.
   assume demo headers provide production identity.
 
 These constraints describe the existing API contract, not a new UI specification.
+
+Backend branding now stores brandingName and an optional verified logo asset ID,
+with a safe public metadata API. This defines data contracts only. No HTML mockup,
+React screen, visual palette, layout or approved storefront design was modified.

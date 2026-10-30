@@ -91,3 +91,10 @@ log the customer out/in, retain receipt/address access and reject shopping/signu
 public catalog/wishlist content. An unused second closed namespace stays404. Store
 suspension no longer prevents own account access; identity suspension still revokes
 and rejects the customer session. No tenant or cookie-audience checks are relaxed.
+
+Branding coverage uploads/decodes a real PNG, rejects pending and same-owner/foreign-store
+assignment, executes the SQL tenant FK, checks optimistic settings versions, private
+asset visibility, exact public metadata and referenced deletion protection. Unpublish
+hides profile/logo; clearing the reference allows deletion. Memory metadata/reference
+behavior is covered separately. Shared HTTP fixtures force local storage in their own
+private temporary directories, preventing unintended live S3 calls or user-file cleanup.
