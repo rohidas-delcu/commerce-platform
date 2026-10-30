@@ -1,6 +1,6 @@
 # Current backend implementation status — 2026-10-30
 
-**Full backend mission IN PROGRESS; no customer order journey yet.** Continue
+**Full backend mission IN PROGRESS; no customer order placement yet.** Continue
 verified slices autonomously under BACKEND_REQUIREMENTS.md. No UI, merge or deploy.
 Branch `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
 Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
@@ -45,12 +45,19 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Discount arithmetic/eligibility is unit-tested domain code only; coupon APIs,
   durable redemption and checkout usage enforcement remain pending.
 
+- Checkout checkpoint: verified store customers can start/resume an idempotent
+  checkout, configure contact/address/shipping, obtain a durable quoted inventory
+  hold, change inputs with atomic hold release, cancel or expire. Customer-safe
+  projections omit private SKU and authority fields. DRAFT lasts24h; READY uses
+  the bounded hold lifetime. Guest cart merge precedes this initial authenticated
+  checkout API. Order placement, payments and fulfillment remain pending.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 34 passed, 0 failed/skipped.
+- `pnpm test`: 35 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 14 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 15 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
   and SQL checks; it is not 14 independent end-to-end purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
@@ -63,18 +70,19 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before pricing: `e4e6629fa6559b0b72c2dd68b690d4b1a30d7f55`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41073307532
-  Customer `8ca16b5` also passed Actions run41071693656. Pricing remote CI must
+- Latest pushed verified implementation before checkout: `b5941261930db7a751ccd20c833ddc301d1efba2`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41075016169
+  Carts `e4e6629` also passed Actions run41073307532. Checkout remote CI must
   be checked after pushing; local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Commit pricing checkpoint and inspect CI; implement the checkout/COD order
-   journey with durable snapshots, idempotency and inventory linkage. Couple coupon
+1. Commit checkout checkpoint and inspect CI; implement COD order placement
+   atomically from READY checkout with idempotency and inventory commitment. Couple coupon
    persistence/eligibility/redemption to that transaction before claiming discounts complete.
 2. Finish logo/branding settings and review all onboarding/publication prerequisites.
-3. Complete checkout resume/expiry/reprice and customer/merchant order history.
+3. Final placement must revalidate quote/catalog/policy/cart versions; add customer/
+   merchant order history and explicit manual fulfillment/cancellation/collection.
 4. COD, development simulator and Razorpay boundary/signature/status/reconciliation;
    order/payment/fulfillment transitions, cancellation/refunds and history.
 5. Durable notification delivery/retries, SES adapter, expiry/retention/orphan workers,
@@ -96,7 +104,8 @@ ownerless accounts need audited operator recovery. No automatic ownership mappin
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030151000_store_pricing` (versioned JSON policy) and
+Migration history now includes `20261030152000_checkout` (source cart/customer/store FK, active-cart uniqueness)
+and `20261030151000_store_pricing` (versioned JSON policy) and
 `20261030150000_carts` (additive cart/line FKs,
 owner/capability CHECKs and one active cart per customer). The earlier
 `20261030145000_customer_identity` preserves merchant scope; scoped email

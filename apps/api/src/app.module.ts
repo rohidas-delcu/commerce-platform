@@ -1,3 +1,6 @@
+import {CheckoutService} from './checkout/application/checkout.service.js';
+import {CheckoutController} from './checkout/http/checkout.controller.js';
+import {PrismaCheckoutRepository} from './checkout/infrastructure/prisma-checkout.repository.js';
 import {CartService} from './cart/application/cart.service.js';
 import {CartController} from './cart/http/cart.controller.js';
 import {PrismaCartRepository} from './cart/infrastructure/prisma-cart.repository.js';
@@ -23,8 +26,10 @@ import { AdminCommerceController, HealthController, LocalDemoAuthGuard, Storefro
 
 @Module({
   imports: [IdentityModule, MerchantModule,StorageModule],
-  controllers: [CartController,CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
+  controllers: [CheckoutController,CartController,CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
   providers: [
+    {provide:PrismaCheckoutRepository,useFactory:()=>new PrismaCheckoutRepository()},
+    {provide:CheckoutService,useFactory:(repository:PrismaCheckoutRepository)=>new CheckoutService(repository),inject:[PrismaCheckoutRepository]},
     {provide:PrismaCartRepository,useFactory:()=>new PrismaCartRepository()},
     {provide:CartService,useFactory:(repository:PrismaCartRepository,commerce:CommerceRepository)=>new CartService(repository,commerce,identitySecrets),inject:[PrismaCartRepository,COMMERCE_REPOSITORY]},
     CustomerGuard,

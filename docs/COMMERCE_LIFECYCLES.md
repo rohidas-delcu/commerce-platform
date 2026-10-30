@@ -53,3 +53,13 @@ customer. Guest expiry is seven days from creation (matching capability cookie);
 owned cart expiry is seven idle days. Refresh and mutations use optimistic versions.
 No cart operation reserves or deducts stock. Current quotes warn about changed prices,
 inactive catalog and insufficient availability; final checkout pricing is pending.
+
+Checkout checkpoint: DRAFT → READY → DRAFT (edit/requote) | CANCELLED | EXPIRED.
+COMPLETED is reserved for the next order-placement use case. Start is idempotent per
+store/customer/key and binds the source cart/version. Source-cart FK includes the
+customer ID; one DRAFT/READY checkout per cart. DRAFT expiry24h; a READY quote holds
+inventory for the bounded reservation lifetime. Input changes release the hold and
+clear snapshots in the same transaction; quote failure rolls back release/replacement.
+GET processes due expiry; background scheduling remains pending. READY does not
+commit inventory and cannot by itself create paid/order state. Checkout actions are
+audited without contact/address/token data in operational logs.

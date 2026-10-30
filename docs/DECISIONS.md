@@ -100,3 +100,16 @@ Store currency cannot change after money-valued catalog or pricing configuration
 exists. Completion/publication checks shipping/payment readiness; existing records
 are preserved without inventing policy data. Coupon usage must be committed with
 orders; current pure coupon arithmetic is not a delivered redemption workflow.
+
+## Durable checkout reservation checkpoint (implementation, 2026-10-30)
+
+Initial checkout API uses a verified store customer and an owned/merged cart. Guest
+carts/estimates remain supported; guest order placement is not implemented. Bind start
+keys to cart/version; preserve a single active checkout per cart with composite
+customer/cart/store references. Persist quoted minor-unit item/tax/shipping snapshots
+and internal SKU, while explicit customer projections omit SKU/authority fields.
+DRAFT has a24h deadline; READY expires with its stock hold. Input changes atomically
+release holds and clear quotes; quote replacement rolls back on failure. No inventory
+commitment or order is inferred from READY. Order placement must revalidate before
+committing, and notification/payment/fulfillment states stay separate. Do not enable
+production or claim full checkout acceptance at this checkpoint.

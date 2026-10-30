@@ -50,3 +50,11 @@ unsupported destination rejection and amount-tampering rejection. Unit vectors c
 exclusive/inclusive tax, half-up rounding, discounted free-shipping thresholds and
 coupon eligibility arithmetic. Coupon persistence/usage, checkout and orders are not
 implemented; these vectors do not verify those future lifecycles.
+
+Checkout HTTP/PostgreSQL coverage creates two real verified customers and owned carts
+for the last available unit, starts/configures durable checkouts and competes for a
+reservation. Exactly one succeeds. Retry does not duplicate allocation; input changes,
+cancel/retry and expiry release correctly, with on-hand unchanged and no sale movement.
+Tests cover start-key mismatch, active-checkout uniqueness, stale versions, private SKU
+exclusion, cross-customer reads and a direct SQL source-cart/customer FK violation.
+These checks still do not place an order or verify a payment.

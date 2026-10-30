@@ -237,3 +237,24 @@ fields accepted yet. Missing/inapplicable configuration409; invalid/empty cart40
 Final checkout must revalidate/recalculate and persist snapshots; this response is
 not a stock guarantee, payment acceptance or durable checkout. Coupon arithmetic
 exists in the domain but coupon persistence/redemption APIs are still pending.
+
+## Durable customer checkout (order placement pending)
+
+Base `/v1/storefront/:handle/customer/checkouts`. Verified store customer session,
+Origin/CSRF for mutations; initial checkout requires login/guest-cart merge.
+`POST` with `{cartId,expectedCartVersion}` and stable Idempotency-Key creates DRAFT.
+Same key/input returns the checkout; changed input409. One active checkout per cart.
+`GET :id` resumes and processes due expiry (releasing a hold). Only the owning
+customer may read or mutate; cross-customer/store access404. No merchant SKU exposed.
+`PATCH :id` with `{expectedVersion,contactEmail?,contactName?,shippingMethodId?,
+shippingAddress?}` saves progress; at least one setting required. Any READY edit
+atomically releases its hold and clears the quote before returning DRAFT.
+`POST :id/reserve` `{expectedVersion}` recalculates authoritative catalog/policy
+amounts, snapshots item/contact context and reserves stock (15-minute default).
+Idempotent retry of the preceding quote version returns the same hold without
+reserving twice. Invalid catalog/configuration or insufficient available stock409.
+`POST :id/cancel` `{expectedVersion}` releases once and closes the checkout.
+DRAFT expires24h after creation; READY expires with its hold. Closed/expired edits
+fail409. On-demand expiry and reservation scans work; scheduled workers are pending.
+Placement is not implemented yet: READY is not an order, payment or committed sale.
+Final placement must revalidate current cart/catalog/policy and commit atomically.

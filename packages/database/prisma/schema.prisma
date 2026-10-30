@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  checkouts Checkout[]
   pricing StorePricing?
   carts Cart[]
   customers Identity[]
@@ -122,6 +123,7 @@ model InventoryMovement {
 }
 
 model Identity {
+  checkouts Checkout[]
   carts Cart[]
   scopeKey String @default("merchant")
   customerStoreId String? @db.Uuid
@@ -332,6 +334,7 @@ model ProductMedia {
 }
 
 model InventoryReservation {
+  checkout Checkout?
   id String @id @db.Uuid
   storeId String @db.Uuid
   store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
@@ -399,6 +402,7 @@ model CustomerWishlist {
 }
 
 model Cart {
+  checkouts Checkout[]
   id String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
   store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
@@ -415,6 +419,7 @@ model Cart {
   sources Cart[] @relation("CartMerge")
   lines CartLine[]
   @@unique([id,storeId])
+  @@unique([id,storeId,customerId])
   @@index([customerId,storeId,status])
   @@index([status,expiresAt])
 }
@@ -438,4 +443,34 @@ model StorePricing {
   tax Json
   payments Json
   updatedAt DateTime @updatedAt
+}
+
+model Checkout {
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  customerId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  cartId String @db.Uuid
+  cart Cart @relation(fields:[cartId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  cartVersion Int
+  key String
+  digest String
+  status String @default("DRAFT")
+  version Int @default(0)
+  contactEmail String
+  contactName String
+  shippingAddress Json?
+  shippingMethodId String?
+  snapshot Json?
+  reservationId String? @db.Uuid
+  reservation InventoryReservation? @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([reservationId,storeId])
+  @@unique([id,storeId])
+  @@unique([storeId,customerId,key])
+  @@index([cartId,storeId])
+  @@index([status,expiresAt])
 }
