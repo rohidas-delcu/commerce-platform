@@ -24,7 +24,7 @@ Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
 
 ## Actual checkpoint verification
 
-- `pnpm test`: 22 passed, 0 failed/skipped.
+- `pnpm test`: 23 passed, 0 failed/skipped.
 - `pnpm typecheck`, `pnpm build`: passed.
 - `pnpm test:integration`: 4 passed, 0 failed/skipped.
 - Disposable DATABASE_URL + `pnpm test:postgres`: 10 passed, 0 failed/skipped on the fresh migrated database.
@@ -75,6 +75,14 @@ PR #2 https://github.com/rohidas-delcu/commerce-platform/pull/2 is open/draft.
 Latest product implementation commit: `563536d`. Swagger DTO metadata generation
 and cookie/CSRF documentation are also now covered by executed HTTP checks.
 MerchantAccess commit `3bd8d8d` CI run 41054319257 succeeded in every required step.
+
+Variant metadata slice adds activation, price/compare overrides and validated
+string options. New variants start with zero stock; metadata cannot write stock.
+Concurrent last-active-variant deactivation is rejected and metadata saves retain
+stock. Domain policies are shared by memory and PostgreSQL. Migration
+`20261030141000_variant_metadata` supplies defaults preserving old rows and price/
+JSON constraints. Unit 23 and PostgreSQL 10 tests, build/typecheck and populated
+upgrade rehearsal passed. OpenAPI commit `f1f1637` latest CI run 41055678678 passed.
 
 Exact next task after verifying/pushing this checkpoint: extend the catalog/media
 vertical slice on the session-authorized transactional store boundary. Add product/

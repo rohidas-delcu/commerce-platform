@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { COMMERCE_REPOSITORY, COMMERCE_AUTHORIZATION } from "./commerce.port.js";
 import type { CommerceRepository, CommerceAuthorizationPort } from "./commerce.port.js";
-import { DomainError, normalizeHandle, normalizeMoneyMinor, validateProductInput, productQuery, publicProduct, seoText } from "../domain/commerce.js";
-import type { Product, Store, ProductQuery } from "../domain/commerce.js";
+import { DomainError, normalizeHandle, normalizeMoneyMinor, validateProductInput, productQuery, publicProduct, seoText, variantMetadata } from "../domain/commerce.js";
+import type { Product, Store, ProductQuery, Variant } from "../domain/commerce.js";
 
 @Injectable()
 export class CommerceService {
@@ -41,7 +41,7 @@ export class CommerceService {
   async createProduct(subjectId: string, storeId: string, input: {
     name: string; handle: string; description?: string; collection?: string;
     priceMinor: string; compareMinor?: string | null; seoTitle?:string;seoDescription?:string;
-    variants: Array<{ name: string; sku: string; stock: number }>;
+    variants: Array<Omit<Variant,"id">>;
   }) {
     await this.ownedStore(storeId, subjectId);
     const validated = validateProductInput(input);
@@ -87,7 +87,7 @@ export class CommerceService {
     const product = await this.repository.findProduct(storeId, productId);
     if (!product) throw new DomainError("NOT_FOUND", "Product not found.");
     if(product.status==="ARCHIVED")throw new DomainError("CONFLICT","Archived products cannot be activated.");
-    if (!product.variants.length) throw new DomainError("INVALID", "At least one variant is required.");
+    if (!product.variants.some(v=>v.active!==false)) throw new DomainError("INVALID", "At least one variant is required.");
     product.status = "ACTIVE";
     return this.repository.saveProduct(product);
   }
@@ -106,6 +106,17 @@ export class CommerceService {
   }
 
 
+
+  async createVariant(subjectId:string,storeId:string,productId:string,input:Parameters<typeof variantMetadata>[0]){
+    await this.ownedStore(storeId,subjectId);return this.repository.createVariant(storeId,productId,{id:randomUUID(),stock:0,...variantMetadata(input)});
+  }
+  async updateVariant(subjectId:string,storeId:string,productId:string,variantId:string,input:Partial<Parameters<typeof variantMetadata>[0]>){
+    const product=await this.productDetail(subjectId,storeId,productId),current=product.variants.find(v=>v.id===variantId);
+    if(!current)throw new DomainError('NOT_FOUND','Variant not found.');
+    const next={...current,name:input.name===undefined?current.name:input.name,sku:input.sku===undefined?current.sku:input.sku,active:input.active===undefined?current.active:input.active,priceMinor:input.priceMinor===undefined?current.priceMinor:input.priceMinor,compareMinor:input.compareMinor===undefined?current.compareMinor:input.compareMinor,options:input.options===undefined?current.options:input.options};
+    if(input.priceMinor===null&&input.compareMinor===undefined)next.compareMinor=null;
+    return this.repository.saveVariant(storeId,productId,{id:variantId,stock:current.stock,...variantMetadata(next)});
+  }
   async productDetail(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);const product=await this.repository.findProduct(storeId,id);if(!product)throw new DomainError('NOT_FOUND','Product not found.');return product;}
   async productState(subjectId:string,storeId:string,id:string,state:'DRAFT'|'ARCHIVED'){
     const product=await this.productDetail(subjectId,storeId,id);if(product.status==='ARCHIVED'&&state!=='ARCHIVED')throw new DomainError('CONFLICT','Archived product cannot be restored implicitly.');

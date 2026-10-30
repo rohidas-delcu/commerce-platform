@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsBoolean, IsObject,
   Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested
 } from "class-validator";
 
@@ -11,10 +11,25 @@ export class CreateStoreDto {
   @ValidateIf((_object, value) => value !== undefined) @IsString() @Matches(/^[a-zA-Z]{3}$/) currencyCode?: string;
 }
 
-export class VariantDto {
-  @IsString() @MinLength(1) @MaxLength(100) name!: string;
-  @IsString() @MinLength(2) @MaxLength(80) sku!: string;
-  @IsInt() @Min(0) @Max(2_000_000_000) stock!: number;
+
+export class VariantMetadataDto {
+  @IsString() @MinLength(1) @MaxLength(100) name!:string;
+  @IsString() @MinLength(2) @MaxLength(80) sku!:string;
+  @ValidateIf((_o,v)=>v!==undefined) @IsBoolean() active?:boolean;
+  @IsOptional() @IsString() @Matches(/^[0-9]{1,18}$/) priceMinor?:string|null;
+  @IsOptional() @IsString() @Matches(/^[0-9]{1,18}$/) compareMinor?:string|null;
+  @ValidateIf((_o,v)=>v!==undefined) @IsObject() options?:Record<string,string>;
+}
+export class VariantDto extends VariantMetadataDto {
+  @IsInt() @Min(0) @Max(2_000_000_000) stock!:number;
+}
+export class UpdateVariantDto {
+  @ValidateIf((_o,v)=>v!==undefined) @IsString() @MinLength(1) @MaxLength(100) name?:string;
+  @ValidateIf((_o,v)=>v!==undefined) @IsString() @MinLength(2) @MaxLength(80) sku?:string;
+  @ValidateIf((_o,v)=>v!==undefined) @IsBoolean() active?:boolean;
+  @IsOptional() @IsString() @Matches(/^[0-9]{1,18}$/) priceMinor?:string|null;
+  @IsOptional() @IsString() @Matches(/^[0-9]{1,18}$/) compareMinor?:string|null;
+  @ValidateIf((_o,v)=>v!==undefined) @IsObject() options?:Record<string,string>;
 }
 
 export class CreateProductDto {

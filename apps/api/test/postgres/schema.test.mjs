@@ -28,6 +28,9 @@ test('PostgreSQL constraints enforce tenant references, uniqueness, exact money 
     await rejected('INSERT INTO "ProductVariant" (id,"storeId","productId",name,sku) VALUES ($1,$2,$3,$4,$5)', [randomUUID(), s, p, 'White', 'SCHEMA-1'], '23505');
     await rejected('UPDATE "ProductVariant" SET "storeId"=$1 WHERE id=$2', [other, v], '23503');
     await rejected('UPDATE "ProductVariant" SET stock=-1 WHERE id=$1', [v], '23514');
+    await rejected('UPDATE "ProductVariant" SET "priceMinor"=0 WHERE id=$1',[v],'23514');
+    await rejected('UPDATE "ProductVariant" SET "compareMinor"=100 WHERE id=$1',[v],'23514');
+    await rejected('UPDATE "ProductVariant" SET options=$1::jsonb WHERE id=$2',[JSON.stringify({Color:123}),v],'23514');
     await rejected('UPDATE "Product" SET "priceMinor"=0 WHERE id=$1', [p], '23514');
     await rejected('INSERT INTO "InventoryMovement" (id,"storeId","variantId","before","after",delta,reason,"actorSubjectId") VALUES ($1,$2,$3,10,15,5,$4,$5)', [randomUUID(), other, v, 'RECEIVED', 'schema-test'], '23503');
     await rejected('INSERT INTO "InventoryMovement" (id,"storeId","variantId","before","after",delta,reason,"actorSubjectId") VALUES ($1,$2,$3,10,15,4,$4,$5)', [randomUUID(), s, v, 'RECEIVED', 'schema-test'], '23514');

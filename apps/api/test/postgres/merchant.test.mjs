@@ -54,6 +54,17 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   assert.equal((await request({},`/v1/admin/stores/${storeId}/products`,'GET',undefined,{'x-demo-subject-id':owner.id})).status,404,'Demo headers cannot access real merchant stores.');
   assert.deepEqual((await request({},'/v1/admin/stores','GET',undefined,{'x-demo-subject-id':owner.id})).body,[]);
 
+
+  const productPath=path+`/products/${product.body.id}`;
+  const secondVariant=await request(owner,productPath+'/variants','POST',{name:'White',sku:'JOURNEY-WHITE',priceMinor:'249900',options:{Color:'White'}});assert.equal(secondVariant.status,201);assert.equal(secondVariant.body.stock,0);
+  assert.equal((await request(owner,productPath+`/variants/${secondVariant.body.id}`,'PATCH',{stock:100})).status,400);
+  assert.equal((await request(owner,productPath+`/variants/${secondVariant.body.id}`,'PATCH',{name:'White edition'})).status,200);
+  assert.equal((await request(owner,productPath+`/variants/${secondVariant.body.id}`,'PATCH',{options:{Color:123}})).status,400);
+  assert.equal((await request(owner,productPath+'/variants','POST',{name:'White edition',sku:'OTHER-SKU'})).status,409);
+  const deactivations=await Promise.all([request(owner,productPath+`/variants/${secondVariant.body.id}`,'PATCH',{active:false}),request(owner,productPath+`/variants/${product.body.variants[0].id}`,'PATCH',{active:false})]);
+  assert.deepEqual(deactivations.map(r=>r.status).sort(),[200,409]);
+  const remainingVariant=await db.productVariant.findFirstOrThrow({where:{productId:product.body.id,active:true}});
+  assert.equal((await request(owner,productPath+`/variants/${remainingVariant.id}`,'PATCH',{active:false})).status,409);
   const filtered=await request(owner,path+'/products?query=journey&sort=price_desc&limit=1');assert.equal(filtered.status,200);assert.equal(filtered.body.items[0].id,product.body.id);
   assert.equal((await request(owner,path+'/products?limit=0')).status,400);
   assert.equal((await request(owner,path+`/products/${product.body.id}`)).status,200);

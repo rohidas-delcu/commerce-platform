@@ -58,5 +58,8 @@ export class MerchantService {
   updateProduct(p:MerchantPrincipal,id:string,productId:string,input:Parameters<CommerceService['updateProduct']>[3]){return this.commerce(p,id,'catalog.write',service=>service.updateProduct(p.identityId!,id,productId,input));}
   activateProduct(p:MerchantPrincipal,id:string,productId:string){return this.commerce(p,id,'catalog.write',service=>service.activateProduct(p.identityId!,id,productId));}
   stock(p:MerchantPrincipal,id:string,variantId:string,input:Parameters<CommerceService['adjustStock']>[3]){return this.commerce(p,id,'inventory.write',service=>service.adjustStock(p.identityId!,id,variantId,input));}
+
+  createVariant(p:MerchantPrincipal,id:string,productId:string,input:Parameters<CommerceService['createVariant']>[3]){return this.commerce(p,id,'catalog.write',service=>service.createVariant(p.identityId!,id,productId,input));}
+  updateVariant(p:MerchantPrincipal,id:string,productId:string,variantId:string,input:Parameters<CommerceService['updateVariant']>[4]){return this.commerce(p,id,'catalog.write',service=>service.updateVariant(p.identityId!,id,productId,variantId,input));}
   movements(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',service=>service.movements(p.identityId!,id));}
 }

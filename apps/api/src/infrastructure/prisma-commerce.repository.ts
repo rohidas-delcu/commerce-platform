@@ -1,8 +1,8 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "../generated/prisma/client.js";
-import { checkedStockChange, DomainError } from "../domain/commerce.js";
-import type { Store, Product, InventoryMovement, ProductQuery } from "../domain/commerce.js";
+import { checkedStockChange, DomainError, assertVariantUpdate, assertProductActivation, optionRecord } from "../domain/commerce.js";
+import type { Store, Product, InventoryMovement, ProductQuery, Variant } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 function storeDomain(row: {
@@ -23,7 +23,7 @@ function productDomain(row: {
   id: string; storeId: string; version: number; name: string; handle: string; description: string;
   collection: string; priceMinor: bigint; compareMinor: bigint | null;
   status: string; createdAt: Date;
-  variants: Array<{ id: string; name: string; sku: string; stock: number }>;
+  variants: Array<{ id: string; name: string; sku: string; stock: number; active?:boolean; priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown }>;
 }): Product {
   return {
     seoTitle:row.seoTitle??"",seoDescription:row.seoDescription??"",
@@ -31,9 +31,15 @@ function productDomain(row: {
     description: row.description, collection: row.collection,
     priceMinor: row.priceMinor.toString(), compareMinor: row.compareMinor?.toString() ?? null,
     status: row.status as Product["status"], createdAt: row.createdAt.toISOString(),
-    variants: row.variants.map(v => ({ id: v.id, name: v.name, sku: v.sku, stock: v.stock }))
+    variants: row.variants.map(variantDomain)
   };
 }
+
+
+function variantDomain(row:{id:string;name:string;sku:string;stock:number;active?:boolean;priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown}):Variant{
+  return{id:row.id,name:row.name,sku:row.sku,stock:row.stock,active:row.active??true,priceMinor:row.priceMinor?.toString()??null,compareMinor:row.compareMinor?.toString()??null,options:optionRecord(row.options??{})};
+}
+function variantData(variant:Variant){return{name:variant.name,sku:variant.sku,active:variant.active??true,priceMinor:variant.priceMinor?BigInt(variant.priceMinor):null,compareMinor:variant.compareMinor?BigInt(variant.compareMinor):null,options:variant.options??{}};}
 
 function movementDomain(row: {
   id: string; storeId: string; variantId: string; before: number; after: number;
@@ -108,7 +114,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
           handle: product.handle, description: product.description, collection: product.collection,
           priceMinor: BigInt(product.priceMinor), compareMinor: product.compareMinor === null ? null : BigInt(product.compareMinor),
           status: product.status, variants: { create: product.variants.map(v => ({
-            id: v.id, name: v.name, sku: v.sku, stock: v.stock
+            id: v.id, ...variantData(v), stock: v.stock
           })) }
         }, include: { variants: true }
       });
@@ -137,7 +143,12 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
 
   async saveProduct(product: Product) {
     try {
-      const row = await this.db.product.update({
+      return await this.transaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${product.id}::uuid AND "storeId"=${product.storeId}::uuid FOR UPDATE`;
+      const current=await tx.product.findFirst({where:{id:product.id,storeId:product.storeId},include:{variants:true}});
+      if(!current)throw new DomainError('NOT_FOUND','Product not found.');
+      assertProductActivation({...product,variants:productDomain(current).variants});
+      const row = await tx.product.update({
         where: { id: product.id, storeId: product.storeId, version: product.version },
         data: {
           seoTitle:product.seoTitle??"",seoDescription:product.seoDescription??"",
@@ -147,9 +158,22 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
         }, include: { variants: true }
       });
       return productDomain(row);
+      });
     } catch (error) { throw this.translateConflict(error); }
   }
 
+
+  async createVariant(storeId:string,productId:string,variant:Variant){return this.writeVariant(storeId,productId,variant,true);}
+  async saveVariant(storeId:string,productId:string,variant:Variant){return this.writeVariant(storeId,productId,variant,false);}
+  private async writeVariant(storeId:string,productId:string,variant:Variant,creating:boolean){
+    try{return await this.transaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${productId}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;
+      const row=await tx.product.findFirst({where:{id:productId,storeId},include:{variants:true}});
+      if(!row)throw new DomainError('NOT_FOUND','Product not found.');assertVariantUpdate(productDomain(row),variant,creating);
+      const saved=creating?await tx.productVariant.create({data:{id:variant.id,storeId,productId,...variantData(variant),stock:0}}):await tx.productVariant.update({where:{id:variant.id,storeId,productId},data:variantData(variant)});
+      return variantDomain(saved);
+    });}catch(error){throw this.translateConflict(error);}
+  }
   async skuExists(storeId: string, sku: string, exceptProductId?: string) {
     return !!(await this.db.productVariant.findFirst({ where: {
       storeId, sku, ...(exceptProductId ? { productId: { not: exceptProductId } } : {})

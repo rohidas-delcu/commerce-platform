@@ -18,6 +18,10 @@ export interface Store {
 }
 
 export interface Variant {
+  active?: boolean;
+  priceMinor?: string | null;
+  compareMinor?: string | null;
+  options?: Record<string,string>;
   id: string;
   name: string;
   sku: string;
@@ -91,7 +95,7 @@ export function validateProductInput(input: {
   handle: string;
   priceMinor: string;
   compareMinor?: string | null;
-  variants: Array<{ name: string; sku: string; stock: number }>;
+  variants: Array<Omit<Variant,"id">>;
 }) {
   if (!input.name.trim() || input.name.trim().length > 150) throw new DomainError("INVALID", "Product name is required (up to 150 characters).");
   const handle = normalizeHandle(input.handle);
@@ -107,7 +111,7 @@ export function validateProductInput(input: {
     if (!Number.isSafeInteger(v.stock) || v.stock < 0 || v.stock > 2_000_000_000) throw new DomainError("INVALID", "Stock must be a non-negative integer.");
     if (names.has(name.toLowerCase()) || skus.has(sku)) throw new DomainError("CONFLICT", "Variant names and SKUs must be unique within a product.");
     names.add(name.toLowerCase()); skus.add(sku);
-    return { name, sku, stock: v.stock };
+    return { ...variantMetadata(v), name, sku, stock: v.stock };
   });
   return { name: input.name.trim(), handle, priceMinor, compareMinor, variants };
 }
@@ -136,7 +140,7 @@ export function productQuery(input:ProductQuery={}) {
 }
 export function publicProduct(product:Product) {
   return {id:product.id,name:product.name,handle:product.handle,description:product.description,collection:product.collection,priceMinor:product.priceMinor,compareMinor:product.compareMinor,
-    seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.map(v=>({id:v.id,name:v.name,stock:v.stock,available:v.stock>0}))};
+    seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.filter(v=>v.active!==false).map(v=>({id:v.id,name:v.name,stock:v.stock,available:v.stock>0,options:v.options??{},priceMinor:v.priceMinor??product.priceMinor,compareMinor:v.priceMinor?v.compareMinor??null:product.compareMinor}))};
 }
 
 export function seoText(value:string|undefined,limit:number){
@@ -144,3 +148,34 @@ export function seoText(value:string|undefined,limit:number){
   if(typeof value!=='string'||value.length>limit)throw new DomainError('INVALID','SEO metadata exceeds the supported length.');
   return value.trim();
 }
+
+export function variantMetadata(input:{name:string;sku:string;active?:boolean;priceMinor?:string|null;compareMinor?:string|null;options?:Record<string,string>}){
+  if(typeof input.name!=='string'||!input.name.trim()||input.name.trim().length>100)throw new DomainError('INVALID','Valid variant name required.');
+  if(typeof input.sku!=='string')throw new DomainError('INVALID','Valid SKU required.');
+  if(input.active!==undefined && typeof input.active!=='boolean')throw new DomainError('INVALID','Variant active must be boolean.');
+  const priceMinor=input.priceMinor==null?null:normalizeMoneyMinor(input.priceMinor);
+  const compareMinor=input.compareMinor==null?null:normalizeMoneyMinor(input.compareMinor);
+  if(compareMinor&&(!priceMinor||BigInt(compareMinor)<=BigInt(priceMinor)))throw new DomainError('INVALID','Variant compare price must exceed its override price.');
+  const options=optionRecord(input.options===undefined?{}:input.options);
+  return {name:input.name.trim(),sku:normalizeSku(input.sku),active:input.active??true,priceMinor,compareMinor,options};
+}
+export function optionRecord(input:unknown):Record<string,string>{
+  if(!input||typeof input!=='object'||Array.isArray(input))throw new DomainError('INVALID','Options must be a string map.');
+  const entries=Object.entries(input),seen=new Set<string>();
+  if(entries.length>10)throw new DomainError('INVALID','At most 10 variant options are allowed.');
+  return Object.fromEntries(entries.map(([key,value])=>{
+    const name=key.trim(),lower=name.toLowerCase();
+    if(!name||name.length>50||['__proto__','prototype','constructor'].includes(lower)||seen.has(lower)||typeof value!=='string'||!value.trim()||value.length>100)throw new DomainError('INVALID','Invalid variant option.');
+    seen.add(lower);return[name,value.trim()];
+  }));
+}
+export function assertVariantUpdate(product:Product,variant:Variant,creating:boolean){
+  if(product.status==='ARCHIVED')throw new DomainError('CONFLICT','Archived product variants cannot change.');
+  if(creating&&product.variants.length>=100)throw new DomainError('INVALID','At most 100 variants are supported.');
+  if(product.variants.some(v=>v.id!==variant.id&&(v.name.toLowerCase()===variant.name.toLowerCase()||v.sku===variant.sku)))throw new DomainError('CONFLICT','Variant name or SKU already exists.');
+  const current=product.variants.find(v=>v.id===variant.id);
+  if(!creating&&!current)throw new DomainError('NOT_FOUND','Variant not found.');
+  if(!creating&&product.status==='ACTIVE'&&variant.active===false&&current?.active!==false&&product.variants.filter(v=>v.active!==false).length<=1)throw new DomainError('CONFLICT','Deactivate the product before its last active variant.');
+}
+
+export function assertProductActivation(product:Product){if(product.status==='ACTIVE'&&!product.variants.some(v=>v.active!==false))throw new DomainError('INVALID','At least one active variant is required.');}

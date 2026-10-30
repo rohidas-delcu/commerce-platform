@@ -1,4 +1,4 @@
-import type { InventoryMovement, Product, Store, ProductQuery } from "../domain/commerce.js";
+import type { InventoryMovement, Product, Store, ProductQuery, Variant } from "../domain/commerce.js";
 
 export const COMMERCE_REPOSITORY = Symbol("COMMERCE_REPOSITORY");
 
@@ -15,6 +15,8 @@ export interface CommerceRepository {
   searchProducts(storeId:string,query:Required<Pick<ProductQuery,"limit"|"offset"|"sort">>&ProductQuery):Promise<Product[]>;
   listProducts(storeId: string): Promise<Product[]>;
   saveProduct(product: Product): Promise<Product>;
+  createVariant(storeId:string,productId:string,variant:Variant):Promise<Variant>;
+  saveVariant(storeId:string,productId:string,variant:Variant):Promise<Variant>;
   skuExists(storeId: string, sku: string, exceptProductId?: string): Promise<boolean>;
   adjustStock(input: {
     storeId: string; variantId: string; after: number; reason: string;

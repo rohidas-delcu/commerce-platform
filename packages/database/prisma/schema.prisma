@@ -73,6 +73,10 @@ model Product {
 }
 
 model ProductVariant {
+  active Boolean @default(true)
+  priceMinor BigInt?
+  compareMinor BigInt?
+  options Json @default("{}")
   id        String              @id @default(uuid()) @db.Uuid
   storeId   String              @db.Uuid
   productId String              @db.Uuid

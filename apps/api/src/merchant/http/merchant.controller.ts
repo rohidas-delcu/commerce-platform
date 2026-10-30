@@ -3,7 +3,7 @@ import {applyDecorators,Body,Controller,Get,Post,Patch,Delete,Headers,Query,Req,
 import {NameDto,StoreDto,SettingsDto,VersionDto,RoleDto,InviteDto,AcceptDto,StoreRoleDto} from './merchant.dto.js';
 import {IdentityGuard} from '../../identity/http/identity.controller.js';
 import type {IdentityRequest} from '../../identity/application/identity.service.js';
-import {CreateStoreDto,CreateProductDto,UpdateProductDto,StockAdjustmentDto,ProductQueryDto} from '../../http/commerce.dto.js';
+import {CreateStoreDto,CreateProductDto,UpdateProductDto,StockAdjustmentDto,ProductQueryDto,VariantMetadataDto,UpdateVariantDto} from '../../http/commerce.dto.js';
 import {MerchantService} from '../application/merchant.service.js';
 const Mutation = () => applyDecorators(ApiHeader({name:'x-csrf-token',required:true,description:'Token from GET /v1/auth/csrf or the last login/rotation response.'}),ApiHeader({name:'Origin',required:true,description:'An explicitly allowlisted origin.'}));
 @ApiTags('Merchant')
@@ -70,5 +70,10 @@ export class MerchantController {
   @Post('stores/:storeId/products/:productId/activate') activate(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string){return this.service.activateProduct(r.identitySession!,id,product);}
   @Mutation()
   @Post('stores/:storeId/variants/:variantId/stock-adjustments') stock(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('variantId',ParseUUIDPipe) variant:string,@Body() b:StockAdjustmentDto){return this.service.stock(r.identitySession!,id,variant,b);}
+
+  @Mutation()
+  @Post('stores/:storeId/products/:productId/variants') createVariant(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string,@Body() body:VariantMetadataDto){return this.service.createVariant(r.identitySession!,id,product,body);}
+  @Mutation()
+  @Patch('stores/:storeId/products/:productId/variants/:variantId') updateVariant(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string,@Param('variantId',ParseUUIDPipe) variant:string,@Body() body:UpdateVariantDto){return this.service.updateVariant(r.identitySession!,id,product,variant,body);}
   @Get('stores/:storeId/inventory-movements') movements(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.movements(r.identitySession!,id);}
 }

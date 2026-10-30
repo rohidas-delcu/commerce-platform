@@ -86,7 +86,7 @@ GET merchant `/stores/:id/products/:productId` and public
 `.../:productId/deactivate` returns DRAFT; `.../:productId/archive` returns ARCHIVED.
 Archived products cannot be implicitly reactivated or exposed publicly.
 SEO accepts seoTitle (70 chars) and seoDescription (320 chars). Collections,
-variant-specific pricing/lifecycle and media are not complete yet.
+media remain pending.
 
 OpenAPI generation uses the Nest Swagger TypeScript plugin with dedicated DTO
 files. Executed HTTP checks assert actual identity/store request schemas, password
@@ -94,3 +94,16 @@ length and cookie security scheme at `/docs-json`; the interactive viewer is `/d
 Mutation contracts document required Origin and x-csrf-token headers. For local
 Swagger mutations, include the actual API origin in CORS_ORIGINS and supply the
 CSRF token from bootstrap; do not relax origin checks.
+
+## Variant metadata checkpoint
+
+Merchant POST `/stores/:storeId/products/:productId/variants` accepts name, SKU,
+optional active, priceMinor/compareMinor and options (up to 10 string key/value
+pairs). New variants start at zero stock; use the stock-adjustment endpoint.
+PATCH the same path plus `/:variantId` updates those metadata fields; stock is
+forbidden. priceMinor:null removes the override and clears compare price unless
+an invalid explicit compare price is supplied (400). Options/name/SKU are validated;
+SKUs remain unique per store. Public variants omit inactive entries and expose
+explicit options/effective price/compare price, never SKU. Last active variant
+cannot be deactivated while the product is ACTIVE. Product must be deactivated
+first. Archived products' variants cannot change. No physical variant deletion.

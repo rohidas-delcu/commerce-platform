@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { checkedStockChange, DomainError } from "../domain/commerce.js";
-import type { InventoryMovement, Product, Store, ProductQuery } from "../domain/commerce.js";
+import { checkedStockChange, DomainError, assertVariantUpdate, assertProductActivation } from "../domain/commerce.js";
+import type { InventoryMovement, Product, Store, ProductQuery, Variant } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -73,8 +73,22 @@ export class MemoryCommerceRepository implements CommerceRepository {
     if ([...this.products.values()].some(p => p.storeId === product.storeId && p.handle === product.handle && p.id !== product.id))
       throw new DomainError("CONFLICT", "Product handle already exists in this store.");
     // Metadata writes must not replace inventory read before a concurrent adjustment.
+    assertProductActivation({...product,variants:current.variants});
     const saved = { ...product, version: current.version + 1, variants: current.variants };
     this.products.set(product.id, clone(saved)); return clone(saved);
+  }
+
+  async createVariant(storeId:string,productId:string,variant:Variant){
+    const product=this.products.get(productId);if(!product||product.storeId!==storeId)throw new DomainError('NOT_FOUND','Product not found.');
+    assertVariantUpdate(product,variant,true);
+    if([...this.products.values()].some(p=>p.storeId===storeId&&p.variants.some(v=>v.sku===variant.sku)))throw new DomainError('CONFLICT','SKU already exists.');
+    product.variants.push(clone({...variant,stock:0}));return clone({...variant,stock:0});
+  }
+  async saveVariant(storeId:string,productId:string,variant:Variant){
+    const product=this.products.get(productId);if(!product||product.storeId!==storeId)throw new DomainError('NOT_FOUND','Product not found.');
+    assertVariantUpdate(product,variant,false);
+    if([...this.products.values()].some(p=>p.storeId===storeId&&p.variants.some(v=>v.id!==variant.id&&v.sku===variant.sku)))throw new DomainError('CONFLICT','SKU already exists.');
+    const index=product.variants.findIndex(v=>v.id===variant.id),saved={...variant,stock:product.variants[index].stock};product.variants[index]=clone(saved);return clone(saved);
   }
   async skuExists(storeId: string, sku: string, exceptProductId?: string) {
     return [...this.products.values()].some(p => p.storeId === storeId && p.id !== exceptProductId && p.variants.some(v => v.sku === sku));
