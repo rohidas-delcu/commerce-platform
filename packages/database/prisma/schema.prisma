@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client"
+  moduleFormat = "esm"
+  importFileExtension = "js"
+  output   = "../../../../apps/api/src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StoreStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+}
+
+model Store {
+  id             String      @id @default(uuid()) @db.Uuid
+  ownerSubjectId String
+  name           String
+  handle         String      @unique
+  countryCode    String      @default("IN") @db.VarChar(2)
+  currencyCode   String      @default("INR") @db.VarChar(3)
+  status         StoreStatus @default(DRAFT)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  products       Product[]
+  inventoryLogs  InventoryMovement[]
+
+  @@index([ownerSubjectId])
+}
+
+model Product {
+  id           String        @id @default(uuid()) @db.Uuid
+  storeId      String        @db.Uuid
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  name         String
+  handle       String
+  description  String        @default("")
+  collection   String        @default("")
+  priceMinor   BigInt
+  compareMinor BigInt?
+  status       ProductStatus @default(DRAFT)
+  variants     ProductVariant[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([storeId, handle])
+  @@unique([id, storeId])
+  @@index([storeId, status])
+}
+
+model ProductVariant {
+  id        String              @id @default(uuid()) @db.Uuid
+  storeId   String              @db.Uuid
+  productId String              @db.Uuid
+  product   Product             @relation(fields: [productId, storeId], references: [id, storeId], onDelete: Restrict)
+  name      String
+  sku       String
+  stock     Int                 @default(0)
+  movements InventoryMovement[]
+
+  @@unique([storeId, sku])
+  @@unique([productId, name])
+  @@index([productId])
+}
+
+model InventoryMovement {
+  id                String         @id @default(uuid()) @db.Uuid
+  storeId           String         @db.Uuid
+  store             Store          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  variantId         String         @db.Uuid
+  variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  before            Int
+  after             Int
+  delta             Int
+  reason            String
+  note              String         @default("")
+  actorSubjectId    String
+  createdAt         DateTime       @default(now())
+
+  @@index([storeId, createdAt])
+}

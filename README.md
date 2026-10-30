@@ -1,0 +1,41 @@
+# Commerce Platform
+
+India-first, global-ready headless commerce SaaS. This monorepo is the production-code home for the NestJS API, future merchant admin and storefront clients, and the Delcu storefront SDK. The approved HTML prototype remains a separate design reference.
+
+## Status
+
+**Milestone 1 foundation**: store provisioning/publication, catalog and SKU variants, inventory adjustments and movement history, public storefront reads. The API supports a process-local demo data adapter and a Prisma/PostgreSQL adapter. **Not production ready:** merchant authentication, checkout, payment processing, subscriptions and fulfillment are intentionally out of scope.
+
+The first PR includes a CI workflow for dependency installation, Prisma client generation, domain tests, typecheck and build. Runtime integration checks cover the store, product, inventory, ownership, and demo-auth flows; PostgreSQL checks require a running database.
+
+## Local setup
+
+Requirements: Node.js 24, pnpm, and PostgreSQL for persistent mode.
+
+```sh
+cp .env.example apps/api/.env
+pnpm install --frozen-lockfile
+pnpm db:generate
+pnpm --filter @commerce/api dev
+```
+
+Demo API: set `NODE_ENV=development`, `DATA_DRIVER=memory` and `DEMO_AUTH_ENABLED=true`. The demo merchant principal is identified by `x-demo-subject-id: demo-merchant`. Sample store `northline-goods` is seeded in memory. Data resets when the process restarts.
+
+Postgres: set `DATA_DRIVER=postgres`, `DATABASE_URL`, then run `pnpm db:generate` and `pnpm db:migrate`. Demo authentication remains strictly a local/testing mechanism. A production-grade authentication provider is required before deployment.
+
+Domain invariants (no package install required):
+
+```sh
+node --test apps/api/test/*.test.mjs
+```
+
+See [API README](apps/api/README.md) for endpoints and the remaining verification gates.
+
+## Important rules
+
+- One authoritative commerce backend is shared by the native storefront and Delcu-generated storefronts.
+- A merchant account owns stores; each store owns its catalog, inventory and orders.
+- Every merchant write is scoped to the authenticated merchant; no browser token can access merchant APIs.
+- Money uses minor-unit decimal strings, never JavaScript floating-point prices.
+- The memory adapter is for development only and cannot run in production.
+- Storefront UI and the full order/payment lifecycle will be migrated and implemented in later milestones.
