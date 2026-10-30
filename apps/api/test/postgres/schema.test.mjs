@@ -27,6 +27,10 @@ test('PostgreSQL constraints enforce tenant references, uniqueness, exact money 
     await client.query('INSERT INTO "ProductVariant" (id,"storeId","productId",name,sku,stock) VALUES ($1,$2,$3,$4,$5,10)', [v, s, p, 'Black', 'SCHEMA-1']);
     await rejected('INSERT INTO "ProductVariant" (id,"storeId","productId",name,sku) VALUES ($1,$2,$3,$4,$5)', [randomUUID(), s, p, 'White', 'SCHEMA-1'], '23505');
     await rejected('UPDATE "ProductVariant" SET "storeId"=$1 WHERE id=$2', [other, v], '23503');
+    const collectionId=randomUUID();
+    await client.query('INSERT INTO "Collection" (id,"storeId",name,handle) VALUES ($1,$2,$3,$4)',[collectionId,other,'Foreign collection','foreign-collection']);
+    await rejected('INSERT INTO "CollectionProduct" ("collectionId","productId","storeId") VALUES ($1,$2,$3)',[collectionId,p,s],'23503');
+    await rejected('UPDATE "Collection" SET position=-1 WHERE id=$1',[collectionId],'23514');
     await rejected('UPDATE "ProductVariant" SET stock=-1 WHERE id=$1', [v], '23514');
     await rejected('UPDATE "ProductVariant" SET "priceMinor"=0 WHERE id=$1',[v],'23514');
     await rejected('UPDATE "ProductVariant" SET "compareMinor"=100 WHERE id=$1',[v],'23514');

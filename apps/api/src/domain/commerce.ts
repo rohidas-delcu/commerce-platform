@@ -128,7 +128,7 @@ export function checkedStockChange(before: number, after: number, reason: string
 }
 
 
-export interface ProductQuery {query?:string;status?:ProductStatus;sort?:'created'|'name'|'price_asc'|'price_desc';limit?:number;offset?:number;collection?:string}
+export interface ProductQuery {collectionId?:string;collectionPosition?:boolean;query?:string;status?:ProductStatus;sort?:'created'|'name'|'price_asc'|'price_desc';limit?:number;offset?:number;collection?:string}
 export function productQuery(input:ProductQuery={}) {
   const limit=input.limit??25,offset=input.offset??0,sort=input.sort??'created';
   if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new DomainError('INVALID','Pagination is outside the supported range.');
@@ -179,3 +179,13 @@ export function assertVariantUpdate(product:Product,variant:Variant,creating:boo
 }
 
 export function assertProductActivation(product:Product){if(product.status==='ACTIVE'&&!product.variants.some(v=>v.active!==false))throw new DomainError('INVALID','At least one active variant is required.');}
+
+export interface Collection {id:string;storeId:string;name:string;handle:string;description:string;featured:boolean;position:number;version:number;status:'ACTIVE'|'ARCHIVED'}
+export interface CollectionQuery {query?:string;featured?:boolean;status?:'ACTIVE'|'ARCHIVED';limit?:number;offset?:number}
+export function collectionMetadata(input:{name:string;handle:string;description?:string;featured?:boolean;position?:number}){
+  if(typeof input.name!=='string'||!input.name.trim()||input.name.length>150)throw new DomainError('INVALID','Valid collection name required.');
+  if(input.description!==undefined&&(typeof input.description!=='string'||input.description.length>20000))throw new DomainError('INVALID','Invalid collection description.');
+  if(input.featured!==undefined&&typeof input.featured!=='boolean')throw new DomainError('INVALID','Featured must be boolean.');
+  const position=input.position??0;if(!Number.isInteger(position)||position<0||position>1000000)throw new DomainError('INVALID','Invalid collection position.');
+  return{name:input.name.trim(),handle:normalizeHandle(input.handle),description:input.description?.trim()??'',featured:input.featured??false,position};
+}

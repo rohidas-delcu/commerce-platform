@@ -43,3 +43,21 @@ test('variant metadata keeps stock separate and protects activation and SKU inva
   await assert.rejects(service.updateVariant('owner',store.id,product.id,second.id,{options:{Size:3}}),{code:'INVALID'});
   const cleared=await service.updateVariant('owner',store.id,product.id,second.id,{priceMinor:null});assert.equal(cleared.compareMinor,null);
 });
+
+test('collections enforce tenant links, versions, ordering and public projections',async()=>{
+  const service=new CommerceService(new MemoryCommerceRepository(false)),store=await service.createStore('owner',{name:'Collections',handle:'collections'}),other=await service.createStore('owner',{name:'Other',handle:'collections-other'});
+  const make=(name)=>({name,handle:name.toLowerCase(),priceMinor:'100',variants:[{name:'One',sku:name.toUpperCase(),stock:1}]});
+  const one=await service.createProduct('owner',store.id,make('First')),two=await service.createProduct('owner',store.id,make('Second')),foreign=await service.createProduct('owner',other.id,make('Foreign'));
+  const collection=await service.createCollection('owner',store.id,{name:'Featured bags',handle:'featured-bags',featured:true});
+  const firstLink=await service.linkCollectionProduct('owner',store.id,collection.id,one.id,20,0);
+  assert.equal(firstLink.version,1);await assert.rejects(service.linkCollectionProduct('owner',store.id,collection.id,two.id,10,0),{code:'CONFLICT'});
+  await service.linkCollectionProduct('owner',store.id,collection.id,two.id,10,1);
+  await assert.rejects(service.linkCollectionProduct('owner',store.id,collection.id,foreign.id,0,2),{code:'NOT_FOUND'});
+  assert.deepEqual((await service.collectionProducts('owner',store.id,collection.id)).items.map(p=>p.id),[two.id,one.id]);
+  await service.publishStore('owner',store.id);await service.activateProduct('owner',store.id,one.id);await service.activateProduct('owner',store.id,two.id);
+  const publicPage=await service.publicCollection('collections','featured-bags');assert.deepEqual(publicPage.products.map(p=>p.id),[two.id,one.id]);assert.equal('storeId'in publicPage.collection,false);assert.equal('version'in publicPage.collection,false);
+  assert.equal((await service.publicCollections('collections',{featured:true})).collections.length,1);
+  await service.productState('owner',store.id,two.id,'DRAFT');assert.deepEqual((await service.publicCollection('collections','featured-bags')).products.map(p=>p.id),[one.id]);
+  await service.archiveCollection('owner',store.id,collection.id,2);assert.equal((await service.publicCollections('collections')).collections.length,0);
+  await assert.rejects(service.publicCollection('collections','featured-bags'),{code:'NOT_FOUND'});
+});

@@ -61,5 +61,13 @@ export class MerchantService {
 
   createVariant(p:MerchantPrincipal,id:string,productId:string,input:Parameters<CommerceService['createVariant']>[3]){return this.commerce(p,id,'catalog.write',service=>service.createVariant(p.identityId!,id,productId,input));}
   updateVariant(p:MerchantPrincipal,id:string,productId:string,variantId:string,input:Parameters<CommerceService['updateVariant']>[4]){return this.commerce(p,id,'catalog.write',service=>service.updateVariant(p.identityId!,id,productId,variantId,input));}
+
+  createCollection(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['createCollection']>[2]){return this.commerce(p,id,'catalog.write',service=>service.createCollection(p.identityId!,id,input));}
+  collectionDetail(p:MerchantPrincipal,id:string,collection:string){return this.commerce(p,id,'store.read',service=>service.collectionDetail(p.identityId!,id,collection));}
+  collections(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['collections']>[2]){return this.commerce(p,id,'store.read',service=>service.collections(p.identityId!,id,input));}
+  collectionProducts(p:MerchantPrincipal,id:string,collection:string,input:Parameters<CommerceService['collectionProducts']>[3]){return this.commerce(p,id,'store.read',service=>service.collectionProducts(p.identityId!,id,collection,input));}
+  updateCollection(p:MerchantPrincipal,id:string,collection:string,input:Parameters<CommerceService['updateCollection']>[3]){return this.commerce(p,id,'catalog.write',service=>service.updateCollection(p.identityId!,id,collection,input));}
+  archiveCollection(p:MerchantPrincipal,id:string,collection:string,version:number){return this.commerce(p,id,'catalog.write',service=>service.archiveCollection(p.identityId!,id,collection,version));}
+  linkCollection(p:MerchantPrincipal,id:string,collection:string,product:string,position:number|null,version:number){return this.commerce(p,id,'catalog.write',service=>service.linkCollectionProduct(p.identityId!,id,collection,product,position,version));}
   movements(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',service=>service.movements(p.identityId!,id));}
 }

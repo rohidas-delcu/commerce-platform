@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  collections Collection[]
   merchantId String @db.Uuid
   merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   invitations MerchantInvitation[]
@@ -50,6 +51,7 @@ model Store {
 }
 
 model Product {
+  collectionLinks CollectionProduct[]
   seoTitle String @default("")
   seoDescription String @default("")
   version      Int           @default(0)
@@ -247,4 +249,32 @@ model MerchantInvitation {
   merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   store Store? @relation(fields: [storeId,merchantId], references: [id,merchantId], onDelete: Restrict)
   @@index([merchantId,email])
+}
+
+model Collection {
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  name String
+  handle String
+  description String @default("")
+  featured Boolean @default(false)
+  position Int @default(0)
+  version Int @default(0)
+  status String @default("ACTIVE")
+  products CollectionProduct[]
+  @@unique([storeId,handle])
+  @@unique([id,storeId])
+  @@index([storeId,status,position])
+}
+model CollectionProduct {
+  collectionId String @db.Uuid
+  productId String @db.Uuid
+  storeId String @db.Uuid
+  position Int @default(0)
+  collection Collection @relation(fields:[collectionId,storeId],references:[id,storeId],onDelete:Restrict)
+  product Product @relation(fields:[productId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@id([collectionId,productId])
+  @@index([collectionId,position,productId])
+  @@index([productId,storeId])
 }

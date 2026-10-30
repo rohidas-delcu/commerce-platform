@@ -24,7 +24,7 @@ Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
 
 ## Actual checkpoint verification
 
-- `pnpm test`: 23 passed, 0 failed/skipped.
+- `pnpm test`: 24 passed, 0 failed/skipped.
 - `pnpm typecheck`, `pnpm build`: passed.
 - `pnpm test:integration`: 4 passed, 0 failed/skipped.
 - Disposable DATABASE_URL + `pnpm test:postgres`: 10 passed, 0 failed/skipped on the fresh migrated database.
@@ -84,10 +84,18 @@ stock. Domain policies are shared by memory and PostgreSQL. Migration
 JSON constraints. Unit 23 and PostgreSQL 10 tests, build/typecheck and populated
 upgrade rehearsal passed. OpenAPI commit `f1f1637` latest CI run 41055678678 passed.
 
-Exact next task after verifying/pushing this checkpoint: extend the catalog/media
-vertical slice on the session-authorized transactional store boundary. Add product/
-variant archive/deactivate/detail/pagination and collections; implement safe upload
-reservation/completion with development storage and S3 adapter boundary. Then
+Collections now provide create/edit/archive, featured and position ordering,
+versioned product link/unlink/reorder, administrative product lists and public
+listing/detail with only active products. Composite tenant FKs reject cross-store
+links. Memory and PostgreSQL use the same application/domain contracts. Migration
+`20261030142000_collections` preserves legacy free-text collection metadata.
+Unit 24, PostgreSQL 10, build/typecheck and populated migration rehearsal passed.
+Variant commit `6e3bc3f` CI run 41056429285 succeeded. Collections CI to verify after push.
+
+Exact next task after verifying/pushing this checkpoint: implement media upload reservation/completion, safe image verification and
+product image ordering/primary selection through development storage and the S3
+adapter boundary. Product/variant lifecycle and normalized collections are now
+implemented, with bounded offset pagination; full cursor pagination remains pending. Then
 continue inventory reservations, customer/cart/pricing/checkout and order/payment/
 fulfillment slices automatically. Do not stop at a plan or infer whole completion.
 

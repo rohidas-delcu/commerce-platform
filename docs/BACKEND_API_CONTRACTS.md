@@ -107,3 +107,21 @@ SKUs remain unique per store. Public variants omit inactive entries and expose
 explicit options/effective price/compare price, never SKU. Last active variant
 cannot be deactivated while the product is ACTIVE. Product must be deactivated
 first. Archived products' variants cannot change. No physical variant deletion.
+
+## Collections
+
+Merchant GET/POST `/stores/:storeId/collections`; GET/PATCH `.../:collectionId`;
+POST `.../:collectionId/archive`. Create fields: name/handle, optional description,
+featured and position. Mutations of an existing collection require expectedVersion.
+GET `.../:collectionId/products` lists all linked products for authorized admins.
+PUT `.../:collectionId/products/:productId` accepts expectedVersion/position; DELETE
+same path accepts expectedVersion. Link edits increment collection version and
+reject wrong-store products. Positions are non-negative integers; ties use IDs.
+
+Public GET `/v1/storefront/:handle/collections` supports query, featured=true/false,
+limit and offset; returns collections/pagination. GET the path plus
+`/:collectionHandle` returns safe collection/products/pagination, using link
+position by default (explicit supported product sort overrides it). Only active
+collections and active products of published, available stores are public.
+Archives preserve links/history and disappear from public APIs. No arbitrary
+restore or physical deletion. Legacy Product.collection text remains independent.

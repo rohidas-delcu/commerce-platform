@@ -7,7 +7,7 @@ import { IdentityService } from "../identity/application/identity.service.js";
 import { COMMERCE_REPOSITORY } from "../application/commerce.port.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 import { CommerceService } from "../application/commerce.service.js";
-import { CreateProductDto, CreateStoreDto, StockAdjustmentDto, UpdateProductDto, PublicProductQueryDto } from "./commerce.dto.js";
+import { CreateProductDto, CreateStoreDto, StockAdjustmentDto, UpdateProductDto, PublicProductQueryDto, PublicCollectionQueryDto } from "./commerce.dto.js";
 
 @Injectable()
 export class LocalDemoAuthGuard implements CanActivate {
@@ -89,6 +89,11 @@ export class StorefrontCommerceController {
 
   @Get(":handle/products/:productHandle")
   detail(@Param("handle") handle:string,@Param("productHandle") product:string){return this.commerce.publicProductDetail(handle,product); }
+  @Get(':handle/collections')
+  collections(@Param('handle') handle:string,@Query() query:PublicCollectionQueryDto){return this.commerce.publicCollections(handle,{...query,featured:query.featured===undefined?undefined:query.featured==='true'});}
+  @Get(':handle/collections/:collectionHandle')
+  collection(@Param('handle') handle:string,@Param('collectionHandle') collection:string,@Query() query:PublicProductQueryDto){return this.commerce.publicCollection(handle,collection,query);}
+
 }
 
 @Controller("health")

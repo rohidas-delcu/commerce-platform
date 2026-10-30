@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { COMMERCE_REPOSITORY, COMMERCE_AUTHORIZATION } from "./commerce.port.js";
 import type { CommerceRepository, CommerceAuthorizationPort } from "./commerce.port.js";
-import { DomainError, normalizeHandle, normalizeMoneyMinor, validateProductInput, productQuery, publicProduct, seoText, variantMetadata } from "../domain/commerce.js";
-import type { Product, Store, ProductQuery, Variant } from "../domain/commerce.js";
+import { DomainError, normalizeHandle, normalizeMoneyMinor, validateProductInput, productQuery, publicProduct, seoText, variantMetadata, collectionMetadata } from "../domain/commerce.js";
+import type { Product, Store, ProductQuery, Variant, Collection, CollectionQuery } from "../domain/commerce.js";
 
 @Injectable()
 export class CommerceService {
@@ -123,6 +123,30 @@ export class CommerceService {
     product.status=state;return this.repository.saveProduct(product);
   }
   async queryProducts(subjectId:string,storeId:string,input:ProductQuery={}){await this.ownedStore(storeId,subjectId);return this.page(storeId,productQuery(input));}
+
+  async createCollection(subjectId:string,storeId:string,input:Parameters<typeof collectionMetadata>[0]){await this.ownedStore(storeId,subjectId);return this.repository.createCollection({id:randomUUID(),storeId,...collectionMetadata(input),version:0,status:'ACTIVE'});}
+  async collectionDetail(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);const c=await this.repository.findCollection(storeId,id);if(!c)throw new DomainError('NOT_FOUND','Collection not found.');return c;}
+  async updateCollection(subjectId:string,storeId:string,id:string,input:Partial<Parameters<typeof collectionMetadata>[0]>&{expectedVersion:number}){
+    const current=await this.collectionDetail(subjectId,storeId,id);if(current.status==='ARCHIVED'||current.version!==input.expectedVersion)throw new DomainError('CONFLICT','Collection changed or archived.');
+    const metadata=collectionMetadata({name:input.name===undefined?current.name:input.name,handle:input.handle===undefined?current.handle:input.handle,description:input.description===undefined?current.description:input.description,featured:input.featured===undefined?current.featured:input.featured,position:input.position===undefined?current.position:input.position});
+    return this.repository.saveCollection({...current,...metadata});
+  }
+  async archiveCollection(subjectId:string,storeId:string,id:string,version:number){const current=await this.collectionDetail(subjectId,storeId,id);if(current.version!==version)throw new DomainError('CONFLICT','Collection changed.');return this.repository.saveCollection({...current,status:'ARCHIVED'});}
+  async linkCollectionProduct(subjectId:string,storeId:string,collectionId:string,productId:string,position:number|null,version:number){await this.ownedStore(storeId,subjectId);if(position!==null&&(!Number.isInteger(position)||position<0||position>1000000))throw new DomainError('INVALID','Invalid product position.');if(!Number.isInteger(version)||version<0)throw new DomainError('INVALID','Invalid collection version.');return this.repository.collectionProduct(storeId,collectionId,productId,position,version);}
+  private async collectionPage(storeId:string,input:CollectionQuery={}){
+    const page=productQuery({query:input.query,limit:input.limit,offset:input.offset});
+    if(input.status&&!['ACTIVE','ARCHIVED'].includes(input.status))throw new DomainError('INVALID','Invalid collection status.');
+    const rows=await this.repository.searchCollections(storeId,{...input,query:page.query,status:input.status??'ACTIVE',limit:page.limit,offset:page.offset});
+    return{items:rows.slice(0,page.limit),limit:page.limit,offset:page.offset,nextOffset:rows.length>page.limit?page.offset+page.limit:null};
+  }
+  async collectionProducts(subjectId:string,storeId:string,id:string,input:ProductQuery={}){await this.collectionDetail(subjectId,storeId,id);return this.page(storeId,productQuery({...input,collectionId:id,collectionPosition:input.sort===undefined}));}
+  async collections(subjectId:string,storeId:string,input:CollectionQuery={}){await this.ownedStore(storeId,subjectId);return this.collectionPage(storeId,input);}
+  async publicCollections(handle:string,input:CollectionQuery={}){const store=await this.publishedStore(handle),page=await this.collectionPage(store.id,{...input,status:'ACTIVE'});return{collections:page.items.map(c=>({id:c.id,name:c.name,handle:c.handle,description:c.description,featured:c.featured})),pagination:{limit:page.limit,offset:page.offset,nextOffset:page.nextOffset}};}
+  async publicCollection(handle:string,collectionHandle:string,input:ProductQuery={}){
+    const store=await this.publishedStore(handle),collection=await this.repository.findCollectionByHandle(store.id,normalizeHandle(collectionHandle));if(!collection||collection.status!=='ACTIVE')throw new DomainError('NOT_FOUND','Collection not found.');
+    const page=await this.page(store.id,productQuery({...input,status:'ACTIVE',collectionId:collection.id,collectionPosition:input.sort===undefined}));
+    return{collection:{id:collection.id,name:collection.name,handle:collection.handle,description:collection.description,featured:collection.featured},products:page.items.map(publicProduct),pagination:{limit:page.limit,offset:page.offset,nextOffset:page.nextOffset}};
+  }
   private async page(storeId:string,query:ReturnType<typeof productQuery>){const found=await this.repository.searchProducts(storeId,query);return{items:found.slice(0,query.limit),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
   private async publishedStore(handle:string){
     const store=await this.repository.findStoreByHandle(normalizeHandle(handle));

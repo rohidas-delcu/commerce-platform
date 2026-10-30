@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { checkedStockChange, DomainError, assertVariantUpdate, assertProductActivation } from "../domain/commerce.js";
-import type { InventoryMovement, Product, Store, ProductQuery, Variant } from "../domain/commerce.js";
+import type { InventoryMovement, Product, Store, ProductQuery, Variant, Collection, CollectionQuery } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -8,6 +8,8 @@ const clone = <T>(value: T): T => structuredClone(value);
 export class MemoryCommerceRepository implements CommerceRepository {
   private readonly stores = new Map<string, Store>();
   private readonly products = new Map<string, Product>();
+  private readonly collections=new Map<string,Collection>();
+  private readonly collectionLinks=new Map<string,{collectionId:string;productId:string;position:number}>();
   private readonly movements: InventoryMovement[] = [];
 
   async checkHealth() {}
@@ -61,8 +63,8 @@ export class MemoryCommerceRepository implements CommerceRepository {
   async findProductByHandle(storeId:string,handle:string){return clone([...this.products.values()].find(p=>p.storeId===storeId&&p.handle===handle)??null);}
   async searchProducts(storeId:string,query:Required<Pick<ProductQuery,'limit'|'offset'|'sort'>>&ProductQuery){
     const term=(query.query??'').toLowerCase();
-    const rows=[...this.products.values()].filter(p=>p.storeId===storeId&&(!query.status||p.status===query.status)&&(!query.collection||p.collection.toLowerCase()===query.collection.toLowerCase())&&(!term||[p.name,p.handle,p.description].some(v=>v.toLowerCase().includes(term))));
-    rows.sort((a,b)=>{let result=0;if(query.sort==='price_asc'||query.sort==='price_desc'){result=BigInt(a.priceMinor)<BigInt(b.priceMinor)?-1:BigInt(a.priceMinor)>BigInt(b.priceMinor)?1:0;if(query.sort==='price_desc')result=-result;}else if(query.sort==='name')result=a.name<b.name?-1:a.name>b.name?1:0;else result=a.createdAt>b.createdAt?-1:a.createdAt<b.createdAt?1:0;return result||(a.id<b.id?-1:a.id>b.id?1:0);});
+    const rows=[...this.products.values()].filter(p=>p.storeId===storeId&&(!query.status||p.status===query.status)&&(!query.collection||p.collection.toLowerCase()===query.collection.toLowerCase())&&(!query.collectionId||this.collectionLinks.has(query.collectionId+':'+p.id))&&(!term||[p.name,p.handle,p.description].some(v=>v.toLowerCase().includes(term))));
+    rows.sort((a,b)=>{let result=0;if(query.collectionId&&query.collectionPosition)result=this.collectionLinks.get(query.collectionId+':'+a.id)!.position-this.collectionLinks.get(query.collectionId+':'+b.id)!.position;else if(query.sort==='price_asc'||query.sort==='price_desc'){result=BigInt(a.priceMinor)<BigInt(b.priceMinor)?-1:BigInt(a.priceMinor)>BigInt(b.priceMinor)?1:0;if(query.sort==='price_desc')result=-result;}else if(query.sort==='name')result=a.name<b.name?-1:a.name>b.name?1:0;else result=a.createdAt>b.createdAt?-1:a.createdAt<b.createdAt?1:0;return result||(a.id<b.id?-1:a.id>b.id?1:0);});
     return clone(rows.slice(query.offset,query.offset+query.limit+1));
   }
   async listProducts(storeId: string) { return clone([...this.products.values()].filter(p => p.storeId === storeId)); }
@@ -90,6 +92,13 @@ export class MemoryCommerceRepository implements CommerceRepository {
     if([...this.products.values()].some(p=>p.storeId===storeId&&p.variants.some(v=>v.id!==variant.id&&v.sku===variant.sku)))throw new DomainError('CONFLICT','SKU already exists.');
     const index=product.variants.findIndex(v=>v.id===variant.id),saved={...variant,stock:product.variants[index].stock};product.variants[index]=clone(saved);return clone(saved);
   }
+
+  async createCollection(collection:Collection){if([...this.collections.values()].some(c=>c.storeId===collection.storeId&&c.handle===collection.handle))throw new DomainError('CONFLICT','Collection handle exists.');this.collections.set(collection.id,clone(collection));return clone(collection);}
+  async findCollection(storeId:string,id:string){const c=this.collections.get(id);return c?.storeId===storeId?clone(c):null;}
+  async findCollectionByHandle(storeId:string,handle:string){return clone([...this.collections.values()].find(c=>c.storeId===storeId&&c.handle===handle)??null);}
+  async searchCollections(storeId:string,query:CollectionQuery&{limit:number;offset:number}){return clone([...this.collections.values()].filter(c=>c.storeId===storeId&&(!query.status||c.status===query.status)&&(query.featured===undefined||c.featured===query.featured)&&(!query.query||[c.name,c.handle,c.description].some(v=>v.toLowerCase().includes(query.query!.toLowerCase())))).sort((a,b)=>a.position-b.position||(a.id<b.id?-1:1)).slice(query.offset,query.offset+query.limit+1));}
+  async saveCollection(collection:Collection){const current=this.collections.get(collection.id);if(!current||current.storeId!==collection.storeId)throw new DomainError('NOT_FOUND','Collection not found.');if(current.version!==collection.version)throw new DomainError('CONFLICT','Collection changed.');if([...this.collections.values()].some(c=>c.id!==collection.id&&c.storeId===collection.storeId&&c.handle===collection.handle))throw new DomainError('CONFLICT','Collection handle exists.');const saved={...collection,version:current.version+1};this.collections.set(collection.id,clone(saved));return clone(saved);}
+  async collectionProduct(storeId:string,collectionId:string,productId:string,position:number|null,version:number){const c=this.collections.get(collectionId),p=this.products.get(productId);if(!c||c.storeId!==storeId||!p||p.storeId!==storeId)throw new DomainError('NOT_FOUND','Collection or product not found.');if(c.status!=='ACTIVE'||c.version!==version)throw new DomainError('CONFLICT','Collection changed or archived.');const key=collectionId+':'+productId;if(position===null)this.collectionLinks.delete(key);else this.collectionLinks.set(key,{collectionId,productId,position});c.version++;return clone(c);}
   async skuExists(storeId: string, sku: string, exceptProductId?: string) {
     return [...this.products.values()].some(p => p.storeId === storeId && p.id !== exceptProductId && p.variants.some(v => v.sku === sku));
   }

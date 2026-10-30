@@ -74,6 +74,15 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   assert.equal(archivedProduct.status,201);assert.equal((await request(owner,path+`/products/${archivedProduct.body.id}/archive`,'POST',{})).status,201);
   assert.equal((await request(owner,path+`/products/${archivedProduct.body.id}/activate`,'POST',{})).status,409);
   assert.equal((await request({},`/v1/storefront/${handle}/products/archived-bag`)).status,404);
+
+  const collection=await request(owner,path+'/collections','POST',{name:'Featured bags',handle:'featured-bags',featured:true});assert.equal(collection.status,201);
+  assert.equal((await request(owner,path+`/collections/${collection.body.id}/products/${product.body.id}`,'PUT',{expectedVersion:0,position:10})).status,200);
+  assert.equal((await request(owner,path+`/collections/${collection.body.id}`,'PATCH',{expectedVersion:0,name:'Stale'})).status,409);
+  assert.equal((await request(owner,path+`/collections/${collection.body.id}/products`)).body.items[0].id,product.body.id);
+  const publicCollection=await request({},`/v1/storefront/${handle}/collections/featured-bags`);assert.equal(publicCollection.status,200);assert.equal(publicCollection.body.products[0].id,product.body.id);assert.equal('storeId'in publicCollection.body.collection,false);
+  assert.equal((await request({},`/v1/storefront/${handle}/collections?featured=true`)).body.collections.length,1);
+  const archivedCollection=await request(owner,path+`/collections/${collection.body.id}/archive`,'POST',{expectedVersion:1});assert.equal(archivedCollection.status,201);
+  assert.equal((await request({},`/v1/storefront/${handle}/collections/featured-bags`)).status,404);
   const invite=await request(owner,`${root}/accounts/${merchantId}/invitations`,'POST',{storeId,email:staff.email,role:'STORE_VIEWER'});assert.equal(invite.status,201);
   const invitationMail=await db.identityMail.findFirstOrThrow({where:{recipient:staff.email,purpose:'INVITE'},orderBy:{createdAt:'desc'}}),token=decryptMail(invitationMail.encryptedPayload).token;
   assert.equal((await request(stranger,root+'/invitations/accept','POST',{token})).status,400);

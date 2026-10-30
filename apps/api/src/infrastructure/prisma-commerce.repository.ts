@@ -2,7 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "../generated/prisma/client.js";
 import { checkedStockChange, DomainError, assertVariantUpdate, assertProductActivation, optionRecord } from "../domain/commerce.js";
-import type { Store, Product, InventoryMovement, ProductQuery, Variant } from "../domain/commerce.js";
+import type { Store, Product, InventoryMovement, ProductQuery, Variant, Collection, CollectionQuery } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 function storeDomain(row: {
@@ -64,9 +64,11 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
   async checkHealth() {
     // Adapter-generated queries honor the configured PostgreSQL schema.
     await Promise.all([
-      this.db.store.findFirst({ select: { id: true } }),
-      this.db.product.findFirst({ select: { version: true } }),
-      this.db.productVariant.findFirst({ select: { stock: true } }),
+      this.db.store.findFirst({ select: { id: true, merchantId:true, settingsVersion:true } }),
+      this.db.product.findFirst({ select: { version: true, seoTitle:true } }),
+      this.db.productVariant.findFirst({ select: { stock: true, active:true,priceMinor:true,options:true } }),
+      this.db.collection.findFirst({select:{id:true}}),
+      this.db.collectionProduct.findFirst({select:{productId:true}}),
       this.db.inventoryMovement.findFirst({ select: { delta: true } })
     ]);
   }
@@ -132,6 +134,8 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
   async searchProducts(storeId:string,query:Required<Pick<ProductQuery,'limit'|'offset'|'sort'>>&ProductQuery){
     const where:Prisma.ProductWhereInput={storeId,...(query.status?{status:query.status}:{}),...(query.collection?{collection:{equals:query.collection,mode:'insensitive'}}:{})};
     if(query.query)where.OR=[{name:{contains:query.query,mode:'insensitive'}},{handle:{contains:query.query,mode:'insensitive'}},{description:{contains:query.query,mode:'insensitive'}}];
+    if(query.collectionId)where.collectionLinks={some:{collectionId:query.collectionId}};
+    if(query.collectionId&&query.collectionPosition)return(await this.db.collectionProduct.findMany({where:{storeId,collectionId:query.collectionId,product:where},orderBy:[{position:'asc'},{productId:'asc'}],skip:query.offset,take:query.limit+1,include:{product:{include:{variants:true}}}})).map(link=>productDomain(link.product));
     const orderBy:Prisma.ProductOrderByWithRelationInput[]=query.sort==='name'?[{name:'asc'},{id:'asc'}]:query.sort==='price_asc'?[{priceMinor:'asc'},{id:'asc'}]:query.sort==='price_desc'?[{priceMinor:'desc'},{id:'asc'}]:[{createdAt:'desc'},{id:'asc'}];
     return (await this.db.product.findMany({where,orderBy,skip:query.offset,take:query.limit+1,include:{variants:true}})).map(productDomain);
   }
@@ -172,6 +176,21 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
       if(!row)throw new DomainError('NOT_FOUND','Product not found.');assertVariantUpdate(productDomain(row),variant,creating);
       const saved=creating?await tx.productVariant.create({data:{id:variant.id,storeId,productId,...variantData(variant),stock:0}}):await tx.productVariant.update({where:{id:variant.id,storeId,productId},data:variantData(variant)});
       return variantDomain(saved);
+    });}catch(error){throw this.translateConflict(error);}
+  }
+
+  async createCollection(collection:Collection){try{const row=await this.db.collection.create({data:collection});return{...row,status:row.status as Collection['status']};}catch(error){throw this.translateConflict(error);}}
+  async findCollection(storeId:string,id:string){const row=await this.db.collection.findFirst({where:{storeId,id}});return row?{...row,status:row.status as Collection['status']}:null;}
+  async findCollectionByHandle(storeId:string,handle:string){const row=await this.db.collection.findUnique({where:{storeId_handle:{storeId,handle}}});return row?{...row,status:row.status as Collection['status']}:null;}
+  async searchCollections(storeId:string,query:CollectionQuery&{limit:number;offset:number}){const rows=await this.db.collection.findMany({where:{storeId,...(query.status?{status:query.status}:{}),...(query.featured!==undefined?{featured:query.featured}:{}),...(query.query?{OR:[{name:{contains:query.query,mode:'insensitive'}},{handle:{contains:query.query,mode:'insensitive'}},{description:{contains:query.query,mode:'insensitive'}}]}:{})},skip:query.offset,take:query.limit+1,orderBy:[{position:'asc'},{id:'asc'}]});return rows.map(c=>({...c,status:c.status as Collection['status']}));}
+  async saveCollection(collection:Collection){try{const{id,storeId,version,...data}=collection;const row=await this.db.collection.update({where:{id,storeId,version},data:{...data,version:{increment:1}}});return{...row,status:row.status as Collection['status']};}catch(error){throw this.translateConflict(error);}}
+  async collectionProduct(storeId:string,collectionId:string,productId:string,position:number|null,version:number){
+    try{return await this.transaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM "Collection" WHERE id=${collectionId}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;
+      const c=await tx.collection.findFirst({where:{id:collectionId,storeId}}),p=await tx.product.findFirst({where:{id:productId,storeId},select:{id:true}});
+      if(!c||!p)throw new DomainError('NOT_FOUND','Collection or product not found.');if(c.status!=='ACTIVE'||c.version!==version)throw new DomainError('CONFLICT','Collection changed or archived.');
+      if(position===null)await tx.collectionProduct.deleteMany({where:{storeId,collectionId,productId}});else await tx.collectionProduct.upsert({where:{collectionId_productId:{collectionId,productId}},create:{storeId,collectionId,productId,position},update:{position}});
+      const row=await tx.collection.update({where:{id:collectionId},data:{version:{increment:1}}});return{...row,status:row.status as Collection['status']};
     });}catch(error){throw this.translateConflict(error);}
   }
   async skuExists(storeId: string, sku: string, exceptProductId?: string) {
