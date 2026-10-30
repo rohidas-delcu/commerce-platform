@@ -1,8 +1,8 @@
-import {Body,Controller,Get,Post,Patch,Delete,Headers,Req,Param,ParseUUIDPipe,UseGuards} from '@nestjs/common';
+import {Body,Controller,Get,Post,Patch,Delete,Headers,Query,Req,Param,ParseUUIDPipe,UseGuards} from '@nestjs/common';
 import {IsString,MinLength,MaxLength,IsInt,Min,IsOptional,IsEmail,IsIn,IsUUID,ValidateIf} from 'class-validator';
 import {IdentityGuard} from '../../identity/http/identity.controller.js';
 import type {IdentityRequest} from '../../identity/application/identity.service.js';
-import {CreateStoreDto,CreateProductDto,UpdateProductDto,StockAdjustmentDto} from '../../http/commerce.dto.js';
+import {CreateStoreDto,CreateProductDto,UpdateProductDto,StockAdjustmentDto,ProductQueryDto} from '../../http/commerce.dto.js';
 import {MerchantService} from '../application/merchant.service.js';
 class NameDto {@IsString() @MinLength(1) @MaxLength(100) name!:string;}
 class StoreDto extends CreateStoreDto {@IsUUID() merchantId!:string;}
@@ -49,8 +49,12 @@ export class MerchantController {
   @Post('stores/:storeId/onboarding/complete') complete(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() b:VersionDto){return this.service.complete(r.identitySession!,id,b.expectedVersion);}
   @Post('stores/:storeId/publish') publish(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.publish(r.identitySession!,id,true);}
   @Post('stores/:storeId/unpublish') unpublish(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.publish(r.identitySession!,id,false);}
-  @Get('stores/:storeId/products') products(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.products(r.identitySession!,id);}
+  @Get('stores/:storeId/products') products(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Query() query:ProductQueryDto){return this.service.products(r.identitySession!,id,query);}
   @Post('stores/:storeId/products') createProduct(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() b:CreateProductDto){return this.service.createProduct(r.identitySession!,id,b);}
+
+  @Get('stores/:storeId/products/:productId') detail(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string){return this.service.productDetail(r.identitySession!,id,product);}
+  @Post('stores/:storeId/products/:productId/deactivate') deactivateProduct(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string){return this.service.productState(r.identitySession!,id,product,'DRAFT');}
+  @Post('stores/:storeId/products/:productId/archive') archiveProduct(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string){return this.service.productState(r.identitySession!,id,product,'ARCHIVED');}
   @Patch('stores/:storeId/products/:productId') updateProduct(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string,@Body() b:UpdateProductDto){return this.service.updateProduct(r.identitySession!,id,product,b);}
   @Post('stores/:storeId/products/:productId/activate') activate(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string){return this.service.activateProduct(r.identitySession!,id,product);}
   @Post('stores/:storeId/variants/:variantId/stock-adjustments') stock(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('variantId',ParseUUIDPipe) variant:string,@Body() b:StockAdjustmentDto){return this.service.stock(r.identitySession!,id,variant,b);}

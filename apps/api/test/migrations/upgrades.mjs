@@ -15,12 +15,17 @@ function command(...args){
   const result=spawnSync('pnpm',args,{cwd:root,env:{...process.env,DATABASE_URL:url.toString()},encoding:'utf8'});
   if(result.status!==0)throw new Error(`Migration command failed (${args.join(' ')}): ${result.stdout}\n${result.stderr}`);
 }
+const originalColumns=new Map();
 async function snapshot(){
-  const store=await fixture.query('SELECT row_to_json(s)::text AS snapshot FROM (SELECT id,"ownerSubjectId",name,handle,"countryCode","currencyCode",status,"createdAt","updatedAt" FROM "Store" ORDER BY id) s');
-  const rows=[store.rows];
-  for(const table of ['Product','ProductVariant','InventoryMovement'])rows.push((await fixture.query(`SELECT row_to_json(s)::text AS snapshot FROM (SELECT * FROM "${table}" ORDER BY id) s`)).rows);
+  const rows=[];
+  for(const table of ['Store','Product','ProductVariant','InventoryMovement']){
+    if(!originalColumns.has(table))originalColumns.set(table,(await fixture.query('SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2 ORDER BY ordinal_position',['public',table])).rows.map(r=>r.column_name));
+    const columns=originalColumns.get(table).map(c=>'"'+c.replaceAll('"','""')+'"').join(',');
+    rows.push((await fixture.query(`SELECT row_to_json(s)::text AS snapshot FROM (SELECT ${columns} FROM "${table}" ORDER BY id) s`)).rows);
+  }
   return rows;
 }
+
 try {
   await admin.query(`CREATE DATABASE "${name}"`);created=true;
   fixture=new pg.Client({connectionString:url.toString()});await fixture.connect();

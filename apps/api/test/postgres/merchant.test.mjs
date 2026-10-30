@@ -53,6 +53,16 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   const publicCatalog=await request({},`/v1/storefront/${handle}/products`);assert.equal(publicCatalog.status,200);assert.equal(publicCatalog.body.products.length,1);assert.equal('ownerSubjectId'in publicCatalog.body.store,false);
   assert.equal((await request({},`/v1/admin/stores/${storeId}/products`,'GET',undefined,{'x-demo-subject-id':owner.id})).status,404,'Demo headers cannot access real merchant stores.');
   assert.deepEqual((await request({},'/v1/admin/stores','GET',undefined,{'x-demo-subject-id':owner.id})).body,[]);
+
+  const filtered=await request(owner,path+'/products?query=journey&sort=price_desc&limit=1');assert.equal(filtered.status,200);assert.equal(filtered.body.items[0].id,product.body.id);
+  assert.equal((await request(owner,path+'/products?limit=0')).status,400);
+  assert.equal((await request(owner,path+`/products/${product.body.id}`)).status,200);
+  assert.equal((await request(owner,path+`/products/${product.body.id}`,'PATCH',{seoTitle:'Journey SEO',seoDescription:'A safe public description'})).status,200);
+  const detailed=await request({},`/v1/storefront/${handle}/products/bag`);assert.equal(detailed.status,200);assert.equal(detailed.body.seoTitle,'Journey SEO');assert.equal('storeId'in detailed.body,false);
+  const archivedProduct=await request(owner,path+'/products','POST',{name:'Archived bag',handle:'archived-bag',priceMinor:'100',variants:[{name:'One',sku:'ARCHIVE-TEST',stock:0}]});
+  assert.equal(archivedProduct.status,201);assert.equal((await request(owner,path+`/products/${archivedProduct.body.id}/archive`,'POST',{})).status,201);
+  assert.equal((await request(owner,path+`/products/${archivedProduct.body.id}/activate`,'POST',{})).status,409);
+  assert.equal((await request({},`/v1/storefront/${handle}/products/archived-bag`)).status,404);
   const invite=await request(owner,`${root}/accounts/${merchantId}/invitations`,'POST',{storeId,email:staff.email,role:'STORE_VIEWER'});assert.equal(invite.status,201);
   const invitationMail=await db.identityMail.findFirstOrThrow({where:{recipient:staff.email,purpose:'INVITE'},orderBy:{createdAt:'desc'}}),token=decryptMail(invitationMail.encryptedPayload).token;
   assert.equal((await request(stranger,root+'/invitations/accept','POST',{token})).status,400);

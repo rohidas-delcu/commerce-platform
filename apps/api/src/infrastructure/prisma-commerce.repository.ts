@@ -2,7 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "../generated/prisma/client.js";
 import { checkedStockChange, DomainError } from "../domain/commerce.js";
-import type { Store, Product, InventoryMovement } from "../domain/commerce.js";
+import type { Store, Product, InventoryMovement, ProductQuery } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 function storeDomain(row: {
@@ -19,12 +19,14 @@ function storeDomain(row: {
 }
 
 function productDomain(row: {
+  seoTitle?: string; seoDescription?:string;
   id: string; storeId: string; version: number; name: string; handle: string; description: string;
   collection: string; priceMinor: bigint; compareMinor: bigint | null;
   status: string; createdAt: Date;
   variants: Array<{ id: string; name: string; sku: string; stock: number }>;
 }): Product {
   return {
+    seoTitle:row.seoTitle??"",seoDescription:row.seoDescription??"",
     id: row.id, storeId: row.storeId, version: row.version, name: row.name, handle: row.handle,
     description: row.description, collection: row.collection,
     priceMinor: row.priceMinor.toString(), compareMinor: row.compareMinor?.toString() ?? null,
@@ -101,6 +103,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     try {
       const row = await this.db.product.create({
         data: {
+          seoTitle:product.seoTitle??"",seoDescription:product.seoDescription??"",
           id: product.id, store: { connect: { id: product.storeId } }, name: product.name,
           handle: product.handle, description: product.description, collection: product.collection,
           priceMinor: BigInt(product.priceMinor), compareMinor: product.compareMinor === null ? null : BigInt(product.compareMinor),
@@ -118,6 +121,14 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     return row ? productDomain(row) : null;
   }
 
+
+  async findProductByHandle(storeId:string,handle:string){const row=await this.db.product.findUnique({where:{storeId_handle:{storeId,handle}},include:{variants:true}});return row?productDomain(row):null;}
+  async searchProducts(storeId:string,query:Required<Pick<ProductQuery,'limit'|'offset'|'sort'>>&ProductQuery){
+    const where:Prisma.ProductWhereInput={storeId,...(query.status?{status:query.status}:{}),...(query.collection?{collection:{equals:query.collection,mode:'insensitive'}}:{})};
+    if(query.query)where.OR=[{name:{contains:query.query,mode:'insensitive'}},{handle:{contains:query.query,mode:'insensitive'}},{description:{contains:query.query,mode:'insensitive'}}];
+    const orderBy:Prisma.ProductOrderByWithRelationInput[]=query.sort==='name'?[{name:'asc'},{id:'asc'}]:query.sort==='price_asc'?[{priceMinor:'asc'},{id:'asc'}]:query.sort==='price_desc'?[{priceMinor:'desc'},{id:'asc'}]:[{createdAt:'desc'},{id:'asc'}];
+    return (await this.db.product.findMany({where,orderBy,skip:query.offset,take:query.limit+1,include:{variants:true}})).map(productDomain);
+  }
   async listProducts(storeId: string) {
     return (await this.db.product.findMany({
       where: { storeId }, include: { variants: true }, orderBy: { createdAt: "desc" }
@@ -129,6 +140,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
       const row = await this.db.product.update({
         where: { id: product.id, storeId: product.storeId, version: product.version },
         data: {
+          seoTitle:product.seoTitle??"",seoDescription:product.seoDescription??"",
           version: { increment: 1 }, name: product.name, handle: product.handle, description: product.description,
           collection: product.collection, priceMinor: BigInt(product.priceMinor),
           compareMinor: product.compareMinor === null ? null : BigInt(product.compareMinor), status: product.status

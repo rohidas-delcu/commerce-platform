@@ -1,4 +1,4 @@
-import type { InventoryMovement, Product, Store } from "../domain/commerce.js";
+import type { InventoryMovement, Product, Store, ProductQuery } from "../domain/commerce.js";
 
 export const COMMERCE_REPOSITORY = Symbol("COMMERCE_REPOSITORY");
 
@@ -11,6 +11,8 @@ export interface CommerceRepository {
   saveStore(store: Store): Promise<Store>;
   createProduct(product: Product): Promise<Product>;
   findProduct(storeId: string, productId: string): Promise<Product | null>;
+  findProductByHandle(storeId:string,handle:string):Promise<Product|null>;
+  searchProducts(storeId:string,query:Required<Pick<ProductQuery,"limit"|"offset"|"sort">>&ProductQuery):Promise<Product[]>;
   listProducts(storeId: string): Promise<Product[]>;
   saveProduct(product: Product): Promise<Product>;
   skuExists(storeId: string, sku: string, exceptProductId?: string): Promise<boolean>;

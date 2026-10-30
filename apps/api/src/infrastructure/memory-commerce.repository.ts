@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { checkedStockChange, DomainError } from "../domain/commerce.js";
-import type { InventoryMovement, Product, Store } from "../domain/commerce.js";
+import type { InventoryMovement, Product, Store, ProductQuery } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -56,6 +56,14 @@ export class MemoryCommerceRepository implements CommerceRepository {
   async findProduct(storeId: string, productId: string) {
     const p = this.products.get(productId);
     return p?.storeId === storeId ? clone(p) : null;
+  }
+
+  async findProductByHandle(storeId:string,handle:string){return clone([...this.products.values()].find(p=>p.storeId===storeId&&p.handle===handle)??null);}
+  async searchProducts(storeId:string,query:Required<Pick<ProductQuery,'limit'|'offset'|'sort'>>&ProductQuery){
+    const term=(query.query??'').toLowerCase();
+    const rows=[...this.products.values()].filter(p=>p.storeId===storeId&&(!query.status||p.status===query.status)&&(!query.collection||p.collection.toLowerCase()===query.collection.toLowerCase())&&(!term||[p.name,p.handle,p.description].some(v=>v.toLowerCase().includes(term))));
+    rows.sort((a,b)=>{let result=0;if(query.sort==='price_asc'||query.sort==='price_desc'){result=BigInt(a.priceMinor)<BigInt(b.priceMinor)?-1:BigInt(a.priceMinor)>BigInt(b.priceMinor)?1:0;if(query.sort==='price_desc')result=-result;}else if(query.sort==='name')result=a.name<b.name?-1:a.name>b.name?1:0;else result=a.createdAt>b.createdAt?-1:a.createdAt<b.createdAt?1:0;return result||(a.id<b.id?-1:a.id>b.id?1:0);});
+    return clone(rows.slice(query.offset,query.offset+query.limit+1));
   }
   async listProducts(storeId: string) { return clone([...this.products.values()].filter(p => p.storeId === storeId)); }
   async saveProduct(product: Product) {

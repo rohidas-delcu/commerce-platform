@@ -1,5 +1,5 @@
 export type StoreStatus = "DRAFT" | "PUBLISHED";
-export type ProductStatus = "DRAFT" | "ACTIVE";
+export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER";
 
 export interface Store {
@@ -25,6 +25,8 @@ export interface Variant {
 }
 
 export interface Product {
+  seoTitle?: string;
+  seoDescription?: string;
   version: number;
   id: string;
   storeId: string;
@@ -119,4 +121,26 @@ export function checkedStockChange(before: number, after: number, reason: string
     throw new DomainError("INVALID", "A recognized stock adjustment reason is required.");
   }
   return after - before;
+}
+
+
+export interface ProductQuery {query?:string;status?:ProductStatus;sort?:'created'|'name'|'price_asc'|'price_desc';limit?:number;offset?:number;collection?:string}
+export function productQuery(input:ProductQuery={}) {
+  const limit=input.limit??25,offset=input.offset??0,sort=input.sort??'created';
+  if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new DomainError('INVALID','Pagination is outside the supported range.');
+  if(!['created','name','price_asc','price_desc'].includes(sort))throw new DomainError('INVALID','Invalid product sort.');
+  if(input.status&&!['DRAFT','ACTIVE','ARCHIVED'].includes(input.status))throw new DomainError('INVALID','Invalid product status.');
+  const query=(input.query??'').trim(),collection=(input.collection??'').trim();
+  if(query.length>100||collection.length>150)throw new DomainError('INVALID','Product filter is too long.');
+  return {...input,query,collection,limit,offset,sort};
+}
+export function publicProduct(product:Product) {
+  return {id:product.id,name:product.name,handle:product.handle,description:product.description,collection:product.collection,priceMinor:product.priceMinor,compareMinor:product.compareMinor,
+    seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.map(v=>({id:v.id,name:v.name,stock:v.stock,available:v.stock>0}))};
+}
+
+export function seoText(value:string|undefined,limit:number){
+  if(value===undefined)return '';
+  if(typeof value!=='string'||value.length>limit)throw new DomainError('INVALID','SEO metadata exceeds the supported length.');
+  return value.trim();
 }

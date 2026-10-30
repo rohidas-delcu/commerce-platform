@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Headers, Injectable, CanActivate, ExecutionContext,
+  Body, Controller, Get, Query, Headers, Injectable, CanActivate, ExecutionContext,
   ForbiddenException, Optional, Inject, ServiceUnavailableException, Param, ParseUUIDPipe, Patch, Post, UseGuards
 } from "@nestjs/common";
 import { MerchantService } from "../merchant/application/merchant.service.js";
@@ -7,7 +7,7 @@ import { IdentityService } from "../identity/application/identity.service.js";
 import { COMMERCE_REPOSITORY } from "../application/commerce.port.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 import { CommerceService } from "../application/commerce.service.js";
-import { CreateProductDto, CreateStoreDto, StockAdjustmentDto, UpdateProductDto } from "./commerce.dto.js";
+import { CreateProductDto, CreateStoreDto, StockAdjustmentDto, UpdateProductDto, PublicProductQueryDto } from "./commerce.dto.js";
 
 @Injectable()
 export class LocalDemoAuthGuard implements CanActivate {
@@ -85,7 +85,10 @@ export class StorefrontCommerceController {
   constructor(private readonly commerce: CommerceService) {}
 
   @Get(":handle/products")
-  products(@Param("handle") handle: string) { return this.commerce.publicCatalog(handle); }
+  products(@Param("handle") handle: string,@Query() query:PublicProductQueryDto) { return this.commerce.publicCatalog(handle,query); }
+
+  @Get(":handle/products/:productHandle")
+  detail(@Param("handle") handle:string,@Param("productHandle") product:string){return this.commerce.publicProductDetail(handle,product); }
 }
 
 @Controller("health")

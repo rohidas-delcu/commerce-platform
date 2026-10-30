@@ -17,6 +17,7 @@ enum StoreStatus {
 enum ProductStatus {
   DRAFT
   ACTIVE
+  ARCHIVED
 }
 
 model Store {
@@ -49,6 +50,8 @@ model Store {
 }
 
 model Product {
+  seoTitle String @default("")
+  seoDescription String @default("")
   version      Int           @default(0)
   id           String        @id @default(uuid()) @db.Uuid
   storeId      String        @db.Uuid

@@ -51,7 +51,9 @@ export class MerchantService {
       if(store.id!==id || subject!==p.identityId)throw new IdentityError(404,'Store not found.');
     }})));
   }
-  products(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',service=>service.listProducts(p.identityId!,id));}
+  products(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['queryProducts']>[2]={}){return this.commerce(p,id,'store.read',service=>service.queryProducts(p.identityId!,id,input));}
+  productDetail(p:MerchantPrincipal,id:string,productId:string){return this.commerce(p,id,'store.read',service=>service.productDetail(p.identityId!,id,productId));}
+  productState(p:MerchantPrincipal,id:string,productId:string,state:'DRAFT'|'ARCHIVED'){return this.commerce(p,id,'catalog.write',service=>service.productState(p.identityId!,id,productId,state));}
   createProduct(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['createProduct']>[2]){return this.commerce(p,id,'catalog.write',service=>service.createProduct(p.identityId!,id,input));}
   updateProduct(p:MerchantPrincipal,id:string,productId:string,input:Parameters<CommerceService['updateProduct']>[3]){return this.commerce(p,id,'catalog.write',service=>service.updateProduct(p.identityId!,id,productId,input));}
   activateProduct(p:MerchantPrincipal,id:string,productId:string){return this.commerce(p,id,'catalog.write',service=>service.activateProduct(p.identityId!,id,productId));}
