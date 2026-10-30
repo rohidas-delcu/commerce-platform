@@ -1,9 +1,9 @@
 import { IdentityError } from '../../identity/domain/identity.js';
 export type StoreRole = 'ACCOUNT_OWNER' | 'STORE_ADMIN' | 'STORE_EDITOR' | 'STORE_VIEWER';
-export type Permission = 'store.read' | 'store.settings' | 'store.publish' | 'catalog.write' | 'inventory.write' | 'members.manage' | 'orders.read' | 'orders.manage';
+export type Permission = 'store.read' | 'store.settings' | 'store.publish' | 'catalog.write' | 'inventory.write' | 'members.manage' | 'orders.read' | 'orders.manage' | 'discounts.manage';
 const permissions: Record<StoreRole, readonly Permission[]> = {
-  ACCOUNT_OWNER: ['store.read','store.settings','store.publish','catalog.write','inventory.write','members.manage','orders.read','orders.manage'],
-  STORE_ADMIN: ['store.read','store.settings','store.publish','catalog.write','inventory.write','orders.read','orders.manage'],
+  ACCOUNT_OWNER: ['store.read','store.settings','store.publish','catalog.write','inventory.write','members.manage','orders.read','orders.manage','discounts.manage'],
+  STORE_ADMIN: ['store.read','store.settings','store.publish','catalog.write','inventory.write','orders.read','orders.manage','discounts.manage'],
   STORE_EDITOR: ['store.read','catalog.write','inventory.write'],
   STORE_VIEWER: ['store.read']
 };

@@ -83,6 +83,8 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
       this.db.productVariant.findFirst({ select: { stock: true, reserved:true, active:true,priceMinor:true,options:true } }),
       this.db.collection.findFirst({select:{id:true}}),
       this.db.storePricing.findFirst({select:{version:true}}),
+      this.db.discountCoupon.findFirst({select:{id:true}}),
+      this.db.couponRedemption.findFirst({select:{orderId:true}}),
       this.db.order.findFirst({select:{id:true}}),
       this.db.orderNotification.findFirst({select:{id:true}}),
       this.db.inventoryReservation.findFirst({select:{id:true}}),

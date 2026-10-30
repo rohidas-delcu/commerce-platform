@@ -71,7 +71,8 @@ Lists currently return bounded arrays (max 100), not a completed cursor-paginati
 contract. No API to claim quarantined legacy ownership or transfer legal tenancy.
 Supported country/currency pairs: IN/INR, US/USD, GB/GBP, CA/CAD, AU/AUD; these are
 locale validation only, not a claim of supported shipping/tax/payment jurisdictions.
-Logo/media and shipping/payment onboarding configuration are still pending.
+Store logo/branding asset settings remain pending; product media and shipping/payment
+configuration APIs are described below.
 
 ## Product lifecycle/search checkpoint
 
@@ -86,7 +87,7 @@ GET merchant `/stores/:id/products/:productId` and public
 `.../:productId/deactivate` returns DRAFT; `.../:productId/archive` returns ARCHIVED.
 Archived products cannot be implicitly reactivated or exposed publicly.
 SEO accepts seoTitle (70 chars) and seoDescription (320 chars). Collections,
-media remain pending.
+media are described below.
 
 OpenAPI generation uses the Nest Swagger TypeScript plugin with dedicated DTO
 files. Executed HTTP checks assert actual identity/store request schemas, password
@@ -186,7 +187,7 @@ Deleting a default selects the oldest remaining address. No cross-store access.
 `GET wishlist?limit=&offset=` returns safe active public products;
 `PUT/DELETE wishlist/:productId` are idempotent, bounded at500 saved products.
 Wishlist does not expose internal SKU, merchant or audit fields. Customer order
-history/details are pending the orders slice; these endpoints do not claim them.
+history/detail APIs are described below.
 
 ## Guest/customer carts
 
@@ -204,7 +205,7 @@ Prices, totals and stock are read on the server; client price fields are rejecte
 Responses contain cart id/status/version/expiresAt, safe items, currencyCode,
 subtotalMinor and structured validation (UNAVAILABLE, STOCK_SHORTAGE, PRICE_CHANGED).
 This cart subtotal is not a checkout total. The separate estimate endpoint applies
-configured shipping/tax; coupon redemption and checkout snapshots remain pending.
+configured shipping/tax/discounts; durable checkout/order snapshots are below.
 A current quote never authorizes stock allocation; checkout must revalidate/reserve.
 `POST merge` after customer login uses `{expectedVersion,guestVersion}`; combines
 same-variant quantities atomically, rejects >999/100 lines, marks the guest merged
@@ -232,11 +233,11 @@ before disabling checkout readiness. Policy writes are versioned and audited.
 `POST /v1/storefront/:handle/cart/quote` with store customer/guest cookies and CSRF:
 `{expectedVersion,shippingMethodId,shippingAddress:<full address>}`. Returns itemized
 subtotalMinor/discountMinor/shippingMinor/taxMinor/totalMinor, currencyCode,
-cartVersion/policyVersion and `estimate:true`. No caller-supplied amounts or coupon
-fields accepted yet. Missing/inapplicable configuration409; invalid/empty cart409.
+cartVersion/policyVersion and `estimate:true`. No caller-supplied amounts or direct
+coupon inputs are accepted; the current cart coupon is read on the server. Missing/inapplicable configuration409; invalid/empty cart409.
 Final checkout must revalidate/recalculate and persist snapshots; this response is
-not a stock guarantee, payment acceptance or durable checkout. Coupon arithmetic
-exists in the domain but coupon persistence/redemption APIs are still pending.
+not a stock guarantee, payment acceptance or durable checkout. Coupon application and durable checkout lease/redemption APIs are described below;
+a cart estimate alone does not consume or reserve coupon quota.
 
 ## Durable customer checkout
 
@@ -303,3 +304,35 @@ internal events never appear in customer history; dispatch carrier/reference doe
 Every command uses transaction locks, optimistic versions, immutable events and a
 unique durable command identity. Notification intents are staged; no email delivery
 is claimed. Store editors/viewers cannot execute these order commands.
+
+
+## Coupons and bounded quota
+
+Owner/admin `discounts.manage`, merchant cookie + CSRF, base
+`/v1/merchant/stores/:storeId/coupons`: `POST`, `GET`, `GET :id`, `PATCH :id`,
+`POST :id/archive`. Create `{code,kind:"PERCENTAGE"|"FIXED",value,active?,startsAt?,
+expiresAt?,maxUses?,perCustomerLimit?,restoreOnCancellation?}`. Percentage value is
+basis points1–10000; fixed value is an exact positive minor-unit string. Code is
+normalized uppercase, store-unique and immutable. Optional dates/limits may be null.
+Edits use expectedVersion; archive deactivates without erasing history. Defaults:
+active true, no dates/limits, restoreOnCancellation false. Detail reports consumed
+uses and active heldUses separately. Cross-store code/ID access is denied.
+
+`POST /v1/storefront/:handle/cart/coupon` `{expectedVersion,code}` and `DELETE` with
+`{expectedVersion}` apply/remove without stock/quota reservation. Cart/estimate shows
+server discount, discounted subtotal and COUPON_INVALID validation when ineligible.
+Customer-limited codes require an owned authenticated cart. At merge the owned cart's
+coupon wins; otherwise the guest coupon carries over and is revalidated, never stacked.
+
+Checkout reserve leases coupon capacity with the stock deadline; global/per-customer
+limits include other live leases and un-restored redemptions. Own quote retries do
+not count twice. Placement rechecks version/eligibility/expiry after locks and consumes
+lease + immutable redemption with order/stock in one transaction. Coupon expiry or
+changed eligibility409 requires explicit resolution/requote; no silent higher charge.
+Checkout cancellation/expiry releases its unconsumed lease. Order cancellation restores
+consumed usage only when the purchase-snapshotted restoreOnCancellation flag is true;
+later policy edits do not rewrite past purchases. Release records are immutable.
+
+Zero-total orders use paymentStatus NOT_REQUIRED, paid0/due0, and complete on delivery.
+They never record COD collection or payment confirmation. Positive COD totals retain
+the separate delivered-then-cash-collection workflow. Production remains disabled.

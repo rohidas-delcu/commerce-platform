@@ -29,9 +29,12 @@ export class ConfiguredTaxCalculator implements TaxCalculatorPort {
     return{taxMinor:roundHalfUp(taxableMinor*BigInt(basisPoints),inclusive?10000n+BigInt(basisPoints):10000n),basisPoints,inclusive};
   }
 }
+export function assertCouponEligible(rule:DiscountRule,customerId:string|null,now:Date){
+  if(!rule.active||(rule.startsAt&&rule.startsAt>now)||(rule.expiresAt&&rule.expiresAt<=now)||(rule.maxUses!==null&&rule.used>=rule.maxUses)||(rule.perCustomerLimit!==null&&(!customerId||rule.customerUses>=rule.perCustomerLimit)))throw new DomainError('CONFLICT','Coupon is unavailable or ineligible.');
+}
 export function discountAmount(subtotal:bigint,rule:DiscountRule|undefined,customerId:string|null,now:Date){
   if(!rule)return 0n;
-  if(!rule.active||(rule.startsAt&&rule.startsAt>now)||(rule.expiresAt&&rule.expiresAt<=now)||(rule.maxUses!==null&&rule.used>=rule.maxUses)||(rule.perCustomerLimit!==null&&(!customerId||rule.customerUses>=rule.perCustomerLimit)))throw new DomainError('CONFLICT','Coupon is unavailable or ineligible.');
+  assertCouponEligible(rule,customerId,now);
   let amount:bigint;
   if(rule.kind==='PERCENTAGE'){
     if(!/^\d{1,5}$/.test(rule.value)||BigInt(rule.value)<1n||BigInt(rule.value)>10000n)throw new DomainError('INVALID','Percentage discount requires 1–10000 basis points.');

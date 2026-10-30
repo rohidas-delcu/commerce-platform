@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  coupons DiscountCoupon[]
   orders Order[]
   orderCounter StoreOrderCounter?
   checkouts Checkout[]
@@ -127,6 +128,7 @@ model InventoryMovement {
 }
 
 model Identity {
+  couponRedemptions CouponRedemption[]
   orders Order[]
   orderEvents OrderEvent[]
   checkouts Checkout[]
@@ -408,6 +410,8 @@ model CustomerWishlist {
 }
 
 model Cart {
+  couponId String? @db.Uuid
+  coupon DiscountCoupon? @relation(fields:[couponId,storeId],references:[id,storeId],onDelete:Restrict)
   checkouts Checkout[]
   id String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
@@ -452,6 +456,7 @@ model StorePricing {
 }
 
 model Checkout {
+  couponHolds CouponHold[]
   order Order?
   id String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
@@ -489,6 +494,7 @@ model StoreOrderCounter {
   value BigInt @default(0)
 }
 model Order {
+  couponRedemption CouponRedemption?
   commands OrderCommand[]
   id String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
@@ -526,6 +532,7 @@ model Order {
   events OrderEvent[]
   notifications OrderNotification[]
   @@unique([id,storeId])
+  @@unique([id,storeId,customerId])
   @@unique([checkoutId,storeId,customerId])
   @@unique([storeId,customerId,placementKey])
   @@unique([storeId,number])
@@ -587,4 +594,76 @@ model OrderCommand {
   digest String
   createdAt DateTime @default(now())
   @@id([orderId,key])
+}
+
+model DiscountCoupon {
+  holds CouponHold[]
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  code String
+  kind String
+  value BigInt
+  version Int @default(0)
+  active Boolean @default(true)
+  startsAt DateTime?
+  expiresAt DateTime?
+  maxUses Int?
+  perCustomerLimit Int?
+  restoreOnCancellation Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  carts Cart[]
+  redemptions CouponRedemption[]
+  @@unique([id,storeId])
+  @@unique([storeId,code])
+}
+model CouponRedemption {
+  holdId String @db.Uuid
+  hold CouponHold @relation(fields:[holdId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@unique([holdId,storeId])
+  orderId String @id @db.Uuid
+  storeId String @db.Uuid
+  customerId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  couponId String @db.Uuid
+  coupon DiscountCoupon @relation(fields:[couponId,storeId],references:[id,storeId],onDelete:Restrict)
+  couponVersion Int
+  discountMinor BigInt
+  restoreOnCancellation Boolean
+  createdAt DateTime @default(now())
+  release CouponRedemptionRelease?
+  @@unique([orderId,storeId])
+  @@unique([orderId,storeId,customerId])
+  @@index([couponId,customerId])
+}
+model CouponRedemptionRelease {
+  @@unique([orderId,storeId])
+  orderId String @id @db.Uuid
+  storeId String @db.Uuid
+  redemption CouponRedemption @relation(fields:[orderId,storeId],references:[orderId,storeId],onDelete:Restrict)
+  reason String
+  createdAt DateTime @default(now())
+}
+
+model CouponHold {
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  customerId String @db.Uuid
+  checkoutId String @db.Uuid
+  checkoutVersion Int
+  checkout Checkout @relation(fields:[checkoutId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  couponId String @db.Uuid
+  coupon DiscountCoupon @relation(fields:[couponId,storeId],references:[id,storeId],onDelete:Restrict)
+  couponVersion Int
+  restoreOnCancellation Boolean
+  status String @default("HELD")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  closedAt DateTime?
+  redemption CouponRedemption?
+  @@unique([id,storeId])
+  @@unique([checkoutId,checkoutVersion])
+  @@index([couponId,status,expiresAt])
 }

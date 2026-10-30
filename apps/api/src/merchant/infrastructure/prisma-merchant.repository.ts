@@ -94,7 +94,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     if(input.expectedVersion!==store.settingsVersion)throw new IdentityError(409,'Settings changed. Reload before saving.');
     const {expectedVersion,...changes}=input;
     const country=changes.countryCode??store.countryCode,currency=changes.currencyCode??store.currencyCode;locale(country,currency);
-    if(currency!==store.currencyCode && (await tx.product.count({where:{storeId}})||await tx.storePricing.count({where:{storeId}})))throw new IdentityError(409,'Currency cannot change after catalog or pricing configuration exists.');
+    if(currency!==store.currencyCode && (await tx.product.count({where:{storeId}})||await tx.storePricing.count({where:{storeId}})||await tx.discountCoupon.count({where:{storeId}})))throw new IdentityError(409,'Currency cannot change after catalog or pricing configuration exists.');
     const updated=await tx.store.update({where:{id:storeId,settingsVersion:expectedVersion},data:{...changes,settingsVersion:{increment:1}},select:storeSelect});
     await tx.identityAudit.create({data:{identityId:p.identityId!,action:`STORE_SETTINGS_CHANGED:${storeId}`}});return updated;
   });}

@@ -82,3 +82,13 @@ Command keys bind canonical action/version/input; retries replay without extra e
 Stock restoration, command/event history, order state and notifications share a
 transaction. Internal notes append immutable private history on any order state.
 Customer event visibility is an explicit allowlist and excludes all private notes.
+
+Coupon quota: cart application is provisional, with no stock or quota reservation.
+Checkout creates a bounded HELD lease alongside stock. It becomes CONSUMED atomically
+with a redemption/order, or RELEASED/EXPIRED when checkout closes. Terminal leases do
+not reopen. Consumed usage is restored only by a separate cancellation-release record
+when the immutable purchase policy permits it. Both global and per-customer capacity
+include live leases, preventing asynchronous-payment races. Coupon validity and lease
+expiry are rechecked after locks. No discount silently disappears from a placed order.
+For zero total, payment is NOT_REQUIRED and fulfillment delivery completes the order;
+no paid/captured assertion or payment-confirmation notification is created.

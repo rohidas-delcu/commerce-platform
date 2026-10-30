@@ -116,4 +116,9 @@ export class MerchantService {
   order(p:MerchantPrincipal,id:string,order:string){return this.commerce(p,id,'orders.read',s=>s.order(p.identityId!,id,order));}
 
   orderCommand(p:MerchantPrincipal,id:string,order:string,input:Parameters<CommerceService['orderCommand']>[3]){return this.commerce(p,id,'orders.manage',s=>s.orderCommand(p.identityId!,id,order,input));}
+
+  coupons(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['coupons']>[2]){return this.commerce(p,id,'discounts.manage',s=>s.coupons(p.identityId!,id,input));}
+  coupon(p:MerchantPrincipal,id:string,coupon:string){return this.commerce(p,id,'discounts.manage',s=>s.coupon(p.identityId!,id,coupon));}
+  createCoupon(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['createCoupon']>[2]){return this.commerce(p,id,'discounts.manage',s=>s.createCoupon(p.identityId!,id,input));}
+  updateCoupon(p:MerchantPrincipal,id:string,coupon:string,input:Parameters<CommerceService['updateCoupon']>[3]){return this.commerce(p,id,'discounts.manage',s=>s.updateCoupon(p.identityId!,id,coupon,input));}
 }

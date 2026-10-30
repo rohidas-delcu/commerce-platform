@@ -1,3 +1,4 @@
+import {CreateCouponDto,UpdateCouponDto,CouponQueryDto} from '../../pricing/http/coupons.dto.js';
 import {OrderQueryDto,OrderCommandDto,DispatchDto,CollectCodDto,CancelOrderDto,OrderNoteDto} from '../../orders/http/orders.dto.js';
 import {PricingDto} from '../../pricing/http/pricing.dto.js';
 import {ReservationDto} from '../../inventory/inventory.dto.js';
@@ -129,4 +130,13 @@ export class MerchantController {
   @Post('stores/:storeId/orders/:orderId/cancel') cancelOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:CancelOrderDto){return this.service.orderCommand(r.identitySession!,id,order,{expectedVersion:b.expectedVersion,key:b.key,action:{kind:'CANCEL',reason:b.reason}});}
   @Mutation()
   @Post('stores/:storeId/orders/:orderId/notes') noteOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:OrderNoteDto){return this.service.orderCommand(r.identitySession!,id,order,{expectedVersion:b.expectedVersion,key:b.key,action:{kind:'NOTE',note:b.note}});}
+
+  @Get('stores/:storeId/coupons') coupons(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Query() q:CouponQueryDto){return this.service.coupons(r.identitySession!,id,q);}
+  @Get('stores/:storeId/coupons/:couponId') coupon(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('couponId',ParseUUIDPipe) coupon:string){return this.service.coupon(r.identitySession!,id,coupon);}
+  @Mutation()
+  @Post('stores/:storeId/coupons') createCoupon(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() b:CreateCouponDto){return this.service.createCoupon(r.identitySession!,id,b);}
+  @Mutation()
+  @Patch('stores/:storeId/coupons/:couponId') updateCoupon(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('couponId',ParseUUIDPipe) coupon:string,@Body() b:UpdateCouponDto){return this.service.updateCoupon(r.identitySession!,id,coupon,b);}
+  @Mutation()
+  @Post('stores/:storeId/coupons/:couponId/archive') archiveCoupon(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('couponId',ParseUUIDPipe) coupon:string,@Body() b:VersionDto){return this.service.updateCoupon(r.identitySession!,id,coupon,{expectedVersion:b.expectedVersion,active:false});}
 }

@@ -5,7 +5,7 @@ import {CustomerGuard} from '../../customer/http/customer.controller.js';
 import type {CustomerRequest} from '../../customer/application/customer.service.js';
 import {hostCookie,type CookieResponse} from '../../identity/http/session-cookie.js';
 import {CartService} from '../application/cart.service.js';
-import {CartVersionDto,CartItemDto,CartMergeDto} from './cart.dto.js';
+import {CartVersionDto,CartItemDto,CartMergeDto,CartCouponDto} from './cart.dto.js';
 @ApiTags('Store carts')
 @ApiCookieAuth('customerSession')
 @ApiHeader({name:'x-csrf-token',description:'Required for mutations, using the store customer anonymous or authenticated session.'})
@@ -23,4 +23,6 @@ export class CartController {
   @Post('refresh') refresh(@Req() r:CustomerRequest,@Body() b:CartVersionDto){return this.service.update(this.context(r),b.expectedVersion,{type:'refresh'});}
   @Post('merge') async merge(@Req() r:CustomerRequest,@Body() b:CartMergeDto,@Res({passthrough:true}) response:CookieResponse){const result=await this.service.merge(this.context(r),b.expectedVersion,b.guestVersion);hostCookie(response,'delcu_cart_'+r.customerScope!.storeId,'',0);return result;}
   @Post('quote') quote(@Req() r:CustomerRequest,@Body() b:QuoteDto){return this.service.quote(this.context(r),b);}
+  @Post('coupon') coupon(@Req() r:CustomerRequest,@Body() b:CartCouponDto){return this.service.update(this.context(r),b.expectedVersion,{type:'coupon',code:b.code});}
+  @Delete('coupon') removeCoupon(@Req() r:CustomerRequest,@Body() b:CartVersionDto){return this.service.update(this.context(r),b.expectedVersion,{type:'coupon',code:null});}
 }

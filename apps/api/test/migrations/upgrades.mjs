@@ -60,7 +60,29 @@ try {
   const account=(await fixture.query('SELECT m.* FROM "Store" s JOIN "MerchantAccount" m ON m.id=s."merchantId" WHERE s.id=$1',[s])).rows[0];
   assert.equal(account.status,'QUARANTINED');assert.equal(account.legacySubject,'unmapped-legacy-subject');
   assert.equal((await fixture.query('SELECT COUNT(*)::int AS count FROM "MerchantMembership" WHERE "merchantId"=$1',[account.id])).rows[0].count,0);
-  console.log('PASS: populated Phase 0 upgrade, repeat deployment, status, drift, exact commerce/identity/session preservation and unclaimed legacy quarantine.');
+  // Exercise the zero-amount correction against populated old payment states,
+  // using the exact DML from the already-deployed migration in this owned DB.
+  const customer=randomUUID();
+  await fixture.query('INSERT INTO "Identity" (id,email,name,"passwordHash","verifiedAt","scopeKey","customerStoreId") VALUES ($1,$2,$3,$4,NOW(),$5,$6)',[customer,'zero-upgrade@example.test','Migration customer','fixture-only-hash','store:'+s,s]);
+  const financialOrders=[];
+  for(const scenario of ['zero-delivered','positive-due','zero-cancelled']){
+    const cartId=randomUUID(),checkoutId=randomUUID(),orderId=randomUUID(),positive=scenario==='positive-due',cancelled=scenario==='zero-cancelled';
+    await fixture.query('INSERT INTO "Cart" (id,"storeId","customerId",status,"expiresAt","updatedAt") VALUES ($1,$2,$3,$4,NOW()+interval \'1 day\',NOW())',[cartId,s,customer,'CHECKED_OUT']);
+    await fixture.query('INSERT INTO "Checkout" (id,"storeId","customerId","cartId","cartVersion",key,digest,status,"contactEmail","contactName","expiresAt","updatedAt") VALUES ($1,$2,$3,$4,0,$5,$6,$7,$8,$9,NOW()+interval \'1 day\',NOW())',[checkoutId,s,customer,cartId,'migration_'+scenario,'a'.repeat(64),'COMPLETED','fixture@example.test','Fixture']);
+    const address={name:'Fixture',line1:'12 Test Road',city:'Pune',region:'MH',postalCode:'411001',countryCode:'IN',phone:'+919999999999'};
+    await fixture.query('INSERT INTO "Order" (id,"storeId","customerId","checkoutId","placementKey","placementDigest",number,status,"paymentStatus","fulfillmentStatus","contactEmail","contactName","shippingAddress","shippingMethodName","taxSnapshot","currencyCode","subtotalMinor","discountMinor","shippingMinor","taxMinor","shippingTaxMinor","taxInclusive","totalMinor","amountDueMinor","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,100,$17,0,0,0,false,$18,$18,NOW())',[orderId,s,customer,checkoutId,'migration_'+scenario,'b'.repeat(64),'MIGRATION-'+scenario,cancelled?'CANCELLED':'PLACED',cancelled?'VOID':'DUE',cancelled?'CANCELLED':positive?'UNFULFILLED':'DELIVERED','fixture@example.test','Fixture',address,'Standard',{taxInclusive:false,discountCode:null},'INR',positive?0:100,positive?100:0]);
+    financialOrders.push({id:orderId,scenario,before:(await fixture.query(`SELECT to_jsonb(o)-ARRAY['paymentStatus','status','updatedAt'] AS snapshot FROM "Order" o WHERE id=$1`,[orderId])).rows[0].snapshot});
+  }
+  const correction=await readFile(new URL('../../../../packages/database/prisma/migrations/20261030155100_zero_amount_orders/migration.sql',import.meta.url),'utf8'),dml=correction.slice(correction.indexOf('WITH corrected AS'),correction.lastIndexOf('COMMIT;'));
+  await fixture.query(dml);await fixture.query(dml);
+  for(const fixtureOrder of financialOrders){
+    const row=(await fixture.query('SELECT * FROM "Order" WHERE id=$1',[fixtureOrder.id])).rows[0];
+    assert.equal(row.paymentStatus,fixtureOrder.scenario==='zero-delivered'?'NOT_REQUIRED':fixtureOrder.scenario==='positive-due'?'DUE':'VOID');
+    assert.equal(row.status,fixtureOrder.scenario==='zero-delivered'?'COMPLETED':fixtureOrder.scenario==='positive-due'?'PLACED':'CANCELLED');
+    assert.deepEqual((await fixture.query(`SELECT to_jsonb(o)-ARRAY['paymentStatus','status','updatedAt'] AS snapshot FROM "Order" o WHERE id=$1`,[row.id])).rows[0].snapshot,fixtureOrder.before);
+  }
+  assert.equal((await fixture.query('SELECT COUNT(*)::int AS count FROM "IdentityAudit" WHERE action=$1',['ZERO_AMOUNT_ORDER_CORRECTED:'+financialOrders[0].id])).rows[0].count,1);
+  console.log('PASS: populated Phase 0 upgrade, repeat deployment, status, drift, exact commerce/identity/session preservation, unclaimed legacy quarantine and idempotent zero-total correction.');
 } finally {
   await fixture?.end();
   // Only the randomly named database created by this process is removed.

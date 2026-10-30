@@ -23,12 +23,12 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   optimistic replacement, safe deletion and public visibility checks. Live S3 unverified.
 - Inventory: on-hand/reserved/available, atomic holds, stable keys/digests, bounded
   TTL, release/expiry/commitment, transition history and atomic movements. Commitment
-  is internal only; checkout/order linkage and cancellation restoration remain pending.
+  remains internal; checkout/order commitment and cancellation restoration now use it.
 - Carts: guest capabilities in host-only HttpOnly cookies, authenticated store-owned
   carts, versioned edits/clear/refresh, exact server prices and validation messages,
   atomic login merge/retry handling and expiry. No inventory reservation on cart
   creation or editing. Store-configured shipping/tax estimates now have an API;
-  coupon persistence/redemption and durable checkout totals remain pending.
+  coupon application/leases/redemption and durable checkout/order totals now work.
 - Customer checkpoint: independent store-scoped identities reuse credential/session
   infrastructure, cookie/origin/CSRF policy and throttles. Customer cookies cannot
   become merchant or another store's authority even when renamed. SQL constraints
@@ -42,8 +42,8 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   payment processing. Draft configuration can be incomplete; onboarding/publication
   require shipping/payment readiness and tax coverage for shipping destinations.
   Currency cannot be reinterpreted after catalog or pricing values exist.
-  Discount arithmetic/eligibility is unit-tested domain code only; coupon APIs,
-  durable redemption and checkout usage enforcement remain pending.
+  Coupon APIs, bounded quota leases and immutable redemption/release ledgers now
+  enforce usage and cancellation policy within the same checkout/order transactions.
 
 - Checkout checkpoint: verified store customers can start/resume an idempotent
   checkout, configure contact/address/shipping, obtain a durable quoted inventory
@@ -70,34 +70,45 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Internal notes work on open/closed orders and are excluded from the explicit
   customer-visible event allowlist. Notification intents are queued, not delivered.
 
+- Coupons: owner/admin management with scoped code uniqueness, versioned fixed/
+  percentage rules, dates and usage limits; guest/customer cart application/removal
+  and deterministic merge preference. Checkout leases quota alongside inventory,
+  preventing last-use races before payment. Order placement consumes once; opt-in
+  cancellation restoration follows the policy captured at purchase. Actual expiry,
+  per-customer limits and rollback are covered by real HTTP/PostgreSQL journeys.
+- Zero totals explicitly use NOT_REQUIRED (paid0/due0), complete on delivery and
+  never report a payment or send a payment-confirmation intent. The focused migration
+  corrects any earlier zero-DUE state without changing financial values or IDs.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 38 passed, 0 failed/skipped.
+- `pnpm test`: 39 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 15 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 17 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; it is not 14 independent end-to-end purchase flows.
+  and SQL checks; these totals include shared suites, not17 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
   verifies original commerce/identity/session values and unclaimed quarantine,
-  and drops only its own fixture DB. Original foundation migration is unchanged.
+  and drops only its own fixture DB. Populated zero-delivered/positive-due/cancelled
+  order fixtures also verify the exact correction DML twice, preserving financial
+  values and producing one audit entry. Original foundation migration is unchanged.
 - Executed PostgreSQL races: stock updates, last-unit reservations, commit/release,
   last-owner removal, membership revocation vs catalog writes, default addresses.
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before manual fulfillment: `b83574aa3423df8a473a30ba712f1cdec95ea389`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41078376704
-  Checkout `769f125` also passed Actions run41076565558. Fulfillment remote CI
-  must be checked after pushing; local results do not establish remote CI success.
+- Latest pushed verified implementation before coupons: `5188e4f8cef29736010fd170d1dfa2d76ddc324d`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41080618341
+  COD `b83574a` also passed Actions run41078376704. Coupon remote CI must
+  be checked after pushing; local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Commit manual fulfillment checkpoint/inspect CI; implement persistent coupon
-   management, cart application/removal and transactional redemption/limits, with
-   explicit cancellation usage-restoration policy. Couple usage to order placement.
+1. Commit coupon checkpoint/inspect CI; finish store branding logo/assets and
+   receipt/account access for closed stores without enabling storefront commerce.
 2. Finish logo/branding settings and review all onboarding/publication prerequisites.
 3. Complete remaining payment/simulator/reconciliation/refund lifecycles and security
    acceptance; never infer captured payment from a browser callback.
@@ -124,7 +135,9 @@ receipt access for closed/suspended stores needs policy review before production
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030154000_manual_fulfillment` (command ledger, event data and cancellation
+Migration history now includes `20261030155000_coupon_redemption` (coupon quota leases/immutable usage ledgers)
+and `20261030155100_zero_amount_orders` (NOT_REQUIRED, preserving amounts/IDs),
+`20261030154000_manual_fulfillment` (command ledger, event data and cancellation
 movement reason) and `20261030153000_cod_orders` (immutable snapshots/items/events, staged outbox,
 exact money/tenant constraints and per-store counters),
 `20261030152000_checkout` (source cart/customer/store FK, active-cart uniqueness)

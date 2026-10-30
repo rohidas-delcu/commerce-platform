@@ -139,3 +139,22 @@ Command keys/digests and optimistic versions protect concurrent retries, preserv
 immutable events/snapshots. Owner/admin order-manage permission is centralized. Private
 notes can append to closed orders but are excluded from customer-visible history.
 Keep notification staging transactional; delivery and refunds still require later slices.
+
+## Coupon quota, immutable usage and zero totals (implementation, 2026-10-30)
+
+Use normalized tenant-scoped coupon records and bounded quota leases aligned with
+checkout stock holds. Count consumed uses plus other live leases; exclude the same
+cart's own lease when displaying/revalidating its quote. This prevents last-use races
+before a later asynchronous payment. Consume a lease and append redemption with order
+placement; rollback all effects on failure. Checkout cancellation/expiry releases only
+unconsumed quota. Consumed quota restoration is explicit (default false), snapshotted
+at purchase and represented by a separate immutable release record. Do not rewrite
+financial snapshots or old redemption records when policy changes. Codes are immutable,
+store-scoped, uppercase; percentages are integer basis points and discounts do not stack.
+Owned-cart coupon wins during merge, otherwise carry/revalidate the guest coupon.
+
+A fully discounted/free-shipping order has NOT_REQUIRED, paid0/due0, and completes on
+delivery. It never implies money was captured or cash collected. Correct earlier
+zero-DUE records with an idempotent audited data migration preserving IDs/amounts;
+positive/void orders remain unchanged. Both the real API flow and populated correction
+DML are executed. Currency is fixed once catalog/pricing/coupon monetary data exists.

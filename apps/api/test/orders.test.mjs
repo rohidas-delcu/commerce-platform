@@ -21,6 +21,7 @@ test('manual fulfillment and COD collection use explicit forward transitions and
   assert.throws(()=>orderTransition(state,{kind:'CANCEL',reason:'Too late'}),{code:'CONFLICT'});assert.throws(()=>orderTransition(state,{kind:'READY'}),{code:'CONFLICT'});
   state={...state,...orderTransition(state,{kind:'DELIVER'})};assert.equal(state.paymentStatus,'DUE');assert.throws(()=>orderTransition(state,{kind:'COLLECT_COD',amountMinor:'1'}),{code:'CONFLICT'});
   state={...state,...orderTransition(state,{kind:'COLLECT_COD',amountMinor:'1233'})};assert.equal(state.status,'COMPLETED');assert.equal(state.paidMinor,'1233');assert.equal(state.amountDueMinor,'0');
+  const freeDelivered=orderTransition({...order,paymentStatus:'NOT_REQUIRED',amountDueMinor:'0',totalMinor:'0',fulfillmentStatus:'DISPATCHED'},{kind:'DELIVER'});assert.equal(freeDelivered.status,'COMPLETED');assert.equal(freeDelivered.paymentStatus,'NOT_REQUIRED');
   const cancelled=orderTransition(order,{kind:'CANCEL',reason:'Customer requested'});assert.equal(cancelled.status,'CANCELLED');assert.equal(cancelled.paymentStatus,'VOID');assert.equal(cancelled.restoreInventory,true);
   assert.throws(()=>normalizeOrderAction({kind:'CANCEL',reason:' '}),{code:'INVALID'});assert.throws(()=>normalizeOrderAction({kind:'DISPATCH',carrier:'bad\u0000'}),{code:'INVALID'});assert.throws(()=>normalizeOrderAction({kind:'COLLECT_COD',amountMinor:'1.5'}),{code:'INVALID'});
 });

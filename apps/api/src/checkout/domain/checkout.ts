@@ -4,7 +4,7 @@ import {customerAddress,type AddressInput} from '../../customer/domain/customer.
 import type {calculateQuote} from '../../pricing/domain/pricing.js';
 export type CheckoutStatus='DRAFT'|'READY'|'COMPLETED'|'CANCELLED'|'EXPIRED';
 export type CheckoutItem={productId:string;variantId:string;productName:string;variantName:string;sku:string;quantity:number;unitPriceMinor:string;subtotalMinor:string;};
-export type CheckoutSnapshot={baseVersion:number;cartVersion:number;currencyCode:string;totals:ReturnType<typeof calculateQuote>;shippingMethodName:string;items:CheckoutItem[];};
+export type CheckoutSnapshot={couponId?:string|null;couponVersion?:number|null;couponHoldId?:string|null;baseVersion:number;cartVersion:number;currencyCode:string;totals:ReturnType<typeof calculateQuote>;shippingMethodName:string;items:CheckoutItem[];};
 export interface Checkout {
   orderId?:string|null;
   id:string;cartId:string;status:CheckoutStatus;version:number;expiresAt:Date;

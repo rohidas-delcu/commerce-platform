@@ -75,3 +75,13 @@ by concurrent retry proving exactly one stock restoration and cancellation notic
 Invalid backward transitions, premature/wrong-amount collection, late cancellation
 and editor writes are rejected. Customer COMPLETED/CANCELLED filters and safe carrier
 history are verified. This does not verify refunds, online payments or email delivery.
+
+Two coupon suites use real HTTP merchant signup/account/onboarding/catalog/publication,
+customer signup/cart and COD checkout. They execute scoped uniqueness/IDOR, guest merge
+preference, per-customer restrictions, last-use lease competition, retry/redemption,
+opt-in quota restoration, snapshot policy immutability, actual time expiry and zero-total
+NOT_REQUIRED delivery. A forced quota-release insert failure verifies rollback of order,
+stock and quota before retry. Migration rehearsal runs the exact zero-total correction
+DML twice against delivered-zero, positive-due and cancelled-zero fixtures; IDs/financial
+values and non-target states stay unchanged, with one audit entry. No provider/payment
+capture or actual email delivery is implied by these deterministic backend checks.

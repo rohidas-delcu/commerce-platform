@@ -1,3 +1,5 @@
+import {PrismaPricingRepository} from '../../pricing/infrastructure/prisma-pricing.repository.js';
+import {discountAmount} from '../../pricing/domain/pricing.js';
 import {PrismaClient,type Prisma} from '../../generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {DomainError} from '../../domain/commerce.js';
@@ -42,6 +44,14 @@ export class PrismaCartRepository implements CartRepositoryPort {
       await tx.cartLine.upsert({where:{cartId_variantId:{cartId:row.id,variantId:variant.id}},create:{storeId:c.storeId,cartId:row.id,variantId:variant.id,quantity:operation.quantity,priceSeenMinor},update:{quantity:operation.quantity,priceSeenMinor}});
     }else if(operation.type==='remove')await tx.cartLine.deleteMany({where:{cartId:row.id,storeId:c.storeId,variantId:operation.variantId}});
     else if(operation.type==='clear')await tx.cartLine.deleteMany({where:{cartId:row.id,storeId:c.storeId}});
+    else if(operation.type==='coupon'){
+      let couponId:string|null=null;
+      if(operation.code!==null){const pricing=new PrismaPricingRepository(tx),coupon=await pricing.couponByCode(c.storeId,operation.code);if(!coupon)throw new DomainError('CONFLICT','Coupon unavailable or ineligible.');const rule=await pricing.couponRule(c.storeId,coupon.id,row.customerId,row.id);if(!rule)throw new DomainError('CONFLICT','Coupon unavailable or ineligible.');
+        let subtotal=0n;for(const line of row.lines){const variant=await tx.productVariant.findFirst({where:{id:line.variantId,storeId:c.storeId,active:true,product:{status:'ACTIVE'}},include:{product:{select:{priceMinor:true}}}});if(!variant)throw new DomainError('CONFLICT','Resolve unavailable cart items before applying a coupon.');subtotal+=(variant.priceMinor??variant.product.priceMinor)*BigInt(line.quantity);}
+        discountAmount(subtotal,rule,row.customerId,new Date());couponId=coupon.id;
+      }
+      await tx.cart.update({where:{id:row.id},data:{couponId}});
+    }
     else for(const line of row.lines){const variant=await tx.productVariant.findFirst({where:{id:line.variantId,storeId:c.storeId,active:true,product:{status:'ACTIVE'}},include:{product:{select:{priceMinor:true}}}});if(variant)await tx.cartLine.update({where:{cartId_variantId:{cartId:row.id,variantId:line.variantId}},data:{priceSeenMinor:variant.priceMinor??variant.product.priceMinor}});}
     return domain(await tx.cart.update({where:{id:row.id},data:{version:{increment:1},...(row.customerId?{expiresAt:expires()}:{})},include}));
   });}
@@ -63,6 +73,6 @@ export class PrismaCartRepository implements CartRepositoryPort {
     if(combined.size>100)throw new DomainError('CONFLICT','Merged cart exceeds item limit.');
     for(const[variantId,line]of combined)await tx.cartLine.upsert({where:{cartId_variantId:{cartId:target.id,variantId}},create:{storeId:c.storeId,cartId:target.id,variantId,...line},update:line});
     await tx.cart.update({where:{id:source.id},data:{status:'MERGED',mergedIntoId:target.id,version:{increment:1}}});
-    return domain(await tx.cart.update({where:{id:target.id},data:{version:{increment:1},expiresAt:expires()},include}));
+    return domain(await tx.cart.update({where:{id:target.id},data:{version:{increment:1},expiresAt:expires(),couponId:target.couponId??source.couponId??null},include}));
   });}
 }
