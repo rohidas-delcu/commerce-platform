@@ -13,7 +13,7 @@ export class CustomerGuard implements CanActivate {
     const request=context.switchToHttp().getRequest<CustomerRequest&{method:string}>();
     context.switchToHttp().getResponse<CookieResponse>().setHeader('Cache-Control','no-store');
     const scope=await this.service.scope(request.params.handle);request.customerScope=scope;
-    const mode=this.reflector.get<string>('customerAccess',context.getHandler())??'member';
+    const mode=this.reflector.getAllAndOverride<string>('customerAccess',[context.getHandler(),context.getClass()])??'member';
     if(mode!=='bootstrap')await scope.auth.context(request,mode!=='public',request.method!=='GET',mode==='refresh');return true;
   }
 }

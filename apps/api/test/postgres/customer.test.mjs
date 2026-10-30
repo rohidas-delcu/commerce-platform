@@ -8,7 +8,7 @@ import {PrismaClient} from '../../dist/generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {decryptMail} from '../../dist/identity/infrastructure/secrets.js';
 
-test('store customer HTTP authentication, credential separation, address concurrency, wishlist privacy and revocation',{timeout:60000},async t=>{
+test('store customer HTTP authentication, credential separation, address concurrency, wishlist privacy, carts and revocation',{timeout:60000},async t=>{
   assert.ok(process.env.DATABASE_URL,'Disposable PostgreSQL required.');const previous=process.env.AUTH_OUTBOX_KEY;process.env.AUTH_OUTBOX_KEY='e'.repeat(64);
   const db=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});
   const limiterKeys=['browser','mutation'].map(kind=>createHash('sha256').update(`${kind}:127.0.0.1:${Math.floor(Date.now()/900000)}`).digest('hex'));
@@ -19,7 +19,7 @@ test('store customer HTTP authentication, credential separation, address concurr
   const child=spawn(process.execPath,['dist/main.js'],{cwd:new URL('../../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'development',DATA_DRIVER:'postgres',DEMO_AUTH_ENABLED:'false'},stdio:['ignore','pipe','pipe']});let logs='';child.stdout.on('data',c=>{logs+=c;});child.stderr.on('data',c=>{logs+=c;});
   t.after(async()=>{if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit'),timer=setTimeout(()=>child.kill('SIGKILL'),5000);timer.unref();child.kill('SIGTERM');const[,signal]=await exited;clearTimeout(timer);assert.notEqual(signal,'SIGKILL');}await db.identityThrottle.deleteMany({where:{key:{in:limiterKeys}}});await db.$disconnect();if(previous===undefined)delete process.env.AUTH_OUTBOX_KEY;else process.env.AUTH_OUTBOX_KEY=previous;});
   let ready=false;for(let i=0;i<100;i++){assert.equal(child.exitCode,null,logs);try{ready=(await fetch(base+'/health/ready')).ok;}catch{}if(ready)break;await delay(100);}assert.ok(ready,logs);
-  async function request(browser,path,method='GET',body,extra={}){const response=await fetch(base+path,{method,headers:{cookie:browser.cookie??'',origin:'http://localhost:5173','x-csrf-token':browser.csrf??'','content-type':'application/json',...extra},body:body===undefined?undefined:JSON.stringify(body)});const cookie=response.headers.get('set-cookie');if(cookie)browser.cookie=cookie.split(';')[0];const text=await response.text(),result=text?JSON.parse(text):null;if(result?.csrfToken)browser.csrf=result.csrfToken;return{status:response.status,body:result,headers:response.headers};}
+  async function request(browser,path,method='GET',body,extra={}){const response=await fetch(base+path,{method,headers:{cookie:browser.cookie??'',origin:'http://localhost:5173','x-csrf-token':browser.csrf??'','content-type':'application/json',...extra},body:body===undefined?undefined:JSON.stringify(body)});const cookie=response.headers.get('set-cookie');if(cookie){const pair=cookie.split(';')[0],name=pair.split('=')[0];browser.cookie=[...(browser.cookie??'').split(';').map(v=>v.trim()).filter(v=>v&&!v.startsWith(name+'=')),...(!cookie.includes('Max-Age=0')?[pair]:[])].join('; ');}const text=await response.text(),result=text?JSON.parse(text):null;if(result?.csrfToken)browser.csrf=result.csrfToken;return{status:response.status,body:result,headers:response.headers};}
   const rootA=`/v1/storefront/${a.store.handle}/customer`,rootB=`/v1/storefront/${b.store.handle}/customer`,email=`customer-${randomUUID()}@example.test`,password='strong customer fixture password 519782';
   async function token(scopeKey,purpose){const mail=await db.identityMail.findFirstOrThrow({where:{scopeKey,recipient:email,purpose},orderBy:{createdAt:'desc'}});return decryptMail(mail.encryptedPayload).token;}
   async function signup(browser,root){const bootstrap=await request(browser,root+'/auth/csrf');assert.equal(bootstrap.status,200);assert.equal(bootstrap.headers.get('access-control-allow-credentials'),'true');assert.match(browser.cookie,/^delcu_customer_/);assert.equal((await request(browser,root+'/auth/signup','POST',{email,password,name:'Customer'})).status,201);}
@@ -50,7 +50,37 @@ test('store customer HTTP authentication, credential separation, address concurr
   assert.equal((await request(customer,rootA+`/wishlist/${a.product.id}`,'PUT')).status,200);assert.equal((await request(customer,rootA+`/wishlist/${a.product.id}`,'PUT')).status,200);
   const wishlist=(await request(customer,rootA+'/wishlist')).body;assert.equal(wishlist.items.length,1);assert.equal(wishlist.items[0].id,a.product.id);assert.equal('storeId'in wishlist.items[0],false);assert.equal('sku'in wishlist.items[0].variants[0],false);
   assert.equal((await request(customer,rootA+`/wishlist/${b.product.id}`,'PUT')).status,404);assert.equal((await request(other,rootB+'/wishlist')).body.items.length,0);
+  const cartRoot=`/v1/storefront/${a.store.handle}/cart`,guest={};await request(guest,rootA+'/auth/csrf');
+  const guestCart=await request(guest,cartRoot,'POST');assert.equal(guestCart.status,201,JSON.stringify(guestCart.body));assert.equal(guestCart.body.items.length,0);
+  const cartCookieName='delcu_cart_'+a.store.id,guestCapability=guest.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith(cartCookieName+'='));assert.ok(guestCapability);
+  const variant=(await db.productVariant.findFirstOrThrow({where:{productId:a.product.id}})),otherVariant=(await db.productVariant.findFirstOrThrow({where:{productId:b.product.id}}));
+  const guestAdded=await request(guest,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:0,quantity:1});assert.equal(guestAdded.status,200);assert.equal(guestAdded.body.subtotalMinor,'199900');
+  assert.equal((await request(guest,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:1,quantity:1,unitPriceMinor:'1'})).status,400);
+  assert.equal((await request(guest,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:1,quantity:4})).status,409);
+  assert.equal((await request(guest,cartRoot+`/items/${otherVariant.id}`,'PUT',{expectedVersion:1,quantity:1})).status,404);
+  assert.equal((await request(guest,cartRoot+'/merge','POST',{expectedVersion:0,guestVersion:1})).status,401);
+  const noCapability={};await request(noCapability,rootA+'/auth/csrf');assert.equal((await request(noCapability,cartRoot)).status,404);
+  assert.equal((await request(other,`/v1/storefront/${b.store.handle}/cart`,'GET',undefined,{cookie:other.cookie+'; '+guestCapability.replace(cartCookieName,'delcu_cart_'+b.store.id)})).status,404);
+  assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:variant.id}})).reserved,0,'Carts must not reserve inventory.');
+  const ownedCart=await request(customer,cartRoot,'POST');assert.equal(ownedCart.status,201);
+  assert.equal((await request(customer,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:0,quantity:2})).status,200);
+  customer.cookie+='; '+guestCapability;
+  const merged=await request(customer,cartRoot+'/merge','POST',{expectedVersion:1,guestVersion:1});assert.equal(merged.status,201,JSON.stringify(merged.body));assert.equal(merged.body.items[0].quantity,3);assert.equal(merged.body.subtotalMinor,'599700');
+  const mergedAgain=await request(customer,cartRoot+'/merge','POST',{expectedVersion:1,guestVersion:1});assert.equal(mergedAgain.body.id,merged.body.id);assert.equal(mergedAgain.body.items[0].quantity,3);
+  assert.equal((await db.cart.findUniqueOrThrow({where:{id:guestCart.body.id}})).status,'MERGED');
+  assert.equal((await request(customer,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:1,quantity:1})).status,409);
+  const editRace=await Promise.all([request(customer,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:merged.body.version,quantity:1}),request(customer,cartRoot+`/items/${variant.id}`,'PUT',{expectedVersion:merged.body.version,quantity:2})]);assert.deepEqual(editRace.map(r=>r.status).sort(),[200,409]);
+  await db.product.update({where:{id:a.product.id},data:{priceMinor:149900n}});
+  let currentCart=(await request(customer,cartRoot)).body;assert.ok(currentCart.validation.some(v=>v.code==='PRICE_CHANGED'));assert.equal(currentCart.subtotalMinor,(149900n*BigInt(currentCart.items[0].quantity)).toString());assert.equal(JSON.stringify(currentCart).includes('SECRET-SKU'),false);assert.equal('secretDigest'in currentCart,false);assert.equal('customerId'in currentCart,false);
+  const refreshed=await request(customer,cartRoot+'/refresh','POST',{expectedVersion:currentCart.version});assert.equal(refreshed.status,201);assert.equal(refreshed.body.validation.some(v=>v.code==='PRICE_CHANGED'),false);
+  await db.productVariant.update({where:{id:variant.id},data:{stock:0}});assert.equal((await request(customer,cartRoot)).body.validation[0].code,'STOCK_SHORTAGE');await db.productVariant.update({where:{id:variant.id},data:{stock:3}});
   await db.product.update({where:{id:a.product.id},data:{status:'ARCHIVED'}});assert.equal((await request(customer,rootA+'/wishlist')).body.items.length,0);
+  currentCart=(await request(customer,cartRoot)).body;assert.ok(currentCart.validation.some(v=>v.code==='UNAVAILABLE'));assert.equal(currentCart.valid,false);
+  const cleared=await request(customer,cartRoot+'/items','DELETE',{expectedVersion:currentCart.version});assert.equal(cleared.status,200);assert.equal(cleared.body.items.length,0);
+  await db.cart.update({where:{id:cleared.body.id},data:{expiresAt:new Date(Date.now()-1)}});assert.equal((await request(customer,cartRoot)).body.status,'EXPIRED');
+  assert.equal((await request(customer,cartRoot+'/refresh','POST',{expectedVersion:cleared.body.version})).status,409);
+  await assert.rejects(db.cart.create({data:{storeId:a.store.id,expiresAt:new Date(Date.now()+60000)}}));
+  const replacement=await request(customer,cartRoot,'POST');assert.equal(replacement.status,201);assert.notEqual(replacement.body.id,cleared.body.id);
   const oneCustomer=await db.identity.findUniqueOrThrow({where:{id:me.id}});
   await assert.rejects(db.merchantMembership.create({data:{merchantId:a.store.merchantId,identityId:me.id,role:'ACCOUNT_OWNER'}}));
   await assert.rejects(db.identity.update({where:{id:me.id},data:{scopeKey:'merchant',customerStoreId:null}}));

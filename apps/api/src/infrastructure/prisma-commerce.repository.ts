@@ -151,6 +151,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     const orderBy:Prisma.ProductOrderByWithRelationInput[]=query.sort==='name'?[{name:'asc'},{id:'asc'}]:query.sort==='price_asc'?[{priceMinor:'asc'},{id:'asc'}]:query.sort==='price_desc'?[{priceMinor:'desc'},{id:'asc'}]:[{createdAt:'desc'},{id:'asc'}];
     return (await this.db.product.findMany({where,orderBy,skip:query.offset,take:query.limit+1,include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}})).map(productDomain);
   }
+  async productsForVariants(storeId:string,variantIds:string[]){return(await this.db.product.findMany({where:{storeId,variants:{some:{id:{in:variantIds}}}},include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}})).map(productDomain);}
   async listProducts(storeId: string) {
     return (await this.db.product.findMany({
       where: { storeId }, include: { variants: true, images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}} }, orderBy: { createdAt: "desc" }

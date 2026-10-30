@@ -44,3 +44,12 @@ Store locks serialize creation keys; variant locks use deterministic ordering.
 Stock adjustment compares both counters; the database forbids reserved>on-hand.
 Reservation history is independent of on-hand movement history. Orders, cancellation
 restoration and scheduled cleanup are pending; no paid-order claims at this stage.
+
+Carts: ACTIVE → MERGED | EXPIRED | CHECKED_OUT. Checkout transition is reserved for
+the upcoming checkout slice. A guest cart's capability never grants customer/order
+access. Merge serializes source/destination, combines quantities once and keeps the
+source as terminal history. Owned carts have at most one ACTIVE row per store and
+customer. Guest expiry is seven days from creation (matching capability cookie);
+owned cart expiry is seven idle days. Refresh and mutations use optimistic versions.
+No cart operation reserves or deducts stock. Current quotes warn about changed prices,
+inactive catalog and insufficient availability; final checkout pricing is pending.

@@ -187,3 +187,28 @@ Deleting a default selects the oldest remaining address. No cross-store access.
 `PUT/DELETE wishlist/:productId` are idempotent, bounded at500 saved products.
 Wishlist does not expose internal SKU, merchant or audit fields. Customer order
 history/details are pending the orders slice; these endpoints do not claim them.
+
+## Guest/customer carts
+
+Base `/v1/storefront/:handle/cart`. First obtain the store customer `auth/csrf`
+session, including for guests; all mutations require its Origin/CSRF policy.
+`POST /cart` creates/resumes; guests receive an additional host-only HttpOnly
+`delcu_cart_<store UUID>` capability cookie. This capability is not a customer
+identity. `GET /cart` selects the authenticated active cart or the guest capability.
+Ownership/customer IDs, secret digests and SKU are never returned.
+`PUT items/:variantId` `{expectedVersion,quantity}` sets absolute quantity 1–999;
+`DELETE items/:variantId` or `DELETE items` uses `{expectedVersion}`. Max100 lines.
+Prices, totals and stock are read on the server; client price fields are rejected.
+`POST refresh` `{expectedVersion}` acknowledges current server prices.
+
+Responses contain cart id/status/version/expiresAt, safe items, currencyCode,
+subtotalMinor and structured validation (UNAVAILABLE, STOCK_SHORTAGE, PRICE_CHANGED).
+This subtotal is not a checkout total and excludes pending shipping/tax/discounts.
+A current quote never authorizes stock allocation; checkout must revalidate/reserve.
+`POST merge` after customer login uses `{expectedVersion,guestVersion}`; combines
+same-variant quantities atomically, rejects >999/100 lines, marks the guest merged
+and clears its cookie. Retrying does not add quantities twice. Inactive/short-stock
+merged lines remain visible as invalid choices for resolution, without reserving.
+A guest cart expires seven days after creation; owned carts expire after seven days
+without mutation. Expired carts cannot mutate; POST creates a fresh cart. Physical
+retention cleanup awaits the worker. Customer/guest APIs require PostgreSQL.

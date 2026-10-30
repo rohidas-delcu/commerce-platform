@@ -71,6 +71,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
     rows.sort((a,b)=>{let result=0;if(query.collectionId&&query.collectionPosition)result=this.collectionLinks.get(query.collectionId+':'+a.id)!.position-this.collectionLinks.get(query.collectionId+':'+b.id)!.position;else if(query.sort==='price_asc'||query.sort==='price_desc'){result=BigInt(a.priceMinor)<BigInt(b.priceMinor)?-1:BigInt(a.priceMinor)>BigInt(b.priceMinor)?1:0;if(query.sort==='price_desc')result=-result;}else if(query.sort==='name')result=a.name<b.name?-1:a.name>b.name?1:0;else result=a.createdAt>b.createdAt?-1:a.createdAt<b.createdAt?1:0;return result||(a.id<b.id?-1:a.id>b.id?1:0);});
     return clone(rows.slice(query.offset,query.offset+query.limit+1));
   }
+  async productsForVariants(storeId:string,variantIds:string[]){return clone([...this.products.values()].filter(p=>p.storeId===storeId&&p.variants.some(v=>variantIds.includes(v.id))));}
   async listProducts(storeId: string) { return clone([...this.products.values()].filter(p => p.storeId === storeId)); }
   async saveProduct(product: Product) {
     const current = this.products.get(product.id);

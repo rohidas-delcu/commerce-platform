@@ -1,3 +1,4 @@
+import {withStorefrontSession} from '../../infrastructure/storefront-session.js';
 import {PrismaClient,type Prisma} from '../../generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {IdentityError,type BrowserSession} from '../../identity/domain/identity.js';
@@ -11,17 +12,8 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
   async onModuleInit(){if(process.env.DATA_DRIVER==='postgres')await this.checkHealth();}
   async onModuleDestroy(){await this.client?.$disconnect();}
   async checkHealth(){await Promise.all([this.db.customerAddress.findFirst({select:{id:true}}),this.db.customerWishlist.findFirst({select:{productId:true}})]);}
-  private scope<T>(storeId:string,p:BrowserSession,work:(tx:Prisma.TransactionClient,customerId:string)=>Promise<T>){return this.db.$transaction(async tx=>{
-    if(!p.identityId)throw new IdentityError(401,'Authentication required.');
-    await tx.$queryRaw`SELECT id FROM "Identity" WHERE id=${p.identityId}::uuid FOR UPDATE`;
-    await tx.$queryRaw`SELECT id FROM "IdentitySession" WHERE id=${p.id}::uuid FOR UPDATE`;
-    const session=await tx.identitySession.findFirst({where:{id:p.id,identityId:p.identityId,scopeKey:'store:'+storeId,revokedAt:null,expiresAt:{gt:new Date()},absoluteExpiresAt:{gt:new Date()},identity:{customerStoreId:storeId,status:'ACTIVE',verifiedAt:{not:null}}}});
-    if(!session)throw new IdentityError(401,'Authentication required.');
-    const preliminary=await tx.store.findUnique({where:{id:storeId},select:{merchantId:true}});if(!preliminary)throw new DomainError('NOT_FOUND','Store not found.');
-    await tx.$queryRaw`SELECT id FROM "MerchantAccount" WHERE id=${preliminary.merchantId}::uuid FOR UPDATE`;
-    await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId}::uuid FOR UPDATE`;
-    if(!await tx.store.count({where:{id:storeId,status:'PUBLISHED',suspended:false,archivedAt:null,merchant:{status:'ACTIVE'}}}))throw new DomainError('NOT_FOUND','Store not found.');
-    return work(tx,p.identityId);
+  private scope<T>(storeId:string,p:BrowserSession,work:(tx:Prisma.TransactionClient,customerId:string)=>Promise<T>){return withStorefrontSession(this.db,storeId,p,true,(tx,customerId)=>{
+    if(!customerId)throw new IdentityError(401,'Authentication required.');return work(tx,customerId);
   });}
   addresses(storeId:string,p:BrowserSession){return this.scope(storeId,p,(tx,customerId)=>tx.customerAddress.findMany({where:{customerId,storeId},select,orderBy:[{isDefault:'desc'},{createdAt:'asc'},{id:'asc'}],take:20}));}
   saveAddress(storeId:string,p:BrowserSession,input:AddressInput,id?:string,version?:number){const data=customerAddress(input);return this.scope(storeId,p,async(tx,customerId)=>{

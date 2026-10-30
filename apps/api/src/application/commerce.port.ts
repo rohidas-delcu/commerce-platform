@@ -18,6 +18,7 @@ export interface CommerceRepository {
   findProductByHandle(storeId:string,handle:string):Promise<Product|null>;
   searchProducts(storeId:string,query:Required<Pick<ProductQuery,"limit"|"offset"|"sort">>&ProductQuery):Promise<Product[]>;
   listProducts(storeId: string): Promise<Product[]>;
+  productsForVariants(storeId:string,variantIds:string[]):Promise<Product[]>;
   saveProduct(product: Product): Promise<Product>;
   createCollection(collection:Collection):Promise<Collection>;
   findCollection(storeId:string,id:string):Promise<Collection|null>;

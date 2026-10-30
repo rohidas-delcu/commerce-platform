@@ -29,3 +29,8 @@ For S3 use `OBJECT_STORAGE=s3`, `S3_REGION`, `S3_BUCKET` and standard AWS creden
 resolution. Keep bucket private, permit only scoped object actions/checksums, configure
 browser PUT CORS for approved origins/headers, and lifecycle cleanup of expired orphan
 uploads. S3 live roundtrip/CORS/IAM verification has not run. Production remains disabled.
+
+Guest carts also require a store customer anonymous session from `auth/csrf`; preserve
+both session and cart cookies in the HTTP client. After login call the cart merge API
+with both current versions. Carts return merchandise subtotals only; checkout/order
+APIs and the complete end-to-end demo are not yet available. Use PostgreSQL for carts.

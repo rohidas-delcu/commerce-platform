@@ -1,3 +1,6 @@
+import {CartService} from './cart/application/cart.service.js';
+import {CartController} from './cart/http/cart.controller.js';
+import {PrismaCartRepository} from './cart/infrastructure/prisma-cart.repository.js';
 import {FirstPartyIdentityAuthority} from './identity/infrastructure/credentials.js';
 import * as identitySecrets from './identity/infrastructure/secrets.js';
 import {CustomerService} from './customer/application/customer.service.js';
@@ -20,8 +23,10 @@ import { AdminCommerceController, HealthController, LocalDemoAuthGuard, Storefro
 
 @Module({
   imports: [IdentityModule, MerchantModule,StorageModule],
-  controllers: [CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
+  controllers: [CartController,CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
   providers: [
+    {provide:PrismaCartRepository,useFactory:()=>new PrismaCartRepository()},
+    {provide:CartService,useFactory:(repository:PrismaCartRepository,commerce:CommerceRepository)=>new CartService(repository,commerce,identitySecrets),inject:[PrismaCartRepository,COMMERCE_REPOSITORY]},
     CustomerGuard,
     {provide:PrismaCustomerRepository,useFactory:()=>new PrismaCustomerRepository()},
     {provide:CustomerService,useFactory:(commerce:CommerceRepository,identity:PrismaIdentityRepository,customers:PrismaCustomerRepository)=>new CustomerService(commerce,identity,customers,new FirstPartyIdentityAuthority(),identitySecrets),inject:[COMMERCE_REPOSITORY,PrismaIdentityRepository,PrismaCustomerRepository]},

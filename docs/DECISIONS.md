@@ -72,3 +72,16 @@ __Host- policy. Allowed-origin credentialed CORS supports future browser clients
 custom domains require appropriate approved origins and same-origin BFF handling.
 Store-scoped address defaults serialize on the customer identity, with a partial
 unique SQL index. Default replacement increments affected address versions.
+
+## Carts and storefront transaction scope (implementation, 2026-10-30)
+
+Share one transactional storefront-session authority helper across addresses/wishlist
+and carts; identity/session → account → store locks recheck revoked/suspended scope.
+Guest cart capabilities are independent host-only HttpOnly cookies containing random
+secrets; persist only digests. Authenticated carts use customer identity plus tenant
+FKs. No merchant cookie or cart capability becomes customer authority. Retain quantity
+and server-observed price for change warnings; prices/totals always refresh from the
+catalog. Guest carts expire at seven days; owned cart mutations renew a seven-day
+idle deadline. No cart-based inventory reservation. Merge is an atomic one-time
+source transition, with destination/source versions and quantity/item bounds. This
+policy is initial backend behavior; production remains gated on complete acceptance.

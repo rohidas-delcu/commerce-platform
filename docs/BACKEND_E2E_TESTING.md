@@ -37,3 +37,9 @@ scope/FK guards, safe wishlist/archive filtering, session replay revocation, pas
 recovery, suspension/logout and brute-force throttling. These are customer account
 journeys; purchase/order flows B–I remain pending. Migration rehearsal additionally
 preserves issued merchant credential/session values across namespace migration.
+
+Cart coverage is part of the real customer PostgreSQL HTTP journey: guest creation,
+CSRF/capability scope, owned cart, variant/tenant boundaries, ignored-price prevention
+through DTO rejection, current exact subtotals, no stock reservation, login merge and
+retry, concurrent stale edits, price refresh, stock/catalog changes, clearing and
+expired replacement. Purchase/payment/fulfillment flows still remain pending.

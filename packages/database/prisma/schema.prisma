@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  carts Cart[]
   customers Identity[]
   reservations InventoryReservation[]
   assets MediaAsset[]
@@ -80,6 +81,7 @@ model Product {
 }
 
 model ProductVariant {
+  cartLines CartLine[]
   reserved Int @default(0)
   reservationLines InventoryReservationLine[]
   active Boolean @default(true)
@@ -119,6 +121,7 @@ model InventoryMovement {
 }
 
 model Identity {
+  carts Cart[]
   scopeKey String @default("merchant")
   customerStoreId String? @db.Uuid
   customerStore Store? @relation(fields:[customerStoreId],references:[id],onDelete:Restrict)
@@ -392,4 +395,36 @@ model CustomerWishlist {
   createdAt DateTime @default(now())
   @@id([customerId,productId])
   @@index([storeId,productId])
+}
+
+model Cart {
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  customerId String? @db.Uuid
+  customer Identity? @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  secretDigest String?
+  status String @default("ACTIVE")
+  version Int @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  mergedIntoId String? @db.Uuid
+  mergedInto Cart? @relation("CartMerge",fields:[mergedIntoId,storeId],references:[id,storeId],onDelete:Restrict)
+  sources Cart[] @relation("CartMerge")
+  lines CartLine[]
+  @@unique([id,storeId])
+  @@index([customerId,storeId,status])
+  @@index([status,expiresAt])
+}
+model CartLine {
+  cartId String @db.Uuid
+  storeId String @db.Uuid
+  variantId String @db.Uuid
+  cart Cart @relation(fields:[cartId,storeId],references:[id,storeId],onDelete:Restrict)
+  variant ProductVariant @relation(fields:[variantId,storeId],references:[id,storeId],onDelete:Restrict)
+  quantity Int
+  priceSeenMinor BigInt
+  @@id([cartId,variantId])
+  @@index([variantId,storeId])
 }

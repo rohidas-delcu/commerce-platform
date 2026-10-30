@@ -24,6 +24,10 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
 - Inventory: on-hand/reserved/available, atomic holds, stable keys/digests, bounded
   TTL, release/expiry/commitment, transition history and atomic movements. Commitment
   is internal only; checkout/order linkage and cancellation restoration remain pending.
+- Carts: guest capabilities in host-only HttpOnly cookies, authenticated store-owned
+  carts, versioned edits/clear/refresh, exact server prices and validation messages,
+  atomic login merge/retry handling and expiry. No inventory reservation on cart
+  creation or editing. Shipping/discount/tax and checkout totals are not implemented.
 - Customer checkpoint: independent store-scoped identities reuse credential/session
   infrastructure, cookie/origin/CSRF policy and throttles. Customer cookies cannot
   become merchant or another store's authority even when renamed. SQL constraints
@@ -33,7 +37,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
 
 ## Actual checkpoint evidence
 
-- `pnpm test`: 31 passed, 0 failed/skipped.
+- `pnpm test`: 32 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
 - Disposable PostgreSQL `pnpm test:postgres`: 14 passed, 0 failed/skipped. This
@@ -49,17 +53,17 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified commit before the customer slice: `0eea7a6748a951443610e88b77850313425d3d79`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41070485796
-  Media `693c020` also passed Actions run41059745083. Customer slice remote CI must
+- Latest pushed verified implementation before carts: `8ca16b5f0ada2c7df1ea602f64277ea4c18acf3c`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41071693656
+  Inventory `0eea7a6` also passed Actions run41070485796. Cart remote CI must
   be checked after pushing; local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Finish customer checkpoint documentation/commit and inspect its CI; then implement
-   guest/customer carts, expiry, versioned mutations, server-authoritative refresh and
-   login merge. Carts must not reserve stock. Keep customer/merchant/store scopes separate.
-2. Shipping/tax/discount configurations and exact quote engine; finish onboarding
+1. Finish cart checkpoint commit/CI; then implement shipping/tax/discount
+   configuration and an exact itemized quote engine, including discount validity/
+   usage limits and explicit inclusive/exclusive tax settings.
+2. Finish onboarding
    shipping/payment/logo settings and publication prerequisites.
 3. Checkout state machine, idempotent durable order snapshots and inventory linkage.
 4. COD, development simulator and Razorpay boundary/signature/status/reconciliation;
@@ -72,7 +76,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
 
 Production startup remains disabled until full acceptance/security review. Legacy
 `/v1/admin` demo headers are development-only and cannot reach real merchant stores.
-Customer identity and transactional merchant operations require PostgreSQL; memory
+Customer identity, carts and transactional merchant operations require PostgreSQL; memory
 mode serves the isolated catalog/inventory demo, without simulated secure identity.
 Email is encrypted staging, not verified SES delivery. Live S3/SES/Razorpay require
 owned provider configuration and executed sandbox checks. No real payment claim.
@@ -83,9 +87,13 @@ ownerless accounts need audited operator recovery. No automatic ownership mappin
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030145000_customer_identity`; scoped email
+Migration history now includes `20261030150000_carts` (additive cart/line FKs,
+owner/capability CHECKs and one active cart per customer). The earlier
+`20261030145000_customer_identity` preserves merchant scope; scoped email
 uniqueness replaces the global index atomically while preserving merchant credentials,
-IDs and sessions. See schema and migration SQL for CHECKs/triggers not modeled by Prisma.
+IDs and sessions. Fresh cart verification uses disposable `commerce_cart_verified`;
+`commerce_merchant_fresh` was used during earlier migration development and is not
+the final cart migration verification database. See schema and migration SQL for CHECKs/triggers not modeled by Prisma.
 
 ## Historical Phase 0 / design evidence (not current authorization)
 
