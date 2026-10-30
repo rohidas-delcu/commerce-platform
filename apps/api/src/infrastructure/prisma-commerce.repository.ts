@@ -1,3 +1,4 @@
+import {PrismaInventoryRepository} from '../inventory/infrastructure/prisma-inventory.repository.js';
 import {PrismaMediaRepository} from '../media/infrastructure/prisma-media.repository.js';
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -25,7 +26,7 @@ function productDomain(row: {
   id: string; storeId: string; version: number; name: string; handle: string; description: string;
   collection: string; priceMinor: bigint; compareMinor: bigint | null;
   status: string; createdAt: Date;
-  variants: Array<{ id: string; name: string; sku: string; stock: number; active?:boolean; priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown }>;
+  variants: Array<{ id: string; name: string; sku: string; stock: number; reserved?:number; active?:boolean; priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown }>;
 }): Product {
   return {
     images:(row.images??[]).filter(i=>i.asset.status==='COMPLETE').map(({assetId,position,primary,altText})=>({assetId,position,primary,altText})),
@@ -39,8 +40,8 @@ function productDomain(row: {
 }
 
 
-function variantDomain(row:{id:string;name:string;sku:string;stock:number;active?:boolean;priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown}):Variant{
-  return{id:row.id,name:row.name,sku:row.sku,stock:row.stock,active:row.active??true,priceMinor:row.priceMinor?.toString()??null,compareMinor:row.compareMinor?.toString()??null,options:optionRecord(row.options??{})};
+function variantDomain(row:{id:string;name:string;sku:string;stock:number;reserved?:number;active?:boolean;priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown}):Variant{
+  return{id:row.id,name:row.name,sku:row.sku,stock:row.stock,reserved:row.reserved??0,active:row.active??true,priceMinor:row.priceMinor?.toString()??null,compareMinor:row.compareMinor?.toString()??null,options:optionRecord(row.options??{})};
 }
 function variantData(variant:Variant){return{name:variant.name,sku:variant.sku,active:variant.active??true,priceMinor:variant.priceMinor?BigInt(variant.priceMinor):null,compareMinor:variant.compareMinor?BigInt(variant.compareMinor):null,options:variant.options??{}};}
 
@@ -54,14 +55,16 @@ function movementDomain(row: {
 @Injectable()
 export class PrismaCommerceRepository implements CommerceRepository, OnModuleDestroy, OnModuleInit {
   readonly media:PrismaMediaRepository;
+  readonly inventory:PrismaInventoryRepository;
   private readonly db: PrismaClient | Prisma.TransactionClient;
 
   constructor(transaction?: Prisma.TransactionClient) {
-    if (transaction) {this.db = transaction;this.media=new PrismaMediaRepository(transaction);return;}
+    if (transaction) {this.db = transaction;this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is required for DATA_DRIVER=postgres.");
     this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, { schema: new URL(connectionString).searchParams.get("schema") ?? "public" }) });
     this.media=new PrismaMediaRepository(this.db);
+    this.inventory=new PrismaInventoryRepository(this.db);
   }
 
   async onModuleInit() { if ("$connect" in this.db) await this.db.$connect(); await this.checkHealth(); }
@@ -71,8 +74,10 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     await Promise.all([
       this.db.store.findFirst({ select: { id: true, merchantId:true, settingsVersion:true } }),
       this.db.product.findFirst({ select: { version: true, seoTitle:true } }),
-      this.db.productVariant.findFirst({ select: { stock: true, active:true,priceMinor:true,options:true } }),
+      this.db.productVariant.findFirst({ select: { stock: true, reserved:true, active:true,priceMinor:true,options:true } }),
       this.db.collection.findFirst({select:{id:true}}),
+      this.db.inventoryReservation.findFirst({select:{id:true}}),
+      this.db.inventoryReservationEvent.findFirst({select:{id:true}}),
       this.db.mediaAsset.findFirst({select:{id:true,status:true}}),
       this.db.productMedia.findFirst({select:{assetId:true}}),
       this.db.collectionProduct.findFirst({select:{productId:true}}),
@@ -212,8 +217,9 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
         const variant = await tx.productVariant.findFirst({ where: { id: input.variantId, storeId: input.storeId } });
         if (!variant) throw new DomainError("NOT_FOUND", "Variant not found.");
         const delta = checkedStockChange(variant.stock, input.after, input.reason);
+        if(input.after<variant.reserved)throw new DomainError("CONFLICT","On-hand stock cannot fall below reserved stock.");
         const update = await tx.productVariant.updateMany({
-          where: { id: variant.id, storeId: input.storeId, stock: variant.stock }, data: { stock: input.after }
+          where: { id: variant.id, storeId: input.storeId, stock: variant.stock, reserved:variant.reserved }, data: { stock: input.after }
         });
         if (update.count !== 1) throw new DomainError("CONFLICT", "Stock changed. Refresh and retry the adjustment.");
         const movement = await tx.inventoryMovement.create({ data: {

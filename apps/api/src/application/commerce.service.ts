@@ -1,3 +1,5 @@
+import {InventoryService} from '../inventory/application/inventory.service.js';
+import type {ReservationRequest} from '../inventory/domain/inventory.js';
 import type {MediaAsset,ProductImage} from '../media/domain/media.js';
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
@@ -165,4 +167,9 @@ export class CommerceService {
     return{store:{handle:store.handle,name:store.name,currencyCode:store.currencyCode,countryCode:store.countryCode},products:page.items.map(publicProduct),pagination:{limit:page.limit,offset:page.offset,nextOffset:page.nextOffset}};
   }
   async publicProductDetail(handle:string,productHandle:string){const store=await this.publishedStore(handle),product=await this.repository.findProductByHandle(store.id,normalizeHandle(productHandle));if(!product||product.status!=='ACTIVE')throw new DomainError('NOT_FOUND','Product not found.');return publicProduct(product);}
+
+  async reserveInventory(subject:string,storeId:string,input:ReservationRequest){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).reserve(storeId,input,subject);}
+  async inventoryReservation(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).find(storeId,id);}
+  async releaseInventory(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).transition(storeId,id,'release',subject);}
+  async expireInventory(subject:string,storeId:string){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).expire(storeId,subject);}
 }

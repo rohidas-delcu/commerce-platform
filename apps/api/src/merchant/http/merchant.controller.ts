@@ -1,3 +1,4 @@
+import {ReservationDto} from '../../inventory/inventory.dto.js';
 import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
 import {applyDecorators,Body,Controller,Get,Post,Patch,Put,Delete,Headers,Query,Req,Param,ParseUUIDPipe,UseGuards} from '@nestjs/common';
 import {NameDto,StoreDto,SettingsDto,VersionDto,RoleDto,InviteDto,AcceptDto,StoreRoleDto,ReserveMediaDto,SetImagesDto} from './merchant.dto.js';
@@ -99,4 +100,12 @@ export class MerchantController {
   @Mutation()
   @Put('stores/:storeId/products/:productId/images') images(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string,@Body() body:SetImagesDto){return this.service.setImages(r.identitySession!,id,product,body);}
   @Get('stores/:storeId/inventory-movements') movements(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.movements(r.identitySession!,id);}
+
+  @Mutation()
+  @Post('stores/:storeId/inventory/reservations') reserveInventory(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() body:ReservationDto){return this.service.reserveInventory(r.identitySession!,id,body);}
+  @Get('stores/:storeId/inventory/reservations/:reservationId') reservation(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('reservationId',ParseUUIDPipe) reservation:string){return this.service.inventoryReservation(r.identitySession!,id,reservation);}
+  @Mutation()
+  @Post('stores/:storeId/inventory/reservations/:reservationId/release') releaseInventory(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('reservationId',ParseUUIDPipe) reservation:string){return this.service.releaseInventory(r.identitySession!,id,reservation);}
+  @Mutation()
+  @Post('stores/:storeId/inventory/expire-reservations') expireInventory(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.expireInventory(r.identitySession!,id);}
 }

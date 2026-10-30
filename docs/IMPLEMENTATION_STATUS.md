@@ -5,6 +5,31 @@ verified backend slices without per-slice permission. No merge, deployment or UI
 Branch: `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
 Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
 
+## Inventory reservation checkpoint
+
+On-hand stock now carries a separate reserved counter; public availability uses
+on-hand minus reserved. Durable multi-line holds have stable store-scoped keys,
+input digests, bounded TTL, lifecycle events and composite tenant foreign keys.
+Reserve/release/expire operations have merchant HTTP APIs; the internal commitment
+use case atomically consumes stock and creates movement records exactly once.
+Order linkage/cancellation restoration and automatic expiry scheduling remain for
+checkout/orders/worker slices. This checkpoint does not claim orders exist.
+
+Actual current runs: `pnpm test` 29 passed; `pnpm typecheck` passed; build passed
+through both integration commands; `pnpm test:integration` 4 passed;
+disposable PostgreSQL `pnpm test:postgres` 13 passed; `pnpm test:migrations` passed
+(populated upgrade, repeat/status/drift and byte-identical original values).
+No skipped tests. New coverage executes last-unit competition, hold-key retry,
+commit/release race, multi-line rollback, SQL tenant/check constraints, forced
+movement failure rollback, and expiry after waiting on a PostgreSQL row lock.
+Initial implementation/test failures were corrected and the full suite rerun.
+Migration `20261030144000_inventory_reservations` is additive; extends the existing
+movement reason CHECK without modifying historical rows or the original migration.
+Media commit `693c0203c99ce04f9bace12d5ebe120d6c3c7425` passed Actions:
+https://github.com/rohidas-delcu/commerce-platform/actions/runs/41059745083
+Exact next task: store-scoped customer credentials/sessions, addresses and wishlist,
+then carts, pricing/settings, checkout, payments, orders/fulfillment and workers.
+
 ## Media checkpoint
 
 Media slice verifies PNG/JPEG raster decoding, SHA-256/size/type, immutable local

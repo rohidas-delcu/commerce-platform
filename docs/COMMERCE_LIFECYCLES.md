@@ -34,3 +34,13 @@ Unpublish returns to DRAFT; suspended scopes disappear from public catalog.
 Archive is non-destructive and requires DRAFT. Invitations are pending → consumed,
 revoked or expired; resend invalidates prior pending tokens. Acceptance requires
 verified matching email and a still-authorized active inviter.
+
+Inventory holds: ACTIVE → RELEASED | EXPIRED | COMMITTED; terminal states cannot
+be recycled for a new checkout. Same key/input returns the original state even
+when terminal; create a new key for a genuinely new operation. Release and expiry
+subtract only reserved; commitment subtracts both on-hand and reserved plus an
+atomic ORDER_COMMITTED movement per variant. Repeated commitment has no effect.
+Store locks serialize creation keys; variant locks use deterministic ordering.
+Stock adjustment compares both counters; the database forbids reserved>on-hand.
+Reservation history is independent of on-hand movement history. Orders, cancellation
+restoration and scheduled cleanup are pending; no paid-order claims at this stage.

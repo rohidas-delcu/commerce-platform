@@ -141,3 +141,19 @@ requires a COMPLETE asset linked to an active product in an available published
 store. Unlinked assets are private. Local capability uploads exist only in explicit
 development mode; they cannot authorize commerce operations. S3 live verification
 is outstanding; deterministic SDK boundary tests are not a live integration.
+
+## Inventory reservations
+
+Merchant cookie/CSRF plus `inventory.write`, under
+`/v1/merchant/stores/:storeId/inventory`:
+`POST reservations` with `{key,lines:[{variantId,quantity}],ttlSeconds?}` (60–1800,
+default900); identical store/key/input returns the original durable hold, changed
+input409. Published available store and active products/variants required.
+`GET reservations/:id` permits store readers. `POST reservations/:id/release` and
+`POST expire-reservations` release once; expiry processes at most100 due holds.
+Stock adjustments cannot reduce on-hand below reserved. Public stock reports
+available quantity and excludes the internal reserved counter. Internal commitment
+is reserved for the future checkout/order application flow; no HTTP client may mark
+an order paid or arbitrarily invoke stock commitment. Expired holds never commit;
+expiry is rechecked after acquiring database locks. Conservative holds remain
+reserved until explicit expiry processing; automatic scheduling is pending.

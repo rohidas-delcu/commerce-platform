@@ -100,6 +100,16 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   assert.equal((await request(owner,productPath+'/images','PUT',{expectedVersion:attached.body.version,assetIds:[]})).status,200);
   assert.equal((await request(owner,path+`/media/${assetId}`,'DELETE')).status,200);
   assert.equal((await fetch(base+`/v1/media/${assetId}`)).status,404);
+  const allocationProduct=await request(owner,path+'/products','POST',{name:'Allocation fixture',handle:'allocation-fixture',priceMinor:'100',variants:[{name:'One',sku:'ALLOCATE-ONE',stock:1}]});assert.equal(allocationProduct.status,201);
+  assert.equal((await request(owner,path+`/products/${allocationProduct.body.id}/activate`,'POST',{})).status,201);
+  const allocationInput={key:randomUUID(),lines:[{variantId:allocationProduct.body.variants[0].id,quantity:1}]};
+  const allocation=await request(owner,path+'/inventory/reservations','POST',allocationInput);assert.equal(allocation.status,201,JSON.stringify(allocation.body));
+  assert.equal((await request(owner,path+'/inventory/reservations','POST',allocationInput)).body.id,allocation.body.id);
+  assert.equal((await request(owner,path+'/inventory/reservations','POST',{...allocationInput,key:randomUUID()})).status,409);
+  assert.equal((await request(stranger,path+`/inventory/reservations/${allocation.body.id}`)).status,404);
+  const heldPublic=await request({},`/v1/storefront/${handle}/products/allocation-fixture`);assert.equal(heldPublic.body.variants[0].stock,0);assert.equal('reserved'in heldPublic.body.variants[0],false);
+  assert.equal((await request(owner,path+`/inventory/reservations/${allocation.body.id}/release`,'POST',{})).body.status,'RELEASED');
+  assert.equal((await request(owner,path+`/inventory/reservations/${allocation.body.id}/release`,'POST',{})).body.status,'RELEASED');
   const invite=await request(owner,`${root}/accounts/${merchantId}/invitations`,'POST',{storeId,email:staff.email,role:'STORE_VIEWER'});assert.equal(invite.status,201);
   const invitationMail=await db.identityMail.findFirstOrThrow({where:{recipient:staff.email,purpose:'INVITE'},orderBy:{createdAt:'desc'}}),token=decryptMail(invitationMail.encryptedPayload).token;
   assert.equal((await request(stranger,root+'/invitations/accept','POST',{token})).status,400);

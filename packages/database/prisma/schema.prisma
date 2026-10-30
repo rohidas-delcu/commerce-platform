@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  reservations InventoryReservation[]
   assets MediaAsset[]
   collections Collection[]
   merchantId String @db.Uuid
@@ -77,6 +78,8 @@ model Product {
 }
 
 model ProductVariant {
+  reserved Int @default(0)
+  reservationLines InventoryReservationLine[]
   active Boolean @default(true)
   priceMinor BigInt?
   compareMinor BigInt?
@@ -310,4 +313,41 @@ model ProductMedia {
   @@id([productId,assetId])
   @@index([assetId,storeId])
   @@index([productId,position])
+}
+
+model InventoryReservation {
+  id String @id @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  key String
+  digest String
+  status String @default("ACTIVE")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lines InventoryReservationLine[]
+  events InventoryReservationEvent[]
+  @@unique([storeId,key])
+  @@unique([id,storeId])
+  @@index([storeId,status,expiresAt])
+}
+model InventoryReservationLine {
+  reservationId String @db.Uuid
+  storeId String @db.Uuid
+  variantId String @db.Uuid
+  quantity Int
+  reservation InventoryReservation @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+  variant ProductVariant @relation(fields:[variantId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@id([reservationId,variantId])
+  @@index([variantId,storeId])
+}
+model InventoryReservationEvent {
+  id String @id @default(uuid()) @db.Uuid
+  reservationId String @db.Uuid
+  storeId String @db.Uuid
+  reservation InventoryReservation @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+  status String
+  actor String
+  createdAt DateTime @default(now())
+  @@unique([reservationId,status])
 }

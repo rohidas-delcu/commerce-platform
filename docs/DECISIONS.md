@@ -43,3 +43,14 @@ Earlier design-only and unmerged-main statements are historical, not current gat
 No frontend, automatic merge, production deployment or unsafe provider fallback.
 Provider credentials/sandbox acceptance remain required for live activation.
 See IMPLEMENTATION_STATUS.md for actual delivered scope, not this authorization.
+
+## Inventory hold consistency (implementation, 2026-10-30)
+
+Keep existing stock as on-hand and add reserved, constrained 0<=reserved<=stock.
+Use durable tenant-scoped multi-line reservations with request digests, 60–1800s TTL
+and explicit terminal states. Never reserve permanently on cart creation. Checkout
+will own commitment through the shared inventory port; merchant HTTP exposes hold
+creation/read/release/expiry only. Expiry processing is conservative until the worker
+slice: overdue holds still reduce availability, and cannot commit. Recheck server/DB
+time after lock waits. Release/commit lock the reservation and variants and atomically
+record transitions; failed movement insertion rolls back all counters and state.

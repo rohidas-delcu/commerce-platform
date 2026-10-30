@@ -103,4 +103,9 @@ export class MerchantService {
     return this.commerce(p,storeId,'catalog.write',service=>service.setImages(p.identityId!,storeId,productId,images,input.expectedVersion));
   }
   movements(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',service=>service.movements(p.identityId!,id));}
+
+  reserveInventory(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['reserveInventory']>[2]){return this.commerce(p,id,'inventory.write',s=>s.reserveInventory(p.identityId!,id,input));}
+  inventoryReservation(p:MerchantPrincipal,id:string,reservation:string){return this.commerce(p,id,'store.read',s=>s.inventoryReservation(p.identityId!,id,reservation));}
+  releaseInventory(p:MerchantPrincipal,id:string,reservation:string){return this.commerce(p,id,'inventory.write',s=>s.releaseInventory(p.identityId!,id,reservation));}
+  expireInventory(p:MerchantPrincipal,id:string){return this.commerce(p,id,'inventory.write',s=>s.expireInventory(p.identityId!,id));}
 }

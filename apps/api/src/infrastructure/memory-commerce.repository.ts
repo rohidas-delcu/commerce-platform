@@ -1,3 +1,4 @@
+import {MemoryInventoryRepository} from '../inventory/infrastructure/memory-inventory.repository.js';
 import {MemoryMediaRepository} from '../media/infrastructure/memory-media.repository.js';
 import { randomUUID } from "node:crypto";
 import { checkedStockChange, DomainError, assertVariantUpdate, assertProductActivation } from "../domain/commerce.js";
@@ -13,6 +14,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
   private readonly collections=new Map<string,Collection>();
   private readonly collectionLinks=new Map<string,{collectionId:string;productId:string;position:number}>();
   private readonly movements: InventoryMovement[] = [];
+  readonly inventory=new MemoryInventoryRepository(this.stores,this.products,this.movements);
 
   async checkHealth() {}
 
@@ -92,7 +94,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
     const product=this.products.get(productId);if(!product||product.storeId!==storeId)throw new DomainError('NOT_FOUND','Product not found.');
     assertVariantUpdate(product,variant,false);
     if([...this.products.values()].some(p=>p.storeId===storeId&&p.variants.some(v=>v.id!==variant.id&&v.sku===variant.sku)))throw new DomainError('CONFLICT','SKU already exists.');
-    const index=product.variants.findIndex(v=>v.id===variant.id),saved={...variant,stock:product.variants[index].stock};product.variants[index]=clone(saved);return clone(saved);
+    const index=product.variants.findIndex(v=>v.id===variant.id),saved={...variant,stock:product.variants[index].stock,reserved:product.variants[index].reserved??0};product.variants[index]=clone(saved);return clone(saved);
   }
 
   async createCollection(collection:Collection){if([...this.collections.values()].some(c=>c.storeId===collection.storeId&&c.handle===collection.handle))throw new DomainError('CONFLICT','Collection handle exists.');this.collections.set(collection.id,clone(collection));return clone(collection);}
@@ -109,6 +111,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
     const variant = product?.variants.find(v => v.id === input.variantId);
     if (!variant) throw new DomainError("NOT_FOUND", "Variant not found.");
     const before = variant.stock, delta = checkedStockChange(before, input.after, input.reason);
+    if(input.after<(variant.reserved??0))throw new DomainError("CONFLICT","On-hand stock cannot fall below reserved stock.");
     variant.stock = input.after;
     const movement: InventoryMovement = {
       id: randomUUID(), storeId: input.storeId, variantId: variant.id, before, after: input.after,

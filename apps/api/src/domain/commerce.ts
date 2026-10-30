@@ -1,7 +1,8 @@
+import {availableStock} from '../inventory/domain/inventory.js';
 import type {ProductImage} from '../media/domain/media.js';
 export type StoreStatus = "DRAFT" | "PUBLISHED";
 export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
-export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER";
+export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER" | "ORDER_COMMITTED";
 
 export interface Store {
   merchantManaged?: boolean;
@@ -19,6 +20,7 @@ export interface Store {
 }
 
 export interface Variant {
+  reserved?:number;
   active?: boolean;
   priceMinor?: string | null;
   compareMinor?: string | null;
@@ -142,7 +144,7 @@ export function productQuery(input:ProductQuery={}) {
 }
 export function publicProduct(product:Product) {
   return {id:product.id,name:product.name,handle:product.handle,description:product.description,collection:product.collection,priceMinor:product.priceMinor,compareMinor:product.compareMinor,
-    images:(product.images??[]).map(image=>({id:image.assetId,url:'/v1/media/'+image.assetId,altText:image.altText,primary:image.primary})),seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.filter(v=>v.active!==false).map(v=>({id:v.id,name:v.name,stock:v.stock,available:v.stock>0,options:v.options??{},priceMinor:v.priceMinor??product.priceMinor,compareMinor:v.priceMinor?v.compareMinor??null:product.compareMinor}))};
+    images:(product.images??[]).map(image=>({id:image.assetId,url:'/v1/media/'+image.assetId,altText:image.altText,primary:image.primary})),seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.filter(v=>v.active!==false).map(v=>({id:v.id,name:v.name,stock:availableStock(v.stock,v.reserved??0),available:availableStock(v.stock,v.reserved??0)>0,options:v.options??{},priceMinor:v.priceMinor??product.priceMinor,compareMinor:v.priceMinor?v.compareMinor??null:product.compareMinor}))};
 }
 
 export function seoText(value:string|undefined,limit:number){
