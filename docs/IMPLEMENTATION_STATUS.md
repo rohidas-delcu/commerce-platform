@@ -1,3 +1,69 @@
+# Current backend implementation status — 2026-10-30
+
+**End-to-end mission IN PROGRESS, not complete.** This section supersedes historical
+handoffs below. No production deployment/merge/UI authorized. User authorizes
+continuing verified backend slices without per-slice permission requests.
+
+- Branch: `feature/commerce-backend-end-to-end`, created from merged main
+  `6b30e822eef709087308d12d8024766f4b4d4ef8` (PR #1 merged 2026-10-30).
+- Mission: BACKEND_REQUIREMENTS.md; earlier Phase 1 OIDC-only recommendations are
+  superseded by explicit first-party credential implementation authorization.
+- Current identity slice: Argon2id credentials behind IdentityAuthorityPort;
+  signup/one-time email verification/resend, login, self profile/name changes,
+  current/all-device logout, session list/revoke, rotating opaque cookie sessions,
+  CSRF, shared PostgreSQL rate limits, password recovery/change, safe audit,
+  encrypted durable development mail staging and suspension revocation trigger.
+- Conservative deactivation returns 409 until owner reconciliation exists.
+  Legacy demo stores are never claimed by signup. Production still refuses startup.
+- Authenticated store/merchant authority is NOT wired yet; existing admin APIs
+  still use explicitly development-only demo identity. Do not claim the full
+  merchant journey works or lift production refusal.
+
+## Actual verification for identity checkpoint
+
+- Node 24 / pnpm 11.25; frozen lockfile installation passed.
+- `pnpm db:validate`, `pnpm db:generate`, `pnpm typecheck`, `pnpm build`: passed.
+- `pnpm test`: 20 passed, 0 failed/skipped.
+- `pnpm test:integration`: 4 passed, 0 failed/skipped.
+- Disposable DATABASE_URL + `pnpm test:postgres`: 9 passed, 0 failed/skipped;
+  includes real HTTP identity lifecycle, challenge replay/expiry, session replay,
+  CSRF, recovery, suspension/reactivation and throttling, plus all Phase 0 suites.
+- Migrations: `20261030120000_identity`, `20261030121000_identity_guards`.
+  Empty database deploy/repeat/status/drift passed. Populated Phase 0 fixture
+  upgrade/repeat/drift passed; snapshots of all four commerce tables unchanged
+  (IDs, legacy owners/actors, money, stock, history). Original migration unchanged.
+- `pnpm dev:setup` prepares a missing local outbox encryption key without printing
+  it and preserves existing .env; called twice to check repeatability.
+- Current PR/Actions result to be recorded after push. Find latest slice SHA using
+  `git log -- apps/api/src/identity`; never infer CI success from local success.
+
+## Remaining acceptance work (not implemented)
+
+1. MerchantAccount/MerchantMembership/StoreMembership, centralized transactional
+   authorization, invitations, last-owner safeguards, account suspension, safe
+   legacy owner mapping/quarantine; no silent reassignment.
+2. Resumable store onboarding/settings, idempotency, locales/branding, publish/
+   unpublish prerequisites, suspension/archival and session-based merchant APIs.
+3. Full catalog/collections/media/storage, search/filter/pagination and safe assets.
+4. Reservation inventory, customer identity/addresses/wishlist, cart/merge/pricing,
+   shipping/discount/tax settings; no legal compliance claims.
+5. Checkout state machine and authoritative snapshots, COD/simulator/provider
+   adapters and reconciliation, orders/refunds/manual fulfillment/history.
+6. Shared notification/outbox worker, retry/idempotency, SES and S3 adapters,
+   Razorpay documented adapter and approved sandbox checks; live activation off.
+7. Full executable demo and E2E flows A–J, browser cookie/CSRF tests, credential
+   breach policy, limiter/expired-session/mail retention cleanup, concurrency/load
+   hardening and complete security acceptance before production runtime changes.
+
+Exact next implementation task: add MerchantAccess as the next vertical slice,
+including additive account/membership/store-link migrations and central policy;
+prove session-authenticated creation/listing and cross-account/store revocation
+with PostgreSQL transactions before wiring remaining onboarding/catalog flows.
+No external blocker exists for that work. Live SES/S3/Razorpay checks will require
+owned accounts/credentials later; none are claimed verified now.
+
+## Historical Phase 0 / design evidence (not current authorization)
+
 # Implementation status
 
 Last evidence update: 2026-10-30. **Phase 0 technical exit criteria met; human review pending.**

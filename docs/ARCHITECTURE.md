@@ -58,3 +58,16 @@ identity, membership, onboarding, migration and frontend-contract proposals.
 Design work is authorized; implementation and provider selection are not.
 Phase 0 PR #1 is still open and fetched main remains at `3de3dc1`.
 All P01–P10 decisions require approval; this link does not adopt them.
+
+## Superseding backend implementation authorization — 2026-10-30
+
+Phase 0 was merged through PR #1 at `6b30e822eef709087308d12d8024766f4b4d4ef8`.
+The user now authorizes the complete backend mission in
+[BACKEND_REQUIREMENTS.md](BACKEND_REQUIREMENTS.md), including first-party Argon2id
+credentials behind an IdentityAuthorityPort, accounts/membership/onboarding,
+catalog/media, inventory reservations, customer auth, cart/pricing/checkout,
+COD/development payments/provider boundaries, orders/fulfillment and notifications.
+Earlier design-only and unmerged-main statements are historical, not current gates.
+No frontend, automatic merge, production deployment or unsafe provider fallback.
+Provider credentials/sandbox acceptance remain required for live activation.
+See IMPLEMENTATION_STATUS.md for actual delivered scope, not this authorization.

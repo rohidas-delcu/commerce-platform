@@ -12,10 +12,11 @@
 ## Working rules
 
 - Repository: `rohidas-delcu/commerce-platform`; approved source branch:
-  `feature/milestone-1-foundation`; PR target: `main`.
-- Current authorized implementation is Phase 0 only. Do not merge automatically,
-  start Phase 1, implement React, edit the separate HTML mockup, integrate real
-  payments or add business features outside Phase 0.
+  `feature/commerce-backend-end-to-end` from latest main; PR target: `main`.
+- Current authorization is the backend journey in `docs/BACKEND_REQUIREMENTS.md`.
+  Continue verified vertical slices autonomously; no milestone-by-milestone approval
+  is required. First-party credentials are explicitly authorized. Never merge or
+  deploy automatically, build UI, or enable unverified live payments.
 - Keep one authoritative commerce backend. Preserve domain/application/adapter
   boundaries; avoid duplicated business rules and unnecessary microservices.
 - Demo headers are impersonation, not authentication. Keep them explicitly opted
@@ -50,3 +51,6 @@ After each phase, and whenever pausing with partial work:
 
 User instructions govern scope; these files preserve decisions, not permission to
 expand them. This handoff must remain usable without prior chat history.
+
+Read `docs/BACKEND_REQUIREMENTS.md` for the current full mission and remaining
+acceptance gates; `PHASE1_DESIGN.md` is historical proposal context, not a scope blocker.

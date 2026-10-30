@@ -3,7 +3,7 @@ name: Commerce API checks
 on:
   pull_request:
   push:
-    branches: [main, feature/milestone-1-foundation]
+    branches: [main, feature/milestone-1-foundation, feature/commerce-backend-end-to-end]
 
 permissions:
   contents: read

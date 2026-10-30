@@ -88,3 +88,75 @@ model InventoryMovement {
 
   @@index([storeId, createdAt])
 }
+
+model Identity {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  name String
+  passwordHash String
+  verifiedAt DateTime?
+  status String @default("ACTIVE")
+  createdAt DateTime @default(now())
+  audits IdentityAudit[]
+  sessions IdentitySession[]
+  challenges IdentityChallenge[]
+}
+
+model IdentitySession {
+  id String @id @default(uuid()) @db.Uuid
+  identityId String? @db.Uuid
+  identity Identity? @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  csrfDigest String
+  expiresAt DateTime
+  absoluteExpiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  secrets IdentitySessionSecret[]
+  @@index([identityId])
+  @@index([expiresAt])
+}
+
+model IdentitySessionSecret {
+  csrfDigest String
+  digest String @id
+  sessionId String @db.Uuid
+  session IdentitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  usedAt DateTime?
+}
+
+model IdentityChallenge {
+  digest String @id
+  identityId String @db.Uuid
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  purpose String
+  expiresAt DateTime
+  consumedAt DateTime?
+  @@index([identityId, purpose])
+  @@index([expiresAt])
+}
+
+model IdentityMail {
+  id String @id @default(uuid()) @db.Uuid
+  recipient String
+  purpose String
+  encryptedPayload String
+  createdAt DateTime @default(now())
+  deliveredAt DateTime?
+  @@index([createdAt])
+}
+
+model IdentityAudit {
+  identity Identity? @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  id String @id @default(uuid()) @db.Uuid
+  identityId String? @db.Uuid
+  action String
+  createdAt DateTime @default(now())
+  @@index([identityId, createdAt])
+}
+
+model IdentityThrottle {
+  key String @id
+  attempts Int
+  expiresAt DateTime
+  @@index([expiresAt])
+}
