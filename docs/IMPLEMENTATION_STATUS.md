@@ -1,65 +1,74 @@
 # Implementation status
 
-Last evidence update: 2026-10-30. **Phase 0 is incomplete and blocked.**
-Phase 1 has not started. No merge or production deployment is authorized.
+Last evidence update: 2026-10-30. **Phase 0 technical exit criteria met; human review pending.**
+No merge, production deployment or Phase 1 implementation is authorized.
 
-## Source and references
+## Source and review references
 
 - Repository: `rohidas-delcu/commerce-platform`.
-- Approved branch: `feature/milestone-1-foundation`; target: `main`.
-- Initial source import: `3bcf171` (attached milestone-1 archive).
-- Latest backend implementation: [`997edba`](https://github.com/rohidas-delcu/commerce-platform/commit/997edba2fd0fedeeb6211b44c001d9981701d8e5), pushed.
-- PR: none created by the agent; creation returned HTTP 403. Recheck remotely
-  before creating one because another contributor may have opened a PR.
-- Documentation-only continuation: inspect `git log -- AGENTS.md docs/` for the
-  latest documentation revision; it does not change the backend evidence below.
+- Branch: `feature/milestone-1-foundation`; target: `main`.
+- Verified implementation: `f84f71767e97a9e3f599d4a01f43dd7832f15f32`.
+- Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/1
+- Corrected-code Actions run: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41046787135 (completed: success; every required verification step passed).
+- Documentation-only follow-up revisions are visible through `git log -- docs/`;
+  they do not change the tested implementation. Check the latest branch run before review.
 
-## Verified work and limits
+## Root cause and correction
 
-| Check at backend revision `997edba` | Recorded outcome |
+Prisma resolves generator output relative to `packages/database/prisma/schema.prisma`.
+Four parent segments resolved outside the checkout to `/workspace/apps/...`;
+three correctly resolve to `apps/api/src/generated/prisma` inside the checkout.
+Generation had succeeded in CI but placed the client outside the API, causing the
+missing-module error and consequent untyped transaction callback. The path is
+corrected and CI explicitly asserts the generated client exists. No `any`,
+suppression, copied client or verification bypass was used.
+
+## Actual verification on the corrected implementation
+
+Node.js 24.19.0; pnpm 11.25.0; PostgreSQL 17. All commands run from repository root.
+Database commands used a fresh disposable `commerce_phase0_verified` database.
+
+| Command/check | Outcome |
 | --- | --- |
-| Final frozen-lockfile installation | Passed. |
-| Domain/application/memory/config/HTTP unit tests (`pnpm test`) | 16 passed; 0 failed/skipped. Source-level tests, not HTTP integration. |
-| Database workspace TypeScript check | Passed independently. |
-| Production dependency audit | No known vulnerabilities reported at audit time; not a permanent security guarantee. |
-| Initial SQL migration | Authored and directly applied with psql to fresh PostgreSQL 17 databases. |
-| Direct PostgreSQL schema integration (`pnpm test:database`) | 1 passed: tenant references, uniqueness, precise money, constraints and SQL rollback. Not Prisma-adapter verification. |
-| Prisma generation / validation | Failed: engine/checksum downloads denied with HTTP 403. Verification was not disabled. |
-| Full API typecheck / production build | Failed: generated client missing and consequent untyped transaction callback. |
-| Updated memory API / PostgreSQL API and repository suites | Did not execute: entry commands stopped at failed build. |
-| Prisma deploy twice / status / drift | Not verified; engine prerequisite unavailable. |
-| Remote PR / Actions status | Unavailable: GitHub API HTTP 403. Workflow configured, execution not verified. |
+| `pnpm install --frozen-lockfile --store-dir /workspace/.pnpm-store` | Passed; lockfile unchanged. |
+| `pnpm db:validate` | Passed. |
+| `pnpm db:generate`; generated `client.ts` location assertion | Passed inside the intended API directory. |
+| `pnpm db:deploy` twice | Passed: initial migration applied; repeat had no pending migrations. |
+| `pnpm db:status` | Passed: schema up to date. |
+| `pnpm db:drift` | Passed: no difference detected. |
+| `pnpm test:database` with disposable `DATABASE_URL` | 1 passed; tenant references, uniqueness, exact money, checks and SQL rollback. |
+| `pnpm test` | 17 passed; 0 failed/skipped. |
+| `pnpm typecheck` | Passed for both database workspace and API. |
+| `pnpm build` | Passed; generated client compiled with API. |
+| `pnpm test:integration` | 4 passed; 0 failed/skipped, including real memory-backed HTTP, production refusal, startup failure and shutdown checks. |
+| `DATABASE_URL=<disposable URL> pnpm test:postgres` | 8 passed; 0 failed/skipped: HTTP, concurrent stock updates, forced adapter rollback, metadata versions and database constraints. |
 
-No checks were rerun merely to create the continuity documents. Earlier API tests
-against pre-hardening code do not establish correctness of the current backend.
+An initial memory run failed because two local build commands were accidentally
+run concurrently against the same `dist` directory. Sequential reruns on the
+current implementation passed. Do not run these build-producing suites in parallel.
+The PostgreSQL total includes four shared API/security/startup tests, three adapter
+tests and one schema test; it is not eight additional independent business flows.
 
-## Implemented but not fully verified
+## Verified scope and limits
 
-Store/product/inventory APIs, ownership checks, publication rules, both adapters,
-optimistic metadata/stock concurrency protection, transactional movement writes,
-validation/error handling, config validation, readiness, startup/shutdown and safe
-logging are present. Unit/SQL evidence covers portions of this behavior; current
-HTTP runtime, Prisma persistence, concurrent transactions, forced adapter rollback
-and lifecycle integration must still run. Migration/schema equivalence is pending.
-See `phase0-audit.md` for findings and test distinctions.
+Store/product/inventory foundation and both adapters now have executed coverage
+for ownership, cross-store references even under the same owner, scoped uniqueness,
+publication rules, exact money, atomic inventory/history, concurrency, rollback,
+request validation, safe errors, public field exclusions, development-only demo
+auth, startup/readiness/shutdown and sanitized logging. SQL CHECK constraints are
+verified separately because Prisma drift does not represent them.
 
-## Blockers and pending functionality
-
-- Running environment denied `binaries.prisma.sh` and `api.github.com`. Allowlist
-  additions and setup/start instructions were saved in its configuration draft;
-  saving did not apply or publish them. Check current settings/runtime afresh.
-- Complete generation, migration and clean build checks; fix any failures revealed.
-- Execute the updated API/adapter suites and verify remote required CI.
-- Create/update the draft PR and obtain Phase 0 review.
-- Real authentication and all deferred commerce/frontend capabilities remain
-  unimplemented and outside current approval. Production startup refusal remains.
+No current local test failures or technical environment blockers remain. Raw
+Actions log download from `results-receiver.actions.githubusercontent.com` was denied,
+but GitHub run/step metadata and PR creation are available. Production dependency
+audit previously reported no known vulnerabilities at `997edba`; it was not rerun
+for this path/test-only correction and is not a permanent security guarantee.
 
 ## Exact next task
 
-**Resume Phase 0 verification on `feature/milestone-1-foundation`.** Inspect local
-changes and runtime first. Confirm/apply the two network permissions in environment
-settings, then rerun `pnpm db:validate` and `pnpm db:generate` without disabling
-verification. Follow `IMPLEMENTATION_PLAN.md` and `setup-and-deployment.md` through
-fresh-database migrations, all tests/typecheck/build, draft PR and remote Actions.
-Record actual commands/results and newly exposed issues here. Stop for review;
-do not infer approval to start Phase 1.
+Request human review of draft PR #1 and the migration/security/test evidence.
+The corrected-code Actions run succeeded. Confirm the latest documentation-only
+branch run is also green before review; its final result is reported in the PR.
+Do not merge automatically. After Phase 0 review, wait for explicit Phase 1 scope;
+real authentication, React, checkout, payments and additional business features
+remain outside current approval. Do not deploy to production.

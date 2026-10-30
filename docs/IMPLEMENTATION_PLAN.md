@@ -1,9 +1,10 @@
 # Implementation plan
 
-## Phase 0 — backend foundation (active, incomplete)
+## Phase 0 — backend foundation (technical checks passed; human review pending)
 
-Source import and hardening are committed. Remaining work is verification and any
-fixes those checks demonstrate, within the approved foundation scope.
+Source import, hardening and the generator-path fix are committed. Local and corrected-code remote checks
+below have passed; obtain human review and check the latest branch CI. Preserve
+this checklist for reproducing the evidence in another environment.
 
 1. Restore usable access to `binaries.prisma.sh` and `api.github.com`; preserve
    checksum/TLS verification and existing Git authentication. Settings saved in a

@@ -47,6 +47,6 @@ pool. Demo identity remains development-only and production refuses startup.
 Public responses explicitly select fields; HTTP errors share
 `{statusCode, code, message}` and unexpected errors/logs omit sensitive details.
 
-This describes committed implementation intent, not proof of runtime correctness.
-See `IMPLEMENTATION_STATUS.md`: clean compilation and changed API/Prisma-adapter
-integration remain unverified. Production deployment is not authorized.
+Clean compilation and memory/PostgreSQL integration now pass locally. See
+`IMPLEMENTATION_STATUS.md` for exact evidence, remote CI and the pending review
+gate. Production deployment is not authorized.

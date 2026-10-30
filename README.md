@@ -44,7 +44,8 @@ See [API README](apps/api/README.md) for endpoints and the remaining verificatio
 
 See [audit and actual verification results](docs/phase0-audit.md) and
 [setup, migrations, operations and deployment gates](docs/setup-and-deployment.md).
-Phase 0 remains blocked until the required Prisma/build/integration and GitHub checks finish.
+Phase 0 local technical checks pass; see implementation status for remote CI
+and the human review gate. No automatic merge or production deployment is authorized.
 
 ## Continuing development
 

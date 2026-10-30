@@ -1,6 +1,6 @@
 # Phase 0 audit and verification record
 
-Status: **incomplete — external network prerequisites block required checks**.
+Status: **local and remote technical verification passed; human review pending**.
 The complete committed foundation was inspected, including workspace manifests,
 lockfile resolution, CI, TypeScript/Nest configuration, schema, both adapters,
 domain/application layers, HTTP controllers/DTOs, tests and setup documentation.
@@ -35,36 +35,56 @@ No frontend, payment or additional service implementation was added.
   migration status/drift, unit tests, typechecking, build, memory API integration,
   and PostgreSQL API/repository/schema integration. Failure stops the job.
 
-## Executed results
+## Generator-path defect and verification follow-up
 
-| Check | Result |
+Failed run [41032673250](https://github.com/rohidas-delcu/commerce-platform/actions/runs/41032673250)
+validated/generated Prisma, applied/repeated migrations, checked drift and passed
+16 units, then failed typechecking. Its metadata was independently inspected.
+The generator had four parent segments from the schema directory, escaping the
+checkout. Three segments correctly target `apps/api/src/generated/prisma`.
+Corrected implementation: `f84f71767e97a9e3f599d4a01f43dd7832f15f32`.
+CI now asserts the generated client location; no generated files were copied,
+tracked or used through type suppression.
+
+## Current executed results
+
+All local technical gates now pass on the corrected implementation:
+
+| Command | Actual outcome |
 | --- | --- |
-| Frozen-lockfile installation | Passed with the final committed-lockfile installation command. |
-| Domain/application/memory/config/HTTP unit suite | 16 passed, 0 failed, 0 skipped. Source-level unit tests; not HTTP integration. |
-| Production dependency audit | No known vulnerabilities reported by `pnpm audit --prod` at audit time. |
-| Database-package TypeScript configuration | Passed independently. |
-| Initial SQL migration | Applied successfully to fresh PostgreSQL 17 databases using psql, including final version column. |
-| Direct PostgreSQL schema integration | 1 test passed: tenant foreign keys, product/SKU uniqueness, exact 18-digit money, stock/movement checks, transaction rollback. |
-| Prisma generation | Failed: network policy returns HTTP 403 for binaries.prisma.sh checksums. Verification was not disabled. |
-| Prisma validate/deploy/status/drift | Blocked by the same engine download prerequisite; schema-to-migration equivalence and Prisma migration history remain unverified. |
-| API typecheck / production build | Failed: missing generated client and resulting untyped transaction callback. No successful build is claimed. |
-| Updated memory API and PostgreSQL adapter suites | Entry commands stopped at the failed build; tests did not execute. Prior foundation tests are not evidence for the changed implementation. |
-| GitHub PR/Actions API | HTTP 403 for api.github.com; PR creation and remote Actions execution cannot be verified. |
+| Frozen-lockfile installation | Passed on Node 24.19.0 / pnpm 11.25.0; no lockfile changes. |
+| `pnpm db:validate` / `pnpm db:generate` | Passed; client generated within API source and compiled normally. |
+| `pnpm db:deploy` twice on fresh PostgreSQL database | Initial migration applied; repeat reported no pending migrations. |
+| `pnpm db:status` / `pnpm db:drift` | Up to date / no difference detected. |
+| `pnpm test:database` | 1 passed: tenant foreign keys, product/SKU uniqueness, money precision, stock/movement constraints and rollback. |
+| `pnpm test` | 17 passed, 0 failed/skipped (domain/application/memory/config/HTTP units). |
+| `pnpm typecheck` / `pnpm build` | Both passed, including database configuration and API. |
+| `pnpm test:integration` | 4 passed, 0 failed/skipped. |
+| `DATABASE_URL=<disposable URL> pnpm test:postgres` | 8 passed, 0 failed/skipped, including controlled concurrency and forced movement-insertion rollback. |
 
-The SQL migration was authored from the audited schema and directly executed; it
-was not generated or verified by Prisma CLI. The pg-based constraint/rollback test
-is distinct from the still-unrun Prisma repository tests. Those include a
-controlled two-transaction stock race and forced movement-insertion failure.
-The updated API suite covers ownership on scoped routes, publication visibility,
-uniqueness races, request validation, exact money, public field exclusions,
-health/readiness, production refusal and shutdown.
+The disposable database was `commerce_phase0_verified`. Initial SQL was authored
+from the audited schema previously; Prisma has now applied that committed migration
+and verified repeat deployment/status/drift. Direct constraint tests complement
+Prisma equivalence checks. The old network and compilation blockers are resolved.
 
-## Remaining review gates
+Added coverage demonstrates same-owner cross-store isolation while permitting
+identical product handles/SKUs in different stores, readiness failure sanitization,
+invalid configuration/unavailable database startup refusal, production refusal,
+and graceful shutdown. Existing tests verify ownership, publication, safe errors,
+public field projection, exact money, memory isolation and optimistic metadata.
 
-Allow binaries.prisma.sh and api.github.com in environment settings (pending
-network draft already saved). Then run the complete documented workflow, diagnose
-all failures, verify migration drift/deploy repeatability, create/update the draft
-PR, and inspect GitHub Actions results. Do not call Phase 0 complete, deploy,
-merge or start Phase 1 until those gates pass and the change is reviewed.
+An initial local memory run was invalidated by simultaneous builds deleting the
+shared output. The suites were rerun sequentially and passed. This was a command
+orchestration error, not a weakened test or application workaround.
 
-See [setup and deployment prerequisites](setup-and-deployment.md).
+## CI and review gate
+
+Corrected-code run: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41046787135
+Conclusion: **success**; every required verification step passed. Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/1
+
+GitHub run metadata/PR APIs work. Raw log download from the Actions storage host
+was denied; this did not block local checks or metadata inspection. Verify the
+latest branch run before review. No architecture or business scope changed.
+Human Phase 0 review is still required. Do not merge, deploy or start Phase 1.
+See [implementation status](IMPLEMENTATION_STATUS.md) for next task and
+[setup/deployment prerequisites](setup-and-deployment.md) for reproduction.
