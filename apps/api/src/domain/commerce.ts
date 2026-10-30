@@ -3,6 +3,10 @@ export type ProductStatus = "DRAFT" | "ACTIVE";
 export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER";
 
 export interface Store {
+  merchantManaged?: boolean;
+  suspended?: boolean;
+  archivedAt?: string | null;
+  merchantStatus?: string;
   id: string;
   ownerSubjectId: string;
   name: string;

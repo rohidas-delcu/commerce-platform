@@ -71,3 +71,14 @@ Earlier design-only and unmerged-main statements are historical, not current gat
 No frontend, automatic merge, production deployment or unsafe provider fallback.
 Provider credentials/sandbox acceptance remain required for live activation.
 See IMPLEMENTATION_STATUS.md for actual delivered scope, not this authorization.
+
+## MerchantAccess implementation checkpoint
+
+MerchantAccess has domain permission policy, application use cases, PostgreSQL
+transaction adapter and authenticated HTTP controller. It reuses CommerceService
+with a scope-bound authorization port and transaction-bound CommerceRepository;
+no second set of catalog/inventory rules exists. Lock order is identity/session,
+account, store. Membership mutations share account/store locks with commerce
+writes so authority is rechecked at commit scope. Invitations and membership
+rows use compound tenant FKs. Legacy stores are backfilled to unmapped quarantined
+accounts without touching commerce IDs or creating identity memberships.

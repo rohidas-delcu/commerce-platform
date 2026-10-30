@@ -2,6 +2,7 @@ import {
   Body, Controller, Get, Headers, Injectable, CanActivate, ExecutionContext,
   ForbiddenException, Optional, Inject, ServiceUnavailableException, Param, ParseUUIDPipe, Patch, Post, UseGuards
 } from "@nestjs/common";
+import { MerchantService } from "../merchant/application/merchant.service.js";
 import { IdentityService } from "../identity/application/identity.service.js";
 import { COMMERCE_REPOSITORY } from "../application/commerce.port.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
@@ -89,11 +90,11 @@ export class StorefrontCommerceController {
 
 @Controller("health")
 export class HealthController {
-  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository, @Optional() private readonly identity?: IdentityService) {}
+  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository, @Optional() private readonly identity?: IdentityService, @Optional() private readonly merchant?: MerchantService) {}
 
   @Get("ready")
   async ready() {
-    try { await this.repository.checkHealth(); await this.identity?.checkHealth(); return { status: "ready" }; }
+    try { await this.repository.checkHealth(); await this.identity?.checkHealth(); await this.merchant?.checkHealth(); return { status: "ready" }; }
     catch { throw new ServiceUnavailableException("Repository is unavailable."); }
   }
   @Get()

@@ -1,3 +1,4 @@
+import { MerchantModule } from "./merchant/merchant.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
 import { readRuntimeConfig } from "./config/runtime.js";
 import { Module } from "@nestjs/common";
@@ -8,7 +9,7 @@ import { MemoryCommerceRepository } from "./infrastructure/memory-commerce.repos
 import { AdminCommerceController, HealthController, LocalDemoAuthGuard, StorefrontCommerceController } from "./http/commerce.controller.js";
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, MerchantModule],
   controllers: [AdminCommerceController, StorefrontCommerceController, HealthController],
   providers: [
     CommerceService,

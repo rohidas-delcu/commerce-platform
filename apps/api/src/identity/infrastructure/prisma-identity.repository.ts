@@ -13,6 +13,7 @@ export class PrismaIdentityRepository implements IdentityRepositoryPort {
     this.client = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, {schema: new URL(connectionString).searchParams.get('schema') ?? 'public'}) });
     return this.client;
   }
+  async onModuleInit() { if (process.env.DATA_DRIVER === 'postgres') await this.checkHealth(); }
   async onModuleDestroy() { await this.client?.$disconnect(); }
   async audit(identityId: string | null, action: string) { await this.db.identityAudit.create({data:{identityId,action}}); }
   async checkHealth() {
@@ -134,7 +135,17 @@ export class PrismaIdentityRepository implements IdentityRepositoryPort {
     });
   }
   async deactivate(identityId: string) {
-    // Ownership-aware deactivation is intentionally disabled until MerchantAccess is integrated.
-    throw new IdentityError(409, 'Deactivation requires ownership reconciliation. Contact support.');
+    await this.db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Identity" WHERE id=${identityId}::uuid FOR UPDATE`;
+      const memberships=await tx.merchantMembership.findMany({where:{identityId},orderBy:{merchantId:'asc'}});
+      for(const member of memberships){
+        await tx.$queryRaw`SELECT id FROM "MerchantAccount" WHERE id=${member.merchantId}::uuid FOR UPDATE`;
+        if(member.role==='ACCOUNT_OWNER' && !await tx.merchantMembership.count({where:{merchantId:member.merchantId,identityId:{not:identityId},role:'ACCOUNT_OWNER',identity:{status:'ACTIVE',verifiedAt:{not:null}}}}))throw new IdentityError(409,'Transfer account ownership before deactivation.');
+      }
+      await tx.storeMembership.deleteMany({where:{identityId}});
+      await tx.merchantMembership.deleteMany({where:{identityId}});
+      await tx.identity.update({where:{id:identityId},data:{status:'DEACTIVATED'}});
+      await tx.identityAudit.create({data:{identityId,action:'DEACTIVATED'}});
+    });
   }
 }

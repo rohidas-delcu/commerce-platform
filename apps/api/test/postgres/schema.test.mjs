@@ -16,7 +16,9 @@ test('PostgreSQL constraints enforce tenant references, uniqueness, exact money 
     await client.query('ROLLBACK TO SAVEPOINT invalid');
   }
   try {
-    for (const id of [s, other]) await client.query('INSERT INTO "Store" (id,"ownerSubjectId",name,handle,"updatedAt") VALUES ($1,$2,$3,$4,NOW())', [id, 'schema-test', 'Store', id]);
+    const merchant=randomUUID();
+    await client.query('INSERT INTO "MerchantAccount" (id,name,status) VALUES ($1,$2,$3)',[merchant,'Constraint fixture','QUARANTINED']);
+    for (const id of [s, other]) await client.query('INSERT INTO "Store" (id,"ownerSubjectId",name,handle,"merchantId","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())', [id, 'schema-test', 'Store', id,merchant]);
     await client.query('INSERT INTO "Product" (id,"storeId",name,handle,"priceMinor","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())', [p, s, 'Bag', 'bag', '999999999999999999']);
     assert.equal((await client.query('SELECT version FROM "Product" WHERE id=$1', [p])).rows[0].version, 0);
     await rejected('UPDATE "Product" SET "compareMinor"=1 WHERE id=$1', [p], '23514');

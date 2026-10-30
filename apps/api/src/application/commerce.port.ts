@@ -20,3 +20,9 @@ export interface CommerceRepository {
   }): Promise<InventoryMovement>;
   listMovements(storeId: string): Promise<InventoryMovement[]>;
 }
+
+
+export interface CommerceAuthorizationPort {
+  assertStoreAccess(store: Store, subjectId: string): Promise<void>;
+}
+export const COMMERCE_AUTHORIZATION = Symbol("COMMERCE_AUTHORIZATION");

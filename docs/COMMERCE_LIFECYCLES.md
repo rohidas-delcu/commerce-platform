@@ -1,7 +1,8 @@
 # Commerce lifecycles — checkpoint
 
 Current commerce: store DRAFT → PUBLISHED; product DRAFT → ACTIVE; stock adjustment
-and movement record committed together. Ownership is still the legacy subject check.
+and movement record committed together. Legacy development ownership remains for quarantined demo records; real merchant
+operations use account/store membership in a transaction.
 
 Identity: unverified ACTIVE → verified ACTIVE. Only verified ACTIVE identities may
 sign in. SUSPENDED/DEACTIVATED rejects sessions; a database trigger revokes sessions
@@ -18,3 +19,18 @@ Pending: account/store membership and resumable onboarding, inventory reservatio
 customer/cart, authoritative pricing, checkout, COD/simulator/payment reconciliation,
 order/refund/cancellation and manual fulfillment state machines. Do not infer that
 these are implemented from their inclusion in BACKEND_REQUIREMENTS.md.
+
+## Merchant lifecycle checkpoint
+
+Accounts are ACTIVE/SUSPENDED; migrated unclaimed owners are QUARANTINED. Losing
+the sole active owner through identity suspension enters RECOVERY_REQUIRED;
+reactivating that identity does not automatically reopen the account. Account
+owner mutation serializes on account rows and prevents the last effective owner
+from leaving. Store roles are scoped; revocation locks serialize with store writes.
+
+Stores save versioned IN_PROGRESS onboarding → COMPLETED, independently from
+DRAFT/PUBLISHED. Explicit publication requires completion and active scope.
+Unpublish returns to DRAFT; suspended scopes disappear from public catalog.
+Archive is non-destructive and requires DRAFT. Invitations are pending → consumed,
+revoked or expired; resend invalidates prior pending tokens. Acceptance requires
+verified matching email and a still-authorized active inviter.

@@ -1,17 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable } from "@nestjs/common";
-import { COMMERCE_REPOSITORY } from "./commerce.port.js";
-import type { CommerceRepository } from "./commerce.port.js";
+import { Inject, Injectable, Optional } from "@nestjs/common";
+import { COMMERCE_REPOSITORY, COMMERCE_AUTHORIZATION } from "./commerce.port.js";
+import type { CommerceRepository, CommerceAuthorizationPort } from "./commerce.port.js";
 import { DomainError, normalizeHandle, normalizeMoneyMinor, validateProductInput } from "../domain/commerce.js";
 import type { Product, Store } from "../domain/commerce.js";
 
 @Injectable()
 export class CommerceService {
-  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository) {}
+  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository, @Optional() @Inject(COMMERCE_AUTHORIZATION) private readonly authorization?: CommerceAuthorizationPort) {}
 
   private async ownedStore(storeId: string, subjectId: string): Promise<Store> {
     const store = await this.repository.findStoreById(storeId);
-    if (!store || store.ownerSubjectId !== subjectId) throw new DomainError("NOT_FOUND", "Store not found.");
+    if (!store) throw new DomainError("NOT_FOUND", "Store not found.");
+    if (this.authorization) await this.authorization.assertStoreAccess(store, subjectId);
+    else if (store.merchantManaged || store.ownerSubjectId !== subjectId) throw new DomainError("NOT_FOUND", "Store not found.");
     return store;
   }
 
@@ -101,7 +103,7 @@ export class CommerceService {
 
   async publicCatalog(storeHandle: string) {
     const store = await this.repository.findStoreByHandle(normalizeHandle(storeHandle));
-    if (!store || store.status !== "PUBLISHED") throw new DomainError("NOT_FOUND", "Store not found.");
+    if (!store || store.status !== "PUBLISHED" || store.suspended || store.archivedAt || (store.merchantStatus && !["ACTIVE","QUARANTINED"].includes(store.merchantStatus))) throw new DomainError("NOT_FOUND", "Store not found.");
     const products = await this.repository.listProducts(store.id);
     return {
       store: { handle: store.handle, name: store.name, currencyCode: store.currencyCode, countryCode: store.countryCode },

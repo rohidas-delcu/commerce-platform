@@ -16,12 +16,13 @@
     "db:migrate": "prisma migrate dev --config packages/database/prisma.config.ts",
     "db:deploy": "prisma migrate deploy --config packages/database/prisma.config.ts",
     "test:integration": "pnpm build && node --test apps/api/test/integration/*.test.mjs",
-    "test:postgres": "pnpm build && TEST_DATA_DRIVER=postgres node --test apps/api/test/integration/*.test.mjs apps/api/test/postgres/*.test.mjs",
+    "test:postgres": "pnpm build && TEST_DATA_DRIVER=postgres node --test --test-concurrency=1 apps/api/test/integration/*.test.mjs apps/api/test/postgres/*.test.mjs",
     "db:validate": "prisma validate --config packages/database/prisma.config.ts",
     "db:status": "prisma migrate status --config packages/database/prisma.config.ts",
     "db:drift": "prisma migrate diff --from-config-datasource --to-schema packages/database/prisma/schema.prisma --exit-code --config packages/database/prisma.config.ts",
     "test:database": "node --test apps/api/test/postgres/schema.test.mjs",
-    "dev:setup": "node scripts/init-development.mjs"
+    "dev:setup": "node scripts/init-development.mjs",
+    "test:migrations": "node apps/api/test/migrations/upgrades.mjs"
   },
   "devDependencies": {
     "dotenv": "^17.0.0",

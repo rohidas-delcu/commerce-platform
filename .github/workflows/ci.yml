@@ -52,6 +52,8 @@ jobs:
           pnpm db:deploy
           pnpm db:status
           pnpm db:drift
+      - name: Populated Phase 0 migration preservation
+        run: pnpm test:migrations
       - name: Domain, memory and configuration unit tests
         run: pnpm test
       - name: Typecheck

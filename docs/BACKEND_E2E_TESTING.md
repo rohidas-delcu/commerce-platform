@@ -20,3 +20,12 @@ reservations/last-unit concurrency, order/fulfillment and notification retries,
 provider sandbox checks, populated migration/rollback rehearsal and complete demo.
 Never report these as passed until implemented and executed. Browser cookie/CSRF
 acceptance beyond the HTTP harness also remains a production release gate.
+
+`pnpm test:migrations` (NODE_ENV=test, disposable server with CREATE DATABASE)
+rehearses a populated Phase 0 upgrade, repeatability/drift and unclaimed owner
+quarantine. It removes only the fixture DB created by that process. CI runs it.
+
+MerchantAccess HTTP suite tests sessions → account/store/onboarding → catalog/
+inventory → publication, invitation and role lifecycle, cross-tenant access,
+last-owner races, and a blocked write observing revocation after an account lock.
+PostgreSQL test files run sequentially to isolate loopback rate-counter fixtures.

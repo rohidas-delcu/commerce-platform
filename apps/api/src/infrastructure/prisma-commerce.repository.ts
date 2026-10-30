@@ -1,15 +1,17 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaClient, type Prisma } from "../generated/prisma/client.js";
 import { checkedStockChange, DomainError } from "../domain/commerce.js";
 import type { Store, Product, InventoryMovement } from "../domain/commerce.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 
 function storeDomain(row: {
+  merchant?: {status: string}; suspended?: boolean; archivedAt?: Date | null;
   id: string; ownerSubjectId: string; name: string; handle: string;
   countryCode: string; currencyCode: string; status: string; createdAt: Date;
 }): Store {
   return {
+    merchantManaged: row.merchant ? row.merchant.status !== "QUARANTINED" : false, merchantStatus: row.merchant?.status, suspended: row.suspended, archivedAt: row.archivedAt?.toISOString() ?? null,
     id: row.id, ownerSubjectId: row.ownerSubjectId, name: row.name, handle: row.handle,
     countryCode: row.countryCode, currencyCode: row.currencyCode,
     status: row.status as Store["status"], createdAt: row.createdAt.toISOString()
@@ -40,15 +42,16 @@ function movementDomain(row: {
 
 @Injectable()
 export class PrismaCommerceRepository implements CommerceRepository, OnModuleDestroy, OnModuleInit {
-  private readonly db: PrismaClient;
+  private readonly db: PrismaClient | Prisma.TransactionClient;
 
-  constructor() {
+  constructor(transaction?: Prisma.TransactionClient) {
+    if (transaction) {this.db = transaction; return;}
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is required for DATA_DRIVER=postgres.");
     this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, { schema: new URL(connectionString).searchParams.get("schema") ?? "public" }) });
   }
 
-  async onModuleInit() { await this.db.$connect(); await this.checkHealth(); }
+  async onModuleInit() { if ("$connect" in this.db) await this.db.$connect(); await this.checkHealth(); }
 
   async checkHealth() {
     // Adapter-generated queries honor the configured PostgreSQL schema.
@@ -60,12 +63,13 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     ]);
   }
 
-  async onModuleDestroy() { await this.db.$disconnect(); }
+  async onModuleDestroy() { if ("$disconnect" in this.db) await this.db.$disconnect(); }
 
   async createStore(store: Store): Promise<Store> {
     try {
+      const account = await this.db.merchantAccount.upsert({where:{legacySubject:store.ownerSubjectId},create:{legacySubject:store.ownerSubjectId,name:"Unmapped legacy owner",status:"QUARANTINED"},update:{}});
       const row = await this.db.store.create({ data: {
-        id: store.id, ownerSubjectId: store.ownerSubjectId, name: store.name, handle: store.handle,
+        merchantId: account.id, id: store.id, ownerSubjectId: store.ownerSubjectId, name: store.name, handle: store.handle,
         countryCode: store.countryCode, currencyCode: store.currencyCode, status: store.status
       } });
       return storeDomain(row);
@@ -73,17 +77,17 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
   }
 
   async findStoreById(id: string) {
-    const row = await this.db.store.findUnique({ where: { id } });
+    const row = await this.db.store.findUnique({ where: { id }, include: {merchant: {select: {status: true}}} });
     return row ? storeDomain(row) : null;
   }
 
   async findStoreByHandle(handle: string) {
-    const row = await this.db.store.findUnique({ where: { handle } });
+    const row = await this.db.store.findUnique({ where: { handle }, include: {merchant: {select: {status: true}}} });
     return row ? storeDomain(row) : null;
   }
 
   async listStoresForOwner(ownerId: string) {
-    return (await this.db.store.findMany({ where: { ownerSubjectId: ownerId }, orderBy: { createdAt: "desc" } })).map(storeDomain);
+    return (await this.db.store.findMany({ where: { ownerSubjectId: ownerId, merchant: {status:"QUARANTINED"} }, orderBy: { createdAt: "desc" } })).map(storeDomain);
   }
 
   async saveStore(store: Store) {
@@ -142,7 +146,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
 
   async adjustStock(input: { storeId: string; variantId: string; after: number; reason: string; note: string; actorSubjectId: string }) {
     try {
-      return await this.db.$transaction(async tx => {
+      return await this.transaction(async tx => {
         const variant = await tx.productVariant.findFirst({ where: { id: input.variantId, storeId: input.storeId } });
         if (!variant) throw new DomainError("NOT_FOUND", "Variant not found.");
         const delta = checkedStockChange(variant.stock, input.after, input.reason);
@@ -163,6 +167,10 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     return (await this.db.inventoryMovement.findMany({
       where: { storeId }, orderBy: { createdAt: "desc" }, take: 200
     })).map(movementDomain);
+  }
+
+  private transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>) {
+    return "$transaction" in this.db ? this.db.$transaction(work) : work(this.db);
   }
 
   private translateConflict(error: unknown): Error {

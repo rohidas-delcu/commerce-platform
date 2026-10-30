@@ -20,6 +20,19 @@ enum ProductStatus {
 }
 
 model Store {
+  merchantId String @db.Uuid
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  invitations MerchantInvitation[]
+  creation StoreCreation?
+  memberships StoreMembership[]
+  settingsVersion Int @default(0)
+  onboardingState String @default("IN_PROGRESS")
+  timezone String @default("Asia/Kolkata")
+  contactEmail String @default("")
+  brandingName String @default("")
+  suspended Boolean @default(false)
+  archivedAt DateTime?
+  @@unique([id, merchantId])
   id             String      @id @default(uuid()) @db.Uuid
   ownerSubjectId String
   name           String
@@ -90,6 +103,10 @@ model InventoryMovement {
 }
 
 model Identity {
+  issuedInvitations MerchantInvitation[]
+  creations StoreCreation[]
+  merchantMemberships MerchantMembership[]
+  storeMemberships StoreMembership[]
   id String @id @default(uuid()) @db.Uuid
   email String @unique
   name String
@@ -159,4 +176,68 @@ model IdentityThrottle {
   attempts Int
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+
+model MerchantAccount {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  status String @default("ACTIVE")
+  legacySubject String? @unique
+  createdAt DateTime @default(now())
+  invitations MerchantInvitation[]
+  creations StoreCreation[]
+  members MerchantMembership[]
+  stores Store[]
+}
+model MerchantMembership {
+  merchantId String @db.Uuid
+  identityId String @db.Uuid
+  role String @default("MEMBER")
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  storeMemberships StoreMembership[]
+  @@id([merchantId, identityId])
+  @@index([identityId])
+}
+model StoreMembership {
+  storeId String @db.Uuid
+  merchantId String @db.Uuid
+  identityId String @db.Uuid
+  role String
+  store Store @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
+  membership MerchantMembership @relation(fields: [merchantId, identityId], references: [merchantId, identityId], onDelete: Restrict)
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  @@id([storeId, identityId])
+  @@index([merchantId, identityId])
+}
+
+model StoreCreation {
+  identityId String @db.Uuid
+  key String
+  merchantId String @db.Uuid
+  storeId String @unique @db.Uuid
+  digest String
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store Store @relation(fields: [storeId,merchantId], references: [id,merchantId], onDelete: Restrict)
+  @@unique([storeId,merchantId])
+  @@id([identityId, key])
+}
+
+model MerchantInvitation {
+  id String @id @default(uuid()) @db.Uuid
+  digest String @unique
+  merchantId String @db.Uuid
+  storeId String? @db.Uuid
+  email String
+  role String
+  inviterId String @db.Uuid
+  inviter Identity @relation(fields: [inviterId], references: [id], onDelete: Restrict)
+  expiresAt DateTime
+  consumedAt DateTime?
+  revokedAt DateTime?
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store Store? @relation(fields: [storeId,merchantId], references: [id,merchantId], onDelete: Restrict)
+  @@index([merchantId,email])
 }
