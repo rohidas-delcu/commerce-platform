@@ -45,6 +45,7 @@ jobs:
         run: |
           pnpm db:validate
           pnpm db:generate
+          test -f apps/api/src/generated/prisma/client.ts
       - name: Deploy migrations and verify repeatability
         run: |
           pnpm db:deploy

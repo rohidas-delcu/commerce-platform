@@ -65,3 +65,11 @@ test('application logging never emits raw driver errors or secrets', async () =>
   assert.ok(!output.includes('password'));
   assert.ok(!output.includes('private-customer-data'));
 });
+
+test('readiness reports repository failure without exposing driver details', async () => {
+  const { HealthController } = await import('../src/http/commerce.controller.ts');
+  const healthy = new HealthController({ checkHealth: async () => {} });
+  assert.deepEqual(await healthy.ready(), { status: 'ready' });
+  const unavailable = new HealthController({ checkHealth: async () => { throw new Error('private database details'); } });
+  await assert.rejects(unavailable.ready(), error => error.getStatus() === 503 && !error.message.includes('private'));
+});

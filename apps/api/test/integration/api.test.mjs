@@ -63,6 +63,20 @@ test('store, product and inventory flow preserves ownership and storefront priva
     variants: [{ name: 'Black', sku: 'BAG-001', stock: 10 }]
   });
   assert.equal(product.status, 201);
+  // A merchant's ownership of both stores must not bypass store-scoped references.
+  const second = await request('/v1/admin/stores', 'POST', { name: 'Second store', handle: `${handle}-second` });
+  assert.equal(second.status, 201);
+  const secondAdmin = `/v1/admin/stores/${second.body.id}`;
+  const secondProduct = await request(`${secondAdmin}/products`, 'POST', {
+    name: 'Backpack', handle: 'backpack', priceMinor: '100',
+    variants: [{ name: 'Black', sku: 'BAG-001', stock: 2 }]
+  });
+  assert.equal(secondProduct.status, 201, 'Handles and SKUs may repeat in different stores.');
+  assert.equal((await request(`${secondAdmin}/products/${product.body.id}`, 'PATCH', { name: 'Wrong store' })).status, 404);
+  assert.equal((await request(`${secondAdmin}/products/${product.body.id}/activate`, 'POST')).status, 404);
+  assert.equal((await request(`${secondAdmin}/variants/${product.body.variants[0].id}/stock-adjustments`, 'POST', { quantity: 1, reason: 'DAMAGED' })).status, 404);
+  assert.deepEqual((await request(`${secondAdmin}/inventory-movements`)).body, []);
+
   for (const [path, method, body] of [
     [`${admin}/publish`, 'POST'], [`${admin}/products`, 'POST', { name: 'Other', handle: 'other', priceMinor: '100', variants: [{ name: 'One', sku: 'OTHER', stock: 0 }] }],
     [`${admin}/products/${product.body.id}`, 'PATCH', { name: 'Stolen' }],
@@ -147,5 +161,26 @@ test('demo guard requires explicit development mode, opt-in and a valid subject'
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
+  }
+});
+
+test('startup rejects invalid configuration and unavailable PostgreSQL without leaking details', { timeout: 20000 }, async () => {
+  for (const overrides of [
+    { DATA_DRIVER: 'invalid' },
+    { PORT: '0' },
+    { DATA_DRIVER: 'postgres', DATABASE_URL: 'postgresql://test:never-log-this@127.0.0.1:1/unavailable' }
+  ]) {
+    const child = spawn(process.execPath, ['dist/main.js'], {
+      cwd: new URL('../../', import.meta.url), env: { ...env, ...overrides },
+      stdio: ['ignore', 'pipe', 'pipe'], timeout: 7000
+    });
+    let output = '';
+    child.stdout.on('data', b => { output += b; });
+    child.stderr.on('data', b => { output += b; });
+    const [code, signal] = await once(child, 'exit');
+    assert.equal(signal, null, 'Startup failure must exit without timeout termination.');
+    assert.equal(code, 1);
+    assert.ok(!output.includes('never-log-this'));
+    assert.ok(!output.includes('Commerce API listening'));
   }
 });
