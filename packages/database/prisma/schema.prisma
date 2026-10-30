@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  assets MediaAsset[]
   collections Collection[]
   merchantId String @db.Uuid
   merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
@@ -51,6 +52,7 @@ model Store {
 }
 
 model Product {
+  images ProductMedia[]
   collectionLinks CollectionProduct[]
   seoTitle String @default("")
   seoDescription String @default("")
@@ -277,4 +279,35 @@ model CollectionProduct {
   @@id([collectionId,productId])
   @@index([collectionId,position,productId])
   @@index([productId,storeId])
+}
+
+model MediaAsset {
+  id String @id @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  key String @unique
+  provider String
+  contentType String
+  size Int
+  checksum String
+  tokenDigest String
+  status String @default("PENDING")
+  expiresAt DateTime
+  images ProductMedia[]
+  @@unique([id,storeId])
+  @@index([storeId,status])
+  @@index([status,expiresAt])
+}
+model ProductMedia {
+  storeId String @db.Uuid
+  productId String @db.Uuid
+  assetId String @db.Uuid
+  position Int
+  primary Boolean @default(false)
+  altText String @default("")
+  product Product @relation(fields:[productId,storeId],references:[id,storeId],onDelete:Restrict)
+  asset MediaAsset @relation(fields:[assetId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@id([productId,assetId])
+  @@index([assetId,storeId])
+  @@index([productId,position])
 }

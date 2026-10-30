@@ -5,6 +5,28 @@ verified backend slices without per-slice permission. No merge, deployment or UI
 Branch: `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
 Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
 
+## Media checkpoint
+
+Media slice verifies PNG/JPEG raster decoding, SHA-256/size/type, immutable local
+uploads, bounded 15-minute reservations, ordered/primary/alt-text product images,
+optimistic image replacement and referenced-asset deletion protection. Public reads
+require a published available store and an active linked product; object keys and
+capabilities remain private. S3 uses SDK presigned PUT and verified GET checksums.
+No live S3 request has been verified. Bucket/CORS/IAM/lifecycle setup and sandbox
+verification remain external release prerequisites. Expired-upload/orphan cleanup
+still needs the operations worker; tombstones prevent public exposure on failures.
+
+Executed on this source: `pnpm test` 26 passed; `pnpm typecheck`, `pnpm build`
+passed; disposable PostgreSQL `pnpm test:postgres` 10 passed; populated Phase 0
+`pnpm test:migrations` passed. No failed/skipped tests in those runs. Migration
+`20261030143000_media_assets` is additive; original migration unchanged.
+Collections commit `fb84e8d` CI succeeded:
+https://github.com/rohidas-delcu/commerce-platform/actions/runs/41057783594
+Current media commit/CI: see latest branch history/run; not yet remotely verified
+at the time this checkpoint was written. Draft PR #2 remains open.
+Exact next task: inventory reservation/release/expiry/commit concurrency slice,
+then customer identity, carts, pricing, checkout, payments, orders and fulfillment.
+
 ## Verified slices
 
 1. Identity core, commit `1defee9fd889ea5c00bf74e393112677ed6dbde9`, pushed.
@@ -44,8 +66,7 @@ Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
 
 ## Current limitations / exact remaining tasks
 
-- Not complete: onboarding shipping/payment settings and logo/assets, full catalog
-  variant lifecycle/collections/media/S3/search/pagination, reservation inventory,
+- Not complete: onboarding shipping/payment settings and logo/assets, complete cursor pagination and live storage verification, reservation inventory,
   store-scoped customer auth/addresses/wishlist, cart/merge, shipping/tax/discount
   quotes, checkout and authoritative snapshots, COD/simulator/Razorpay boundary,
   orders/refunds/manual fulfillment/history, shared notification delivery retries

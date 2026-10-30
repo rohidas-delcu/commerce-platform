@@ -1,3 +1,4 @@
+import type {ProductImage} from '../media/domain/media.js';
 export type StoreStatus = "DRAFT" | "PUBLISHED";
 export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER";
@@ -29,6 +30,7 @@ export interface Variant {
 }
 
 export interface Product {
+  images?:ProductImage[];
   seoTitle?: string;
   seoDescription?: string;
   version: number;
@@ -140,7 +142,7 @@ export function productQuery(input:ProductQuery={}) {
 }
 export function publicProduct(product:Product) {
   return {id:product.id,name:product.name,handle:product.handle,description:product.description,collection:product.collection,priceMinor:product.priceMinor,compareMinor:product.compareMinor,
-    seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.filter(v=>v.active!==false).map(v=>({id:v.id,name:v.name,stock:v.stock,available:v.stock>0,options:v.options??{},priceMinor:v.priceMinor??product.priceMinor,compareMinor:v.priceMinor?v.compareMinor??null:product.compareMinor}))};
+    images:(product.images??[]).map(image=>({id:image.assetId,url:'/v1/media/'+image.assetId,altText:image.altText,primary:image.primary})),seoTitle:product.seoTitle??'',seoDescription:product.seoDescription??'',variants:product.variants.filter(v=>v.active!==false).map(v=>({id:v.id,name:v.name,stock:v.stock,available:v.stock>0,options:v.options??{},priceMinor:v.priceMinor??product.priceMinor,compareMinor:v.priceMinor?v.compareMinor??null:product.compareMinor}))};
 }
 
 export function seoText(value:string|undefined,limit:number){

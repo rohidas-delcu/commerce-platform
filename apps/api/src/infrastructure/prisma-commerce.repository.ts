@@ -1,3 +1,4 @@
+import {PrismaMediaRepository} from '../media/infrastructure/prisma-media.repository.js';
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "../generated/prisma/client.js";
@@ -19,6 +20,7 @@ function storeDomain(row: {
 }
 
 function productDomain(row: {
+  images?:Array<{assetId:string;position:number;primary:boolean;altText:string;asset:{status:string}}>;
   seoTitle?: string; seoDescription?:string;
   id: string; storeId: string; version: number; name: string; handle: string; description: string;
   collection: string; priceMinor: bigint; compareMinor: bigint | null;
@@ -26,6 +28,7 @@ function productDomain(row: {
   variants: Array<{ id: string; name: string; sku: string; stock: number; active?:boolean; priceMinor?:bigint|null;compareMinor?:bigint|null;options?:unknown }>;
 }): Product {
   return {
+    images:(row.images??[]).filter(i=>i.asset.status==='COMPLETE').map(({assetId,position,primary,altText})=>({assetId,position,primary,altText})),
     seoTitle:row.seoTitle??"",seoDescription:row.seoDescription??"",
     id: row.id, storeId: row.storeId, version: row.version, name: row.name, handle: row.handle,
     description: row.description, collection: row.collection,
@@ -50,13 +53,15 @@ function movementDomain(row: {
 
 @Injectable()
 export class PrismaCommerceRepository implements CommerceRepository, OnModuleDestroy, OnModuleInit {
+  readonly media:PrismaMediaRepository;
   private readonly db: PrismaClient | Prisma.TransactionClient;
 
   constructor(transaction?: Prisma.TransactionClient) {
-    if (transaction) {this.db = transaction; return;}
+    if (transaction) {this.db = transaction;this.media=new PrismaMediaRepository(transaction);return;}
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is required for DATA_DRIVER=postgres.");
     this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, { schema: new URL(connectionString).searchParams.get("schema") ?? "public" }) });
+    this.media=new PrismaMediaRepository(this.db);
   }
 
   async onModuleInit() { if ("$connect" in this.db) await this.db.$connect(); await this.checkHealth(); }
@@ -68,6 +73,8 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
       this.db.product.findFirst({ select: { version: true, seoTitle:true } }),
       this.db.productVariant.findFirst({ select: { stock: true, active:true,priceMinor:true,options:true } }),
       this.db.collection.findFirst({select:{id:true}}),
+      this.db.mediaAsset.findFirst({select:{id:true,status:true}}),
+      this.db.productMedia.findFirst({select:{assetId:true}}),
       this.db.collectionProduct.findFirst({select:{productId:true}}),
       this.db.inventoryMovement.findFirst({ select: { delta: true } })
     ]);
@@ -118,30 +125,30 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
           status: product.status, variants: { create: product.variants.map(v => ({
             id: v.id, ...variantData(v), stock: v.stock
           })) }
-        }, include: { variants: true }
+        }, include: { variants: true, images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}} }
       });
       return productDomain(row);
     } catch (error) { throw this.translateConflict(error); }
   }
 
   async findProduct(storeId: string, productId: string) {
-    const row = await this.db.product.findFirst({ where: { id: productId, storeId }, include: { variants: true } });
+    const row = await this.db.product.findFirst({ where: { id: productId, storeId }, include: { variants: true, images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}} } });
     return row ? productDomain(row) : null;
   }
 
 
-  async findProductByHandle(storeId:string,handle:string){const row=await this.db.product.findUnique({where:{storeId_handle:{storeId,handle}},include:{variants:true}});return row?productDomain(row):null;}
+  async findProductByHandle(storeId:string,handle:string){const row=await this.db.product.findUnique({where:{storeId_handle:{storeId,handle}},include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}});return row?productDomain(row):null;}
   async searchProducts(storeId:string,query:Required<Pick<ProductQuery,'limit'|'offset'|'sort'>>&ProductQuery){
     const where:Prisma.ProductWhereInput={storeId,...(query.status?{status:query.status}:{}),...(query.collection?{collection:{equals:query.collection,mode:'insensitive'}}:{})};
     if(query.query)where.OR=[{name:{contains:query.query,mode:'insensitive'}},{handle:{contains:query.query,mode:'insensitive'}},{description:{contains:query.query,mode:'insensitive'}}];
     if(query.collectionId)where.collectionLinks={some:{collectionId:query.collectionId}};
-    if(query.collectionId&&query.collectionPosition)return(await this.db.collectionProduct.findMany({where:{storeId,collectionId:query.collectionId,product:where},orderBy:[{position:'asc'},{productId:'asc'}],skip:query.offset,take:query.limit+1,include:{product:{include:{variants:true}}}})).map(link=>productDomain(link.product));
+    if(query.collectionId&&query.collectionPosition)return(await this.db.collectionProduct.findMany({where:{storeId,collectionId:query.collectionId,product:where},orderBy:[{position:'asc'},{productId:'asc'}],skip:query.offset,take:query.limit+1,include:{product:{include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}}}})).map(link=>productDomain(link.product));
     const orderBy:Prisma.ProductOrderByWithRelationInput[]=query.sort==='name'?[{name:'asc'},{id:'asc'}]:query.sort==='price_asc'?[{priceMinor:'asc'},{id:'asc'}]:query.sort==='price_desc'?[{priceMinor:'desc'},{id:'asc'}]:[{createdAt:'desc'},{id:'asc'}];
-    return (await this.db.product.findMany({where,orderBy,skip:query.offset,take:query.limit+1,include:{variants:true}})).map(productDomain);
+    return (await this.db.product.findMany({where,orderBy,skip:query.offset,take:query.limit+1,include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}})).map(productDomain);
   }
   async listProducts(storeId: string) {
     return (await this.db.product.findMany({
-      where: { storeId }, include: { variants: true }, orderBy: { createdAt: "desc" }
+      where: { storeId }, include: { variants: true, images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}} }, orderBy: { createdAt: "desc" }
     })).map(productDomain);
   }
 
@@ -149,7 +156,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
     try {
       return await this.transaction(async tx=>{
       await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${product.id}::uuid AND "storeId"=${product.storeId}::uuid FOR UPDATE`;
-      const current=await tx.product.findFirst({where:{id:product.id,storeId:product.storeId},include:{variants:true}});
+      const current=await tx.product.findFirst({where:{id:product.id,storeId:product.storeId},include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}});
       if(!current)throw new DomainError('NOT_FOUND','Product not found.');
       assertProductActivation({...product,variants:productDomain(current).variants});
       const row = await tx.product.update({
@@ -159,7 +166,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
           version: { increment: 1 }, name: product.name, handle: product.handle, description: product.description,
           collection: product.collection, priceMinor: BigInt(product.priceMinor),
           compareMinor: product.compareMinor === null ? null : BigInt(product.compareMinor), status: product.status
-        }, include: { variants: true }
+        }, include: { variants: true, images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}} }
       });
       return productDomain(row);
       });
@@ -172,7 +179,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
   private async writeVariant(storeId:string,productId:string,variant:Variant,creating:boolean){
     try{return await this.transaction(async tx=>{
       await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${productId}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;
-      const row=await tx.product.findFirst({where:{id:productId,storeId},include:{variants:true}});
+      const row=await tx.product.findFirst({where:{id:productId,storeId},include:{variants:true,images:{include:{asset:{select:{status:true}}},orderBy:{position:'asc'}}}});
       if(!row)throw new DomainError('NOT_FOUND','Product not found.');assertVariantUpdate(productDomain(row),variant,creating);
       const saved=creating?await tx.productVariant.create({data:{id:variant.id,storeId,productId,...variantData(variant),stock:0}}):await tx.productVariant.update({where:{id:variant.id,storeId,productId},data:variantData(variant)});
       return variantDomain(saved);

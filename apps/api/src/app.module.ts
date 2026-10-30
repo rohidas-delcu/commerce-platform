@@ -1,3 +1,7 @@
+import {StorageModule} from './media/storage.module.js';
+import {MediaController} from './media/http/media.controller.js';
+import {MediaService} from './media/application/media.service.js';
+import {OBJECT_STORAGE,type ObjectStoragePort} from './media/application/media.port.js';
 import { MerchantModule } from "./merchant/merchant.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
 import { readRuntimeConfig } from "./config/runtime.js";
@@ -9,9 +13,10 @@ import { MemoryCommerceRepository } from "./infrastructure/memory-commerce.repos
 import { AdminCommerceController, HealthController, LocalDemoAuthGuard, StorefrontCommerceController } from "./http/commerce.controller.js";
 
 @Module({
-  imports: [IdentityModule, MerchantModule],
-  controllers: [AdminCommerceController, StorefrontCommerceController, HealthController],
+  imports: [IdentityModule, MerchantModule,StorageModule],
+  controllers: [MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
   providers: [
+    {provide:MediaService,useFactory:(repo:CommerceRepository,storage:ObjectStoragePort)=>new MediaService(repo,storage),inject:[COMMERCE_REPOSITORY,OBJECT_STORAGE]},
     CommerceService,
     LocalDemoAuthGuard,
     {

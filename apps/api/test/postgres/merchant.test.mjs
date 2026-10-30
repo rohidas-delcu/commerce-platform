@@ -6,6 +6,7 @@ import {once} from 'node:events';
 import {setTimeout as delay} from 'node:timers/promises';
 import {PrismaClient} from '../../dist/generated/prisma/client.js';
 import pg from 'pg';
+import sharp from 'sharp';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {decryptMail} from '../../dist/identity/infrastructure/secrets.js';
 
@@ -83,6 +84,22 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   assert.equal((await request({},`/v1/storefront/${handle}/collections?featured=true`)).body.collections.length,1);
   const archivedCollection=await request(owner,path+`/collections/${collection.body.id}/archive`,'POST',{expectedVersion:1});assert.equal(archivedCollection.status,201);
   assert.equal((await request({},`/v1/storefront/${handle}/collections/featured-bags`)).status,404);
+
+  const image=await sharp({create:{width:2,height:2,channels:3,background:'white'}}).png().toBuffer();
+  const reservation=await request(owner,path+'/media/reservations','POST',{contentType:'image/png',size:image.length,checksum:createHash('sha256').update(image).digest('hex')});assert.equal(reservation.status,201);
+  const assetId=reservation.body.assetId,plan=reservation.body.upload;
+  assert.equal((await request({},`/v1/media/${assetId}`)).status,404);
+  assert.equal((await fetch(base+plan.url,{method:'PUT',headers:{'content-type':'image/png','x-upload-token':'wrong'},body:image})).status,403);
+  assert.equal((await fetch(base+plan.url,{method:'PUT',headers:plan.headers,body:image})).status,200);
+  assert.equal((await request(owner,path+`/media/${assetId}/complete`,'POST',{})).status,201);
+  assert.equal((await request(stranger,path+`/media/${assetId}/complete`,'POST',{})).status,404);
+  const beforeImages=(await request(owner,productPath)).body;
+  const attached=await request(owner,productPath+'/images','PUT',{expectedVersion:beforeImages.version,assetIds:[assetId],primaryAssetId:assetId,altTexts:{[assetId]:'Journey bag'}});assert.equal(attached.status,200);assert.equal(attached.body.images[0].assetId,assetId);
+  const rendered=await fetch(base+`/v1/media/${assetId}`);assert.equal(rendered.status,200);assert.equal(rendered.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await rendered.arrayBuffer()),image);
+  assert.equal((await request(owner,path+`/media/${assetId}`,'DELETE')).status,409);
+  assert.equal((await request(owner,productPath+'/images','PUT',{expectedVersion:attached.body.version,assetIds:[]})).status,200);
+  assert.equal((await request(owner,path+`/media/${assetId}`,'DELETE')).status,200);
+  assert.equal((await fetch(base+`/v1/media/${assetId}`)).status,404);
   const invite=await request(owner,`${root}/accounts/${merchantId}/invitations`,'POST',{storeId,email:staff.email,role:'STORE_VIEWER'});assert.equal(invite.status,201);
   const invitationMail=await db.identityMail.findFirstOrThrow({where:{recipient:staff.email,purpose:'INVITE'},orderBy:{createdAt:'desc'}}),token=decryptMail(invitationMail.encryptedPayload).token;
   assert.equal((await request(stranger,root+'/invitations/accept','POST',{token})).status,400);

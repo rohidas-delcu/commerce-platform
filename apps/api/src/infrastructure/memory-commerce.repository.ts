@@ -1,3 +1,4 @@
+import {MemoryMediaRepository} from '../media/infrastructure/memory-media.repository.js';
 import { randomUUID } from "node:crypto";
 import { checkedStockChange, DomainError, assertVariantUpdate, assertProductActivation } from "../domain/commerce.js";
 import type { InventoryMovement, Product, Store, ProductQuery, Variant, Collection, CollectionQuery } from "../domain/commerce.js";
@@ -8,6 +9,7 @@ const clone = <T>(value: T): T => structuredClone(value);
 export class MemoryCommerceRepository implements CommerceRepository {
   private readonly stores = new Map<string, Store>();
   private readonly products = new Map<string, Product>();
+  readonly media=new MemoryMediaRepository(this.stores,this.products);
   private readonly collections=new Map<string,Collection>();
   private readonly collectionLinks=new Map<string,{collectionId:string;productId:string;position:number}>();
   private readonly movements: InventoryMovement[] = [];

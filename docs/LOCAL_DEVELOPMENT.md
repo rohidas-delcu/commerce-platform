@@ -22,3 +22,10 @@ demo or a verified live email integration.
 
 Run memory and PostgreSQL build-producing test commands sequentially: they share
 apps/api/dist. Never run against a production database.
+
+Media defaults to `OBJECT_STORAGE=local`, immutable files under ignored `.data/media`
+(or `DEV_STORAGE_DIR`). Only NODE_ENV=development enables capability upload URLs.
+For S3 use `OBJECT_STORAGE=s3`, `S3_REGION`, `S3_BUCKET` and standard AWS credential
+resolution. Keep bucket private, permit only scoped object actions/checksums, configure
+browser PUT CORS for approved origins/headers, and lifecycle cleanup of expired orphan
+uploads. S3 live roundtrip/CORS/IAM verification has not run. Production remains disabled.

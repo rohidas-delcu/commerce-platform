@@ -1,3 +1,6 @@
+import type {ObjectStoragePort} from '../../media/application/media.port.js';
+import {imageRequest,imageOrder,type MediaAsset} from '../../media/domain/media.js';
+import {randomUUID} from 'node:crypto';
 import {createHash} from 'node:crypto';
 import {CommerceService} from '../../application/commerce.service.js';
 import {normalizeHandle} from '../../domain/commerce.js';
@@ -6,7 +9,7 @@ import {IdentityError, emailAddress} from '../../identity/domain/identity.js';
 import {locale, type Permission} from '../domain/access.js';
 import type {MerchantRepositoryPort, MerchantPrincipal, StoreSettings} from './merchant.port.js';
 export class MerchantService {
-  constructor(private repository:MerchantRepositoryPort, private secrets:IdentitySecretsPort){}
+  constructor(private repository:MerchantRepositoryPort, private secrets:IdentitySecretsPort,private storage:ObjectStoragePort){}
   async checkHealth(){if(process.env.DATA_DRIVER==='postgres')await this.repository.checkHealth();}
   accountStatus(p:MerchantPrincipal,id:string,suspended:boolean){return this.repository.accountStatus(p,id,suspended);}
   storeStatus(p:MerchantPrincipal,id:string,operation:"suspend"|"resume"|"archive"){return this.repository.storeStatus(p,id,operation);}
@@ -69,5 +72,35 @@ export class MerchantService {
   updateCollection(p:MerchantPrincipal,id:string,collection:string,input:Parameters<CommerceService['updateCollection']>[3]){return this.commerce(p,id,'catalog.write',service=>service.updateCollection(p.identityId!,id,collection,input));}
   archiveCollection(p:MerchantPrincipal,id:string,collection:string,version:number){return this.commerce(p,id,'catalog.write',service=>service.archiveCollection(p.identityId!,id,collection,version));}
   linkCollection(p:MerchantPrincipal,id:string,collection:string,product:string,position:number|null,version:number){return this.commerce(p,id,'catalog.write',service=>service.linkCollectionProduct(p.identityId!,id,collection,product,position,version));}
+
+  private async mediaAsset(p:MerchantPrincipal,storeId:string,id:string){return this.commerce(p,storeId,'catalog.write',async service=>{
+    // The commerce authorization transaction is already open; retrieve through its port.
+    return service.mediaAsset(p.identityId!,storeId,id);
+  });}
+  async reserveMedia(p:MerchantPrincipal,storeId:string,input:{contentType:string;size:number;checksum:string}){
+    imageRequest(input);await this.commerce(p,storeId,'catalog.write',async()=>undefined);const id=randomUUID(),token=this.secrets.secret();
+    const asset:MediaAsset={...input,id,storeId,key:`${storeId}/${id}`,provider:this.storage.provider,tokenDigest:this.secrets.digest(token),status:'PENDING',expiresAt:new Date(Date.now()+900000)};
+    const plan=await this.storage.uploadPlan(asset,token);
+    await this.commerce(p,storeId,'catalog.write',service=>service.reserveMedia(p.identityId!,storeId,asset));
+    return{assetId:id,upload:plan};
+  }
+  async completeMedia(p:MerchantPrincipal,storeId:string,id:string){
+    const asset=await this.mediaAsset(p,storeId,id);if(asset.provider!==this.storage.provider)throw new IdentityError(503,'Storage provider unavailable.');
+    if(asset.status!=='COMPLETE'){
+      if(asset.status!=='PENDING'||asset.expiresAt<=new Date())throw new IdentityError(409,'Upload expired or deleted.');
+      await this.storage.read(asset);
+      await this.commerce(p,storeId,'catalog.write',service=>service.completeMedia(p.identityId!,storeId,id));
+    }
+    return{assetId:id,status:'COMPLETE',contentType:asset.contentType,size:asset.size};
+  }
+  async removeMedia(p:MerchantPrincipal,storeId:string,id:string){
+    const existing=await this.mediaAsset(p,storeId,id);if(existing.provider!==this.storage.provider)throw new IdentityError(503,'Storage provider unavailable.');
+    const asset=await this.commerce(p,storeId,'catalog.write',service=>service.removeMedia(p.identityId!,storeId,id));
+    if(asset.provider!==this.storage.provider)throw new IdentityError(503,'Storage provider unavailable.');await this.storage.remove(asset);return{assetId:id,status:'DELETED'};
+  }
+  setImages(p:MerchantPrincipal,storeId:string,productId:string,input:{assetIds:string[];primaryAssetId?:string;altTexts?:Record<string,string>;expectedVersion:number}){
+    const images=imageOrder(input.assetIds,input.primaryAssetId??null,input.altTexts);
+    return this.commerce(p,storeId,'catalog.write',service=>service.setImages(p.identityId!,storeId,productId,images,input.expectedVersion));
+  }
   movements(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',service=>service.movements(p.identityId!,id));}
 }

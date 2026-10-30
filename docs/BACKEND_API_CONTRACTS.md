@@ -125,3 +125,19 @@ position by default (explicit supported product sort overrides it). Only active
 collections and active products of published, available stores are public.
 Archives preserve links/history and disappear from public APIs. No arbitrary
 restore or physical deletion. Legacy Product.collection text remains independent.
+
+## Product image storage
+
+Merchant cookie + CSRF + `catalog.write`, under `/v1/merchant/stores/:storeId`:
+`POST media/reservations` accepts `{contentType,size,checksum}` (PNG/JPEG,
+5 MiB maximum, SHA-256 hex), returns assetId and 15-minute PUT URL/headers.
+Upload those exact bytes, then `POST media/:assetId/complete`. Completion decodes
+and verifies the object; a reservation alone never publishes media.
+`PUT products/:productId/images` accepts `{expectedVersion,assetIds,
+primaryAssetId?,altTexts?}`, atomically replaces the ordered images (max20).
+`DELETE media/:assetId` refuses referenced assets; detach first. Repeat delete is
+safe. Public product images contain only id/url/altText/primary. `GET /v1/media/:id`
+requires a COMPLETE asset linked to an active product in an available published
+store. Unlinked assets are private. Local capability uploads exist only in explicit
+development mode; they cannot authorize commerce operations. S3 live verification
+is outstanding; deterministic SDK boundary tests are not a live integration.

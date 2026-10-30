@@ -1,6 +1,6 @@
 import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
 import {applyDecorators,Body,Controller,Get,Post,Patch,Put,Delete,Headers,Query,Req,Param,ParseUUIDPipe,UseGuards} from '@nestjs/common';
-import {NameDto,StoreDto,SettingsDto,VersionDto,RoleDto,InviteDto,AcceptDto,StoreRoleDto} from './merchant.dto.js';
+import {NameDto,StoreDto,SettingsDto,VersionDto,RoleDto,InviteDto,AcceptDto,StoreRoleDto,ReserveMediaDto,SetImagesDto} from './merchant.dto.js';
 import {IdentityGuard} from '../../identity/http/identity.controller.js';
 import type {IdentityRequest} from '../../identity/application/identity.service.js';
 import {CreateStoreDto,CreateProductDto,UpdateProductDto,StockAdjustmentDto,ProductQueryDto,VariantMetadataDto,UpdateVariantDto,CreateCollectionDto,UpdateCollectionDto,CollectionVersionDto,CollectionLinkDto,CollectionQueryDto} from '../../http/commerce.dto.js';
@@ -89,5 +89,14 @@ export class MerchantController {
   @Put('stores/:storeId/collections/:collectionId/products/:productId') linkCollection(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('collectionId',ParseUUIDPipe) collection:string,@Param('productId',ParseUUIDPipe) product:string,@Body() body:CollectionLinkDto){return this.service.linkCollection(r.identitySession!,id,collection,product,body.position,body.expectedVersion);}
   @Mutation()
   @Delete('stores/:storeId/collections/:collectionId/products/:productId') unlinkCollection(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('collectionId',ParseUUIDPipe) collection:string,@Param('productId',ParseUUIDPipe) product:string,@Body() body:CollectionVersionDto){return this.service.linkCollection(r.identitySession!,id,collection,product,null,body.expectedVersion);}
+
+  @Mutation()
+  @Post('stores/:storeId/media/reservations') reserveMedia(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() body:ReserveMediaDto){return this.service.reserveMedia(r.identitySession!,id,body);}
+  @Mutation()
+  @Post('stores/:storeId/media/:assetId/complete') completeMedia(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('assetId',ParseUUIDPipe) asset:string){return this.service.completeMedia(r.identitySession!,id,asset);}
+  @Mutation()
+  @Delete('stores/:storeId/media/:assetId') removeMedia(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('assetId',ParseUUIDPipe) asset:string){return this.service.removeMedia(r.identitySession!,id,asset);}
+  @Mutation()
+  @Put('stores/:storeId/products/:productId/images') images(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('productId',ParseUUIDPipe) product:string,@Body() body:SetImagesDto){return this.service.setImages(r.identitySession!,id,product,body);}
   @Get('stores/:storeId/inventory-movements') movements(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.movements(r.identitySession!,id);}
 }

@@ -7,3 +7,4 @@ allowBuilds:
   prisma: true
   '@scarf/scarf': false
   esbuild: true
+  sharp: true

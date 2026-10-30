@@ -1,3 +1,4 @@
+import type {MediaAsset,ProductImage} from '../media/domain/media.js';
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { COMMERCE_REPOSITORY, COMMERCE_AUTHORIZATION } from "./commerce.port.js";
@@ -147,6 +148,12 @@ export class CommerceService {
     const page=await this.page(store.id,productQuery({...input,status:'ACTIVE',collectionId:collection.id,collectionPosition:input.sort===undefined}));
     return{collection:{id:collection.id,name:collection.name,handle:collection.handle,description:collection.description,featured:collection.featured},products:page.items.map(publicProduct),pagination:{limit:page.limit,offset:page.offset,nextOffset:page.nextOffset}};
   }
+
+  async reserveMedia(subjectId:string,storeId:string,asset:MediaAsset){await this.ownedStore(storeId,subjectId);if(asset.storeId!==storeId)throw new DomainError('NOT_FOUND','Asset not found.');return this.repository.media.reserve(asset);}
+  async mediaAsset(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);const asset=await this.repository.media.asset(id);if(!asset||asset.storeId!==storeId)throw new DomainError('NOT_FOUND','Asset not found.');return asset;}
+  async completeMedia(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);return this.repository.media.complete(storeId,id);}
+  async removeMedia(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);return this.repository.media.remove(storeId,id);}
+  async setImages(subjectId:string,storeId:string,productId:string,images:ProductImage[],version:number){await this.ownedStore(storeId,subjectId);await this.repository.media.setImages(storeId,productId,images,version);return this.repository.findProduct(storeId,productId);}
   private async page(storeId:string,query:ReturnType<typeof productQuery>){const found=await this.repository.searchProducts(storeId,query);return{items:found.slice(0,query.limit),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
   private async publishedStore(handle:string){
     const store=await this.repository.findStoreByHandle(normalizeHandle(handle));
