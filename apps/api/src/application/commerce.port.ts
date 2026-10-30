@@ -1,3 +1,4 @@
+import type {PricingRepositoryPort} from '../pricing/application/pricing.port.js';
 import type {InventoryRepositoryPort} from '../inventory/application/inventory.port.js';
 import type {MediaRepositoryPort} from '../media/application/media.port.js';
 import type { InventoryMovement, Product, Store, ProductQuery, Variant, Collection, CollectionQuery } from "../domain/commerce.js";
@@ -5,6 +6,7 @@ import type { InventoryMovement, Product, Store, ProductQuery, Variant, Collecti
 export const COMMERCE_REPOSITORY = Symbol("COMMERCE_REPOSITORY");
 
 export interface CommerceRepository {
+  readonly pricing:PricingRepositoryPort;
   readonly media:MediaRepositoryPort;
   readonly inventory:InventoryRepositoryPort;
   checkHealth(): Promise<void>;

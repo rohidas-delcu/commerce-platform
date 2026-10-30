@@ -108,4 +108,7 @@ export class MerchantService {
   inventoryReservation(p:MerchantPrincipal,id:string,reservation:string){return this.commerce(p,id,'store.read',s=>s.inventoryReservation(p.identityId!,id,reservation));}
   releaseInventory(p:MerchantPrincipal,id:string,reservation:string){return this.commerce(p,id,'inventory.write',s=>s.releaseInventory(p.identityId!,id,reservation));}
   expireInventory(p:MerchantPrincipal,id:string){return this.commerce(p,id,'inventory.write',s=>s.expireInventory(p.identityId!,id));}
+
+  pricing(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',s=>s.pricing(p.identityId!,id));}
+  savePricing(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['savePricing']>[2]){return this.commerce(p,id,'store.settings',s=>s.savePricing(p.identityId!,id,input));}
 }

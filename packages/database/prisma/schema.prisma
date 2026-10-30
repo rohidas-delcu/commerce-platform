@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  pricing StorePricing?
   carts Cart[]
   customers Identity[]
   reservations InventoryReservation[]
@@ -427,4 +428,14 @@ model CartLine {
   priceSeenMinor BigInt
   @@id([cartId,variantId])
   @@index([variantId,storeId])
+}
+
+model StorePricing {
+  storeId String @id @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  version Int @default(0)
+  shipping Json
+  tax Json
+  payments Json
+  updatedAt DateTime @updatedAt
 }

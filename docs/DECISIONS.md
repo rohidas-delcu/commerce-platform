@@ -85,3 +85,18 @@ catalog. Guest carts expire at seven days; owned cart mutations renew a seven-da
 idle deadline. No cart-based inventory reservation. Merge is an atomic one-time
 source transition, with destination/source versions and quantity/item bounds. This
 policy is initial backend behavior; production remains gated on complete acceptance.
+
+## Configured shipping/tax estimates (implementation, 2026-10-30)
+
+Use a versioned store policy with country shipping zones, flat rates and optional
+free thresholds. Apply the threshold to merchandise after discounts. Tax is explicit
+NONE/EXCLUSIVE/INCLUSIVE, with configured jurisdiction basis points and an adapter
+port; shipping taxability is explicit. Round nonnegative rational amounts half-up in
+minor units; inclusive tax is informational within the total, exclusive tax is added.
+No default legal rates or tax compliance claim. Quote amounts are bounded by signed
+PostgreSQL BigInt and currency comes from the store. Estimates expose policy/cart
+versions and require final checkout revalidation; they are not payment authorization.
+Store currency cannot change after money-valued catalog or pricing configuration
+exists. Completion/publication checks shipping/payment readiness; existing records
+are preserved without inventing policy data. Coupon usage must be committed with
+orders; current pure coupon arithmetic is not a delivered redemption workflow.

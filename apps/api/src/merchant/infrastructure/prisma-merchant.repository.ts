@@ -1,3 +1,4 @@
+import {assertPricingReady} from '../../pricing/domain/pricing.js';
 import {PrismaClient, type Prisma} from '../../generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {PrismaCommerceRepository} from '../../infrastructure/prisma-commerce.repository.js';
@@ -93,7 +94,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     if(input.expectedVersion!==store.settingsVersion)throw new IdentityError(409,'Settings changed. Reload before saving.');
     const {expectedVersion,...changes}=input;
     const country=changes.countryCode??store.countryCode,currency=changes.currencyCode??store.currencyCode;locale(country,currency);
-    if(currency!==store.currencyCode && await tx.product.count({where:{storeId}}))throw new IdentityError(409,'Currency cannot change after products exist.');
+    if(currency!==store.currencyCode && (await tx.product.count({where:{storeId}})||await tx.storePricing.count({where:{storeId}})))throw new IdentityError(409,'Currency cannot change after catalog or pricing configuration exists.');
     const updated=await tx.store.update({where:{id:storeId,settingsVersion:expectedVersion},data:{...changes,settingsVersion:{increment:1}},select:storeSelect});
     await tx.identityAudit.create({data:{identityId:p.identityId!,action:`STORE_SETTINGS_CHANGED:${storeId}`}});return updated;
   });}
@@ -102,10 +103,12 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     if(store.settingsVersion!==version)throw new IdentityError(409,'Settings changed.');
     if(!store.name.trim() || !store.contactEmail || !store.brandingName.trim())throw new IdentityError(409,'Store information, contact email and branding are required.');
     locale(store.countryCode,store.currencyCode);
+    assertPricingReady(await new PrismaCommerceRepository(tx).pricing.policy(storeId));
     return tx.store.update({where:{id:storeId},data:{onboardingState:'COMPLETED',settingsVersion:{increment:1}},select:storeSelect});
   });}
   publication(p:MerchantPrincipal,storeId:string,published:boolean){return this.scoped(p,storeId,'store.publish',async(tx,store)=>{
     if(published && store.onboardingState!=='COMPLETED')throw new IdentityError(409,'Complete onboarding before publication.');
+    if(published)assertPricingReady(await new PrismaCommerceRepository(tx).pricing.policy(storeId));
     const updated=await tx.store.update({where:{id:storeId},data:{status:published?'PUBLISHED':'DRAFT'},select:storeSelect});
     await tx.identityAudit.create({data:{identityId:p.identityId!,action:`STORE_${published?'PUBLISHED':'UNPUBLISHED'}:${storeId}`}});return updated;
   });}

@@ -43,3 +43,10 @@ CSRF/capability scope, owned cart, variant/tenant boundaries, ignored-price prev
 through DTO rejection, current exact subtotals, no stock reservation, login merge and
 retry, concurrent stale edits, price refresh, stock/catalog changes, clearing and
 expired replacement. Purchase/payment/fulfillment flows still remain pending.
+
+Pricing coverage executes optimistic concurrent merchant policy writes, prerequisite
+checks, missing-policy failure, real cart estimates with exact tax arithmetic,
+unsupported destination rejection and amount-tampering rejection. Unit vectors cover
+exclusive/inclusive tax, half-up rounding, discounted free-shipping thresholds and
+coupon eligibility arithmetic. Coupon persistence/usage, checkout and orders are not
+implemented; these vectors do not verify those future lifecycles.

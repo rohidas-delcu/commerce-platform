@@ -1,3 +1,5 @@
+import {calculateQuote} from '../../pricing/domain/pricing.js';
+import {customerAddress,type AddressInput} from '../../customer/domain/customer.js';
 import {randomUUID} from 'node:crypto';
 import type {CommerceRepository} from '../../application/commerce.port.js';
 import type {IdentitySecretsPort} from '../../identity/application/identity.port.js';
@@ -23,4 +25,11 @@ export class CartService {
   async current(context:CartContext){return this.projection(await this.repository.current(context));}
   async update(context:CartContext,version:number,operation:Parameters<CartRepositoryPort['update']>[2]){if(operation.type==='set')cartQuantity(operation.quantity);return this.projection(await this.repository.update(context,version,operation));}
   async merge(context:CartContext,version:number,guestVersion:number){return this.projection(await this.repository.merge(context,version,guestVersion));}
+
+  async quote(context:CartContext,input:{expectedVersion:number;shippingMethodId:string;shippingAddress:AddressInput}){
+    const cart=await this.current(context);if(cart.version!==input.expectedVersion||!cart.valid||!cart.items.length)throw new DomainError('CONFLICT','Cart changed, empty or invalid.');
+    const address=customerAddress(input.shippingAddress),policy=await this.commerce.pricing.policy(context.storeId);if(!policy)throw new DomainError('CONFLICT','Store pricing is not configured.');
+    const totals=calculateQuote(policy,{subtotalMinor:cart.subtotalMinor,countryCode:address.countryCode,shippingMethodId:input.shippingMethodId,customerId:context.principal.identityId,now:new Date()});
+    return{...totals,currencyCode:cart.currencyCode,cartVersion:cart.version,estimate:true};
+  }
 }

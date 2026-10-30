@@ -1,3 +1,4 @@
+import {QuoteDto} from '../../pricing/http/pricing.dto.js';
 import {Controller,Get,Post,Put,Delete,Body,Param,ParseUUIDPipe,Req,Res,UseGuards,SetMetadata} from '@nestjs/common';
 import {ApiTags,ApiCookieAuth,ApiHeader} from '@nestjs/swagger';
 import {CustomerGuard} from '../../customer/http/customer.controller.js';
@@ -21,4 +22,5 @@ export class CartController {
   @Delete('items') clear(@Req() r:CustomerRequest,@Body() b:CartVersionDto){return this.service.update(this.context(r),b.expectedVersion,{type:'clear'});}
   @Post('refresh') refresh(@Req() r:CustomerRequest,@Body() b:CartVersionDto){return this.service.update(this.context(r),b.expectedVersion,{type:'refresh'});}
   @Post('merge') async merge(@Req() r:CustomerRequest,@Body() b:CartMergeDto,@Res({passthrough:true}) response:CookieResponse){const result=await this.service.merge(this.context(r),b.expectedVersion,b.guestVersion);hostCookie(response,'delcu_cart_'+r.customerScope!.storeId,'',0);return result;}
+  @Post('quote') quote(@Req() r:CustomerRequest,@Body() b:QuoteDto){return this.service.quote(this.context(r),b);}
 }

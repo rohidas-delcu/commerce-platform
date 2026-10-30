@@ -1,3 +1,4 @@
+import {MemoryPricingRepository} from '../pricing/infrastructure/memory-pricing.repository.js';
 import {MemoryInventoryRepository} from '../inventory/infrastructure/memory-inventory.repository.js';
 import {MemoryMediaRepository} from '../media/infrastructure/memory-media.repository.js';
 import { randomUUID } from "node:crypto";
@@ -10,6 +11,7 @@ const clone = <T>(value: T): T => structuredClone(value);
 export class MemoryCommerceRepository implements CommerceRepository {
   private readonly stores = new Map<string, Store>();
   private readonly products = new Map<string, Product>();
+  readonly pricing=new MemoryPricingRepository();
   readonly media=new MemoryMediaRepository(this.stores,this.products);
   private readonly collections=new Map<string,Collection>();
   private readonly collectionLinks=new Map<string,{collectionId:string;productId:string;position:number}>();

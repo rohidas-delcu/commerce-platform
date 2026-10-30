@@ -1,3 +1,4 @@
+import {pricingPolicy,assertPricingReady,type PricingPolicy} from '../pricing/domain/pricing.js';
 import {InventoryService} from '../inventory/application/inventory.service.js';
 import type {ReservationRequest} from '../inventory/domain/inventory.js';
 import type {MediaAsset,ProductImage} from '../media/domain/media.js';
@@ -172,4 +173,7 @@ export class CommerceService {
   async inventoryReservation(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).find(storeId,id);}
   async releaseInventory(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).transition(storeId,id,'release',subject);}
   async expireInventory(subject:string,storeId:string){await this.ownedStore(storeId,subject);return new InventoryService(this.repository.inventory).expire(storeId,subject);}
+
+  async pricing(subject:string,storeId:string){await this.ownedStore(storeId,subject);return this.repository.pricing.policy(storeId);}
+  async savePricing(subject:string,storeId:string,input:PricingPolicy){const store=await this.ownedStore(storeId,subject);const policy=pricingPolicy(input);if(store.status==='PUBLISHED')assertPricingReady(policy);if(policy.payments.simulator&&process.env.NODE_ENV!=='development')throw new DomainError('INVALID','Payment simulator is development-only.');return this.repository.pricing.savePolicy(storeId,policy,subject);}
 }

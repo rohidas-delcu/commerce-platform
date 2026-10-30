@@ -203,7 +203,8 @@ Prices, totals and stock are read on the server; client price fields are rejecte
 
 Responses contain cart id/status/version/expiresAt, safe items, currencyCode,
 subtotalMinor and structured validation (UNAVAILABLE, STOCK_SHORTAGE, PRICE_CHANGED).
-This subtotal is not a checkout total and excludes pending shipping/tax/discounts.
+This cart subtotal is not a checkout total. The separate estimate endpoint applies
+configured shipping/tax; coupon redemption and checkout snapshots remain pending.
 A current quote never authorizes stock allocation; checkout must revalidate/reserve.
 `POST merge` after customer login uses `{expectedVersion,guestVersion}`; combines
 same-variant quantities atomically, rejects >999/100 lines, marks the guest merged
@@ -212,3 +213,27 @@ merged lines remain visible as invalid choices for resolution, without reserving
 A guest cart expires seven days after creation; owned carts expire after seven days
 without mutation. Expired carts cannot mutate; POST creates a fresh cart. Physical
 retention cleanup awaits the worker. Customer/guest APIs require PostgreSQL.
+
+
+## Shipping/tax policy and estimates
+
+Merchant `GET/PUT /v1/merchant/stores/:id/pricing`; writes need `store.settings`,
+Origin/CSRF and the current policy `version` (0 for initial creation). Shape:
+`{version,shipping:[{id,name,countries,rateMinor,freeAboveMinor,active}],
+tax:{mode,shippingTaxable,rates:[{countryCode,basisPoints}]},payments:{cod,simulator}}`.
+All money fields are minor-unit strings; freeAboveMinor is an explicit string or null.
+Countries currently IN/US/GB/CA/AU. Rates use integer basis points (no invented tax
+rates). NONE requires empty rates; other modes require explicit destination rates.
+The simulator flag can only be enabled in development. Flags do not process payments.
+Draft policies may be incomplete. Completion/publication requires an active shipping
+method, enabled payment flag and tax coverage for shipping destinations. Unpublish
+before disabling checkout readiness. Policy writes are versioned and audited.
+
+`POST /v1/storefront/:handle/cart/quote` with store customer/guest cookies and CSRF:
+`{expectedVersion,shippingMethodId,shippingAddress:<full address>}`. Returns itemized
+subtotalMinor/discountMinor/shippingMinor/taxMinor/totalMinor, currencyCode,
+cartVersion/policyVersion and `estimate:true`. No caller-supplied amounts or coupon
+fields accepted yet. Missing/inapplicable configuration409; invalid/empty cart409.
+Final checkout must revalidate/recalculate and persist snapshots; this response is
+not a stock guarantee, payment acceptance or durable checkout. Coupon arithmetic
+exists in the domain but coupon persistence/redemption APIs are still pending.

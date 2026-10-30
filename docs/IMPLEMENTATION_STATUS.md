@@ -15,7 +15,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   within the same transaction as commerce writes. Legacy data stays quarantined.
 - Onboarding foundation: idempotent store creation, resumable/versioned locale,
   timezone/contact/brand settings, complete vs publish separation and archive safeguards.
-  Shipping/payment configuration and logo/settings completion remain pending.
+  Shipping/payment configuration now gates completion/publication; logo settings remain pending.
 - Catalog: product/variant metadata and lifecycle, SEO, exact prices, scoped handles/
   SKUs, search/sort/bounded offset pages; normalized collections with ordered links.
 - Media: bounded reservations, real PNG/JPEG raster/checksum verification, local
@@ -27,7 +27,8 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
 - Carts: guest capabilities in host-only HttpOnly cookies, authenticated store-owned
   carts, versioned edits/clear/refresh, exact server prices and validation messages,
   atomic login merge/retry handling and expiry. No inventory reservation on cart
-  creation or editing. Shipping/discount/tax and checkout totals are not implemented.
+  creation or editing. Store-configured shipping/tax estimates now have an API;
+  coupon persistence/redemption and durable checkout totals remain pending.
 - Customer checkpoint: independent store-scoped identities reuse credential/session
   infrastructure, cookie/origin/CSRF policy and throttles. Customer cookies cannot
   become merchant or another store's authority even when renamed. SQL constraints
@@ -35,9 +36,18 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   FKs, optimistic versions and serialized default selection; wishlist uses safe
   public products. Customer order history awaits orders.
 
+- Pricing checkpoint: versioned country-zone flat/free-threshold shipping, explicit
+  NONE/EXCLUSIVE/INCLUSIVE tax settings, a TaxCalculatorPort, exact rounding and
+  itemized cart estimates. Payment flags are configuration only, not implemented
+  payment processing. Draft configuration can be incomplete; onboarding/publication
+  require shipping/payment readiness and tax coverage for shipping destinations.
+  Currency cannot be reinterpreted after catalog or pricing values exist.
+  Discount arithmetic/eligibility is unit-tested domain code only; coupon APIs,
+  durable redemption and checkout usage enforcement remain pending.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 32 passed, 0 failed/skipped.
+- `pnpm test`: 34 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
 - Disposable PostgreSQL `pnpm test:postgres`: 14 passed, 0 failed/skipped. This
@@ -53,19 +63,18 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before carts: `8ca16b5f0ada2c7df1ea602f64277ea4c18acf3c`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41071693656
-  Inventory `0eea7a6` also passed Actions run41070485796. Cart remote CI must
+- Latest pushed verified implementation before pricing: `e4e6629fa6559b0b72c2dd68b690d4b1a30d7f55`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41073307532
+  Customer `8ca16b5` also passed Actions run41071693656. Pricing remote CI must
   be checked after pushing; local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Finish cart checkpoint commit/CI; then implement shipping/tax/discount
-   configuration and an exact itemized quote engine, including discount validity/
-   usage limits and explicit inclusive/exclusive tax settings.
-2. Finish onboarding
-   shipping/payment/logo settings and publication prerequisites.
-3. Checkout state machine, idempotent durable order snapshots and inventory linkage.
+1. Commit pricing checkpoint and inspect CI; implement the checkout/COD order
+   journey with durable snapshots, idempotency and inventory linkage. Couple coupon
+   persistence/eligibility/redemption to that transaction before claiming discounts complete.
+2. Finish logo/branding settings and review all onboarding/publication prerequisites.
+3. Complete checkout resume/expiry/reprice and customer/merchant order history.
 4. COD, development simulator and Razorpay boundary/signature/status/reconciliation;
    order/payment/fulfillment transitions, cancellation/refunds and history.
 5. Durable notification delivery/retries, SES adapter, expiry/retention/orphan workers,
@@ -87,7 +96,8 @@ ownerless accounts need audited operator recovery. No automatic ownership mappin
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030150000_carts` (additive cart/line FKs,
+Migration history now includes `20261030151000_store_pricing` (versioned JSON policy) and
+`20261030150000_carts` (additive cart/line FKs,
 owner/capability CHECKs and one active cart per customer). The earlier
 `20261030145000_customer_identity` preserves merchant scope; scoped email
 uniqueness replaces the global index atomically while preserving merchant credentials,

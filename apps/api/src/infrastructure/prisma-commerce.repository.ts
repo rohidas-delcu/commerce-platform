@@ -1,3 +1,4 @@
+import {PrismaPricingRepository} from '../pricing/infrastructure/prisma-pricing.repository.js';
 import {PrismaInventoryRepository} from '../inventory/infrastructure/prisma-inventory.repository.js';
 import {PrismaMediaRepository} from '../media/infrastructure/prisma-media.repository.js';
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
@@ -54,15 +55,17 @@ function movementDomain(row: {
 
 @Injectable()
 export class PrismaCommerceRepository implements CommerceRepository, OnModuleDestroy, OnModuleInit {
+  readonly pricing:PrismaPricingRepository;
   readonly media:PrismaMediaRepository;
   readonly inventory:PrismaInventoryRepository;
   private readonly db: PrismaClient | Prisma.TransactionClient;
 
   constructor(transaction?: Prisma.TransactionClient) {
-    if (transaction) {this.db = transaction;this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
+    if (transaction) {this.db = transaction;this.pricing=new PrismaPricingRepository(transaction);this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is required for DATA_DRIVER=postgres.");
     this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, { schema: new URL(connectionString).searchParams.get("schema") ?? "public" }) });
+    this.pricing=new PrismaPricingRepository(this.db);
     this.media=new PrismaMediaRepository(this.db);
     this.inventory=new PrismaInventoryRepository(this.db);
   }
@@ -76,6 +79,7 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
       this.db.product.findFirst({ select: { version: true, seoTitle:true } }),
       this.db.productVariant.findFirst({ select: { stock: true, reserved:true, active:true,priceMinor:true,options:true } }),
       this.db.collection.findFirst({select:{id:true}}),
+      this.db.storePricing.findFirst({select:{version:true}}),
       this.db.inventoryReservation.findFirst({select:{id:true}}),
       this.db.inventoryReservationEvent.findFirst({select:{id:true}}),
       this.db.mediaAsset.findFirst({select:{id:true,status:true}}),

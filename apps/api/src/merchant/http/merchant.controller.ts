@@ -1,3 +1,4 @@
+import {PricingDto} from '../../pricing/http/pricing.dto.js';
 import {ReservationDto} from '../../inventory/inventory.dto.js';
 import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
 import {applyDecorators,Body,Controller,Get,Post,Patch,Put,Delete,Headers,Query,Req,Param,ParseUUIDPipe,UseGuards} from '@nestjs/common';
@@ -108,4 +109,8 @@ export class MerchantController {
   @Post('stores/:storeId/inventory/reservations/:reservationId/release') releaseInventory(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('reservationId',ParseUUIDPipe) reservation:string){return this.service.releaseInventory(r.identitySession!,id,reservation);}
   @Mutation()
   @Post('stores/:storeId/inventory/expire-reservations') expireInventory(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.expireInventory(r.identitySession!,id);}
+
+  @Get('stores/:storeId/pricing') pricing(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.pricing(r.identitySession!,id);}
+  @Mutation()
+  @Put('stores/:storeId/pricing') savePricing(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() b:PricingDto){return this.service.savePricing(r.identitySession!,id,b);}
 }

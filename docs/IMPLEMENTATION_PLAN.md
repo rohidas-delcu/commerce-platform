@@ -61,3 +61,25 @@ Earlier design-only and unmerged-main statements are historical, not current gat
 No frontend, automatic merge, production deployment or unsafe provider fallback.
 Provider credentials/sandbox acceptance remain required for live activation.
 See IMPLEMENTATION_STATUS.md for actual delivered scope, not this authorization.
+
+## Next executable slice after shipping/tax estimates
+
+Implement verified-customer checkout and COD orders first, then expand payment
+providers/lifecycles. Preserve the shared transactional storefront authority helper.
+Use durable DRAFT → READY → COMPLETED/EXPIRED/CANCELLED checkout states with versions,
+contact/address/method inputs, idempotent create/placement keys and one active checkout
+per cart. READY creates a bounded inventory reservation and authoritative item/tax/
+shipping snapshots. Any changed inputs release the hold and require a fresh quote.
+Placement rechecks store/catalog/cart/policy and expiry after locks; never silently
+accept changed amounts. Commit hold + immutable order/items + checkout/cart state +
+outbox event in one transaction. One checkout produces one order despite retries.
+
+Keep order/payment/fulfillment state independent. COD starts amount-due (not captured),
+with separate audited cash collection. Add safe customer history and merchant order
+permissions through centralized policy. Manual ready/dispatch/delivery transitions
+must be explicit and idempotent. Eligible pre-dispatch cancellation restores committed
+inventory exactly once; fulfillment/payment events remain immutable. Persistent
+coupon eligibility/redemption must use the same order transaction and durable unique
+redemption identity before discounts are marked complete. Preserve transactionally
+staged notifications even before delivery workers exist. Test actual HTTP + PostgreSQL
+last-unit/duplicate placement/rollback/expiry and tenant isolation.

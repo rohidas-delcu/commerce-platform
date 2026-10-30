@@ -47,10 +47,17 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   assert.equal((await request(owner,path+'/settings','PATCH',settings)).status,200);
   assert.equal((await request(owner,path+'/settings','PATCH',settings)).status,409);
   assert.equal((await request(owner,path+'/settings','PATCH',{expectedVersion:1,countryCode:'XX',currencyCode:'XXX'})).status,400);
+  assert.equal((await request(owner,path+'/onboarding/complete','POST',{expectedVersion:1})).status,409,'Shipping and payment configuration is required.');
+  const pricing={version:0,shipping:[{id:'standard',name:'Standard shipping',countries:['IN'],rateMinor:'5000',freeAboveMinor:'200000',active:true}],tax:{mode:'NONE',shippingTaxable:false,rates:[]},payments:{cod:true,simulator:false}};
+  const configuredPricing=await request(owner,path+'/pricing','PUT',pricing);assert.equal(configuredPricing.status,200,JSON.stringify(configuredPricing.body));assert.equal(configuredPricing.body.version,1);
+  assert.equal((await request(owner,path+'/pricing','PUT',pricing)).status,409);
+  assert.equal((await request(stranger,path+'/pricing')).status,404);
+  const pricingRace=await Promise.all([request(owner,path+'/pricing','PUT',{...pricing,version:1}),request(owner,path+'/pricing','PUT',{...pricing,version:1})]);assert.deepEqual(pricingRace.map(r=>r.status).sort(),[200,409]);
   const complete=await request(owner,path+'/onboarding/complete','POST',{expectedVersion:1});assert.equal(complete.status,201);assert.equal(complete.body.status,'DRAFT');assert.equal(complete.body.onboardingState,'COMPLETED');
   const product=await request(owner,path+'/products','POST',{name:'Journey bag',handle:'bag',priceMinor:'199900',variants:[{name:'Black',sku:'JOURNEY-1',stock:10}]});assert.equal(product.status,201,JSON.stringify(product.body));
   assert.equal((await request(owner,path+`/products/${product.body.id}/activate`,'POST',{})).status,201);
   assert.equal((await request(owner,path+'/publish','POST',{})).status,201);
+  assert.equal((await request(owner,path+'/pricing','PUT',{...pricing,version:1,payments:{cod:false,simulator:false}})).status,409,'Unpublish before disabling all payment methods.');
   const publicCatalog=await request({},`/v1/storefront/${handle}/products`);assert.equal(publicCatalog.status,200);assert.equal(publicCatalog.body.products.length,1);assert.equal('ownerSubjectId'in publicCatalog.body.store,false);
   assert.equal((await request({},`/v1/admin/stores/${storeId}/products`,'GET',undefined,{'x-demo-subject-id':owner.id})).status,404,'Demo headers cannot access real merchant stores.');
   assert.deepEqual((await request({},'/v1/admin/stores','GET',undefined,{'x-demo-subject-id':owner.id})).body,[]);
