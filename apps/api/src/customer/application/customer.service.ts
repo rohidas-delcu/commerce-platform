@@ -11,10 +11,12 @@ export class CustomerService {
   private dummy:Promise<string>;
   constructor(private commerce:CommerceRepository,private identities:IdentityRepositoryFactoryPort,private repository:CustomerRepositoryPort,private authority:IdentityAuthorityPort,private secrets:IdentitySecretsPort){this.dummy=authority.hash(secrets.secret());}
   async checkHealth(){if(process.env.DATA_DRIVER==='postgres')await this.repository.checkHealth();}
-  async scope(handle:string):Promise<CustomerScope>{
+  async scope(handle:string,access:'commerce'|'account'='commerce'):Promise<CustomerScope>{
     if(process.env.DATA_DRIVER!=='postgres')throw new IdentityError(503,'Customer accounts require PostgreSQL.');
     const store=await this.commerce.findStoreByHandle(normalizeHandle(handle));
-    if(!store||!store.merchantManaged||store.merchantStatus!=='ACTIVE'||store.status!=='PUBLISHED'||store.suspended||store.archivedAt)throw new DomainError('NOT_FOUND','Store not found.');
+    if(!store||!store.merchantManaged)throw new DomainError('NOT_FOUND','Store not found.');
+    const published=store.merchantStatus==='ACTIVE'&&store.status==='PUBLISHED'&&!store.suspended&&!store.archivedAt;
+    if((access==='commerce'&&!published)||(access==='account'&&!published&&!await this.repository.hasAccounts(store.id)))throw new DomainError('NOT_FOUND','Store not found.');
     const baseCookieName='delcu_customer_'+store.id;
     return{storeId:store.id,baseCookieName,auth:new IdentityService(this.identities.scoped(store.id),this.authority,this.secrets,{baseCookieName,rateScope:'store:'+store.id,dummyHash:this.dummy})};
   }

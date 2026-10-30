@@ -162,7 +162,7 @@ reserved until explicit expiry processing; automatic scheduling is pending.
 ## Store customer accounts
 
 Base `/v1/storefront/:handle/customer`. Only active merchant-managed published
-stores accept customer accounts. `GET auth/csrf` returns CSRF and a host-only cookie
+stores accept new customer signup and shopping. Existing account access is below. `GET auth/csrf` returns CSRF and a host-only cookie
 `delcu_customer_<store UUID>` (production Secure `__Host-` prefix; production disabled).
 Every mutation requires this cookie, allowlisted Origin and x-csrf-token. Use
 credentialed fetch or a same-origin BFF; no cookie sharing across unrelated domains.
@@ -336,3 +336,16 @@ later policy edits do not rewrite past purchases. Release records are immutable.
 Zero-total orders use paymentStatus NOT_REQUIRED, paid0/due0, and complete on delivery.
 They never record COD collection or payment confirmation. Positive COD totals retain
 the separate delivered-then-cash-collection workflow. Production remains disabled.
+
+
+## Customer account access after store closure
+
+Existing store customers may still bootstrap/login/verify/recover/logout and read
+profile/addresses/own orders when a previously used store is unpublished, suspended
+or archived. Identity/session namespace, verified/active identity, CSRF and tenant
+checks are unchanged. Customer order reads use account availability, not storefront
+publication. New signup, catalog-derived wishlist reads/adds, carts and checkout
+remain blocked while commerce is unavailable. Existing wishlist removal is allowed.
+Never-used closed store namespaces return404, including CSRF bootstrap. This does
+not grant merchant authority or reactivate a closed store. Merchant business APIs
+continue enforcing their original store/account availability rules.

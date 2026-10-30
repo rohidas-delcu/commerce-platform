@@ -21,7 +21,7 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
   async onModuleInit(){if(process.env.DATA_DRIVER==='postgres')await this.checkHealth();}
   async onModuleDestroy(){await this.client?.$disconnect();}
   async checkHealth(){await this.db.checkout.findFirst({select:{id:true}});}
-  private scope<T>(c:CheckoutContext,work:(tx:Prisma.TransactionClient,customerId:string)=>Promise<T>){return withStorefrontSession(this.db,c.storeId,c.principal,true,(tx,id)=>{if(!id)throw new IdentityError(401,'Authentication required.');return work(tx,id);});}
+  private scope<T>(c:CheckoutContext,work:(tx:Prisma.TransactionClient,customerId:string)=>Promise<T>,access:'commerce'|'account'='commerce'){return withStorefrontSession(this.db,c.storeId,c.principal,true,(tx,id)=>{if(!id)throw new IdentityError(401,'Authentication required.');return work(tx,id);},access);}
   private async load(tx:Prisma.TransactionClient,c:CheckoutContext,customerId:string,id:string){
     await tx.$queryRaw`SELECT id FROM "Checkout" WHERE id=${id}::uuid AND "storeId"=${c.storeId}::uuid AND "customerId"=${customerId}::uuid FOR UPDATE`;
     const row=await tx.checkout.findFirst({where:{id,storeId:c.storeId,customerId}});if(!row)throw new DomainError('NOT_FOUND','Checkout not found.');return row;
@@ -90,8 +90,8 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
     return domain(await tx.checkout.update({where:{id},data:{status:'CANCELLED',version:{increment:1},reservationId:null}}));
   });}
 
-  orders(c:CheckoutContext,input:OrderQuery&{limit:number;offset:number}){return this.scope(c,async(tx,customerId)=>(await tx.order.findMany({where:{storeId:c.storeId,customerId,...(input.status?{status:input.status}:{}),...(input.query?{number:{contains:input.query,mode:'insensitive'}}:{})},orderBy:[{createdAt:'desc'},{id:'asc'}],take:input.limit+1,skip:input.offset,include:orderInclude})).map(orderDomain));}
-  order(c:CheckoutContext,id:string){return this.scope(c,async(tx,customerId)=>{const row=await tx.order.findFirst({where:{id,storeId:c.storeId,customerId},include:orderInclude});if(!row)throw new DomainError('NOT_FOUND','Order not found.');return orderDomain(row);});}
+  orders(c:CheckoutContext,input:OrderQuery&{limit:number;offset:number}){return this.scope(c,async(tx,customerId)=>(await tx.order.findMany({where:{storeId:c.storeId,customerId,...(input.status?{status:input.status}:{}),...(input.query?{number:{contains:input.query,mode:'insensitive'}}:{})},orderBy:[{createdAt:'desc'},{id:'asc'}],take:input.limit+1,skip:input.offset,include:orderInclude})).map(orderDomain),'account');}
+  order(c:CheckoutContext,id:string){return this.scope(c,async(tx,customerId)=>{const row=await tx.order.findFirst({where:{id,storeId:c.storeId,customerId},include:orderInclude});if(!row)throw new DomainError('NOT_FOUND','Order not found.');return orderDomain(row);},'account');}
   placeCod(c:CheckoutContext,id:string,version:number,key:string){return this.scope(c,async(tx,customerId)=>{
     const digest=createHash('sha256').update(JSON.stringify({checkoutId:id,version,paymentMethod:'COD'})).digest('hex');
     const previous=await tx.order.findUnique({where:{storeId_customerId_placementKey:{storeId:c.storeId,customerId,placementKey:key}},include:orderInclude});

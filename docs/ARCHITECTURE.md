@@ -101,3 +101,10 @@ require PostgreSQL; there is no permissive memory authentication fallback. Cooki
 are host-only, named per store; a future custom-domain storefront uses a same-origin
 proxy/BFF with its own host cookie, rather than a cookie shared across unrelated domains.
 CORS enables credentials only for the validated explicit origin allowlist.
+
+Customer guards/transaction scopes distinguish `account` from `commerce` availability.
+Authentication, own addresses and receipts may survive closure for an already-used
+managed namespace. Signup, catalog/wishlist content, carts and checkout require an
+active published store. Both paths retain the same scoped identity/session checks;
+no demo or merchant identity becomes customer authority. Unused closed namespaces
+remain hidden. Availability intent is static use-case metadata and centralized policy.

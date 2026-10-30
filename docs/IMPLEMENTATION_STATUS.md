@@ -80,6 +80,12 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   never report a payment or send a payment-confirmation intent. The focused migration
   corrects any earlier zero-DUE state without changing financial values or IDs.
 
+- Account continuity: existing customers retain authenticated profile/address and
+  order receipt access after store unpublication/suspension/archive. New signup,
+  catalog/wishlist content, carts and checkout still require available commerce.
+  Never-used closed namespaces stay private. Namespace/session/tenant/revocation
+  checks remain mandatory; historical access does not reactivate a store.
+
 ## Actual checkpoint evidence
 
 - `pnpm test`: 39 passed, 0 failed/skipped.
@@ -100,15 +106,15 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before coupons: `5188e4f8cef29736010fd170d1dfa2d76ddc324d`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41080618341
-  COD `b83574a` also passed Actions run41078376704. Coupon remote CI must
-  be checked after pushing; local results do not establish remote CI success.
+- Latest pushed verified implementation before account continuity: `42d6da3692624237012acefc128c950d8de227fa`. Actions succeeded:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41085205485
+  Fulfillment `5188e4f` also passed run41080618341. Check account-continuity CI
+  after pushing; local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Commit coupon checkpoint/inspect CI; finish store branding logo/assets and
-   receipt/account access for closed stores without enabling storefront commerce.
+1. Commit account-continuity checkpoint/inspect CI; finish store logo/branding
+   asset settings with tenant/verification/deletion safeguards and safe public metadata.
 2. Finish logo/branding settings and review all onboarding/publication prerequisites.
 3. Complete remaining payment/simulator/reconciliation/refund lifecycles and security
    acceptance; never infer captured payment from a browser callback.
@@ -130,8 +136,8 @@ Expired holds conservatively reduce availability until explicit expiry processin
 scheduled expiry and orphan cleanup remain pending. Tombstoned media stays private
 on delete failure. Cross-account legal ownership transfer stays disabled; frozen
 ownerless accounts need audited operator recovery. No automatic ownership mapping.
-Customer auth/history currently also require an available published store; historical
-receipt access for closed/suspended stores needs policy review before production.
+Existing customer account/receipt access survives closure; shopping and new signup
+remain unavailable. Merchant business mutations remain subject to store/account status.
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 

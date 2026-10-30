@@ -85,3 +85,9 @@ stock and quota before retry. Migration rehearsal runs the exact zero-total corr
 DML twice against delivered-zero, positive-due and cancelled-zero fixtures; IDs/financial
 values and non-target states stay unchanged, with one audit entry. No provider/payment
 capture or actual email delivery is implied by these deterministic backend checks.
+
+Closed-store account checks unpublish and archive a real merchant-created store,
+log the customer out/in, retain receipt/address access and reject shopping/signup/
+public catalog/wishlist content. An unused second closed namespace stays404. Store
+suspension no longer prevents own account access; identity suspension still revokes
+and rejects the customer session. No tenant or cookie-audience checks are relaxed.

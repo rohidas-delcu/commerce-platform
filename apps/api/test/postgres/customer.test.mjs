@@ -102,7 +102,7 @@ test('store customer HTTP authentication, credential separation, address concurr
   assert.equal((await request(other,rootB+'/profile')).status,200);assert.equal((await request(merchant,'/v1/auth/me')).status,200);
   await request(customer,rootA+'/auth/csrf');assert.equal((await request(customer,rootA+'/auth/login','POST',{email,password:password+'new'})).status,201);
   await db.identity.update({where:{id:me.id},data:{status:'SUSPENDED'}});assert.equal((await request(customer,rootA+'/profile')).status,401);
-  await db.store.update({where:{id:b.store.id},data:{suspended:true}});assert.equal((await request(other,rootB+'/profile')).status,404);assert.equal((await request({},rootB+'/auth/csrf')).status,404);
+  await db.store.update({where:{id:b.store.id},data:{suspended:true}});assert.equal((await request(other,rootB+'/profile')).status,200);assert.equal((await request({},rootB+'/auth/csrf')).status,200);assert.equal((await request(other,`/v1/storefront/${b.store.handle}/cart`)).status,404);assert.equal((await request(other,rootB+'/auth/signup','POST',{email:'closed-'+randomUUID()+'@example.test',password,name:'No new signup'})).status,404);
   await db.store.update({where:{id:b.store.id},data:{suspended:false}});
   assert.equal((await request(other,rootB+'/auth/logout','POST',{})).status,201);assert.equal((await request(other,rootB+'/profile')).status,401);
   await request(other,rootB+'/auth/csrf');const unknownEmail=`unknown-${randomUUID()}@example.test`;

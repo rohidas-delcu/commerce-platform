@@ -12,7 +12,8 @@ export class CustomerGuard implements CanActivate {
   async canActivate(context:ExecutionContext){
     const request=context.switchToHttp().getRequest<CustomerRequest&{method:string}>();
     context.switchToHttp().getResponse<CookieResponse>().setHeader('Cache-Control','no-store');
-    const scope=await this.service.scope(request.params.handle);request.customerScope=scope;
+    const access=this.reflector.getAllAndOverride<'commerce'|'account'>('storefrontAccess',[context.getHandler(),context.getClass()])??'commerce';
+    const scope=await this.service.scope(request.params.handle,access);request.customerScope=scope;
     const mode=this.reflector.getAllAndOverride<string>('customerAccess',[context.getHandler(),context.getClass()])??'member';
     if(mode!=='bootstrap')await scope.auth.context(request,mode!=='public',request.method!=='GET',mode==='refresh');return true;
   }
@@ -21,12 +22,14 @@ export class CustomerGuard implements CanActivate {
 @ApiCookieAuth('customerSession')
 @ApiHeader({name:'x-csrf-token',description:'Required for mutations; obtain via this store customer auth/csrf endpoint.'})
 @ApiHeader({name:'Origin',description:'Required approved origin for mutations and bootstrap.'})
+@SetMetadata('storefrontAccess','account')
 @Controller('v1/storefront/:handle/customer')
 @UseGuards(CustomerGuard)
 export class CustomerController {
   constructor(private service:CustomerService){}
   @Get('auth/csrf') @Access('bootstrap')
   async csrf(@Req() r:CustomerRequest,@Res({passthrough:true}) response:CookieResponse){const scope=r.customerScope!,tokens=await scope.auth.bootstrap(r);return sessionCookie(response,tokens.value,tokens.csrf,false,scope.baseCookieName);}
+  @SetMetadata('storefrontAccess','commerce')
   @Post('auth/signup') @Access('public') signup(@Req() r:CustomerRequest,@Body() b:SignupDto){return r.customerScope!.auth.register(b.email,b.password,b.name);}
   @Post('auth/verification/resend') @Access('public') resend(@Req() r:CustomerRequest,@Body() b:EmailDto){return r.customerScope!.auth.challenge(b.email,'VERIFY');}
   @Post('auth/verification/confirm') @Access('public') async verify(@Req() r:CustomerRequest,@Body() b:TokenDto){await r.customerScope!.auth.consume(b.token,'VERIFY');return{status:'ok'};}

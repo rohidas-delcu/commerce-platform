@@ -158,3 +158,14 @@ delivery. It never implies money was captured or cash collected. Correct earlier
 zero-DUE records with an idempotent audited data migration preserving IDs/amounts;
 positive/void orders remain unchanged. Both the real API flow and populated correction
 DML are executed. Currency is fixed once catalog/pricing/coupon monetary data exists.
+
+## Customer continuity after closure (implementation, 2026-10-30)
+
+Separate account availability from commerce availability. Previously used managed
+store namespaces allow existing-customer authentication/recovery, own profile/addresses
+and immutable receipts after unpublish/suspend/archive. New signup and all shopping
+still need published, available commerce; catalog-derived wishlist data stays hidden.
+An unused closed namespace remains404. The shared transactional authority helper
+still checks exact store/customer/session namespace, revocation and tenant references;
+account mode changes only publication availability. Controller metadata selects a
+use-case intent; policy is centralized, not independent controller role logic.
