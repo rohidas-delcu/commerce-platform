@@ -72,3 +72,25 @@ contract. No API to claim quarantined legacy ownership or transfer legal tenancy
 Supported country/currency pairs: IN/INR, US/USD, GB/GBP, CA/CAD, AU/AUD; these are
 locale validation only, not a claim of supported shipping/tax/payment jurisdictions.
 Logo/media and shipping/payment onboarding configuration are still pending.
+
+## Product lifecycle/search checkpoint
+
+Merchant GET `/stores/:id/products` supports query, collection (legacy metadata
+filter), status DRAFT/ACTIVE/ARCHIVED, sort created/name/price_asc/price_desc, limit
+1–100 (default 25), offset 0–10000; returns items,limit,offset,nextOffset.
+Public listing accepts the same filters except status (always ACTIVE), preserves
+store/products and adds pagination. Prices sort as exact integers. Full cursor
+pagination remains pending; the offset search window is currently bounded.
+GET merchant `/stores/:id/products/:productId` and public
+`/v1/storefront/:handle/products/:productHandle` provide details. Merchant POST
+`.../:productId/deactivate` returns DRAFT; `.../:productId/archive` returns ARCHIVED.
+Archived products cannot be implicitly reactivated or exposed publicly.
+SEO accepts seoTitle (70 chars) and seoDescription (320 chars). Collections,
+variant-specific pricing/lifecycle and media are not complete yet.
+
+OpenAPI generation uses the Nest Swagger TypeScript plugin with dedicated DTO
+files. Executed HTTP checks assert actual identity/store request schemas, password
+length and cookie security scheme at `/docs-json`; the interactive viewer is `/docs`.
+Mutation contracts document required Origin and x-csrf-token headers. For local
+Swagger mutations, include the actual API origin in CORS_ORIGINS and supply the
+CSRF token from bootstrap; do not relax origin checks.

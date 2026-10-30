@@ -24,7 +24,7 @@ Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
 
 ## Actual checkpoint verification
 
-- `pnpm test`: 21 passed, 0 failed/skipped.
+- `pnpm test`: 22 passed, 0 failed/skipped.
 - `pnpm typecheck`, `pnpm build`: passed.
 - `pnpm test:integration`: 4 passed, 0 failed/skipped.
 - Disposable DATABASE_URL + `pnpm test:postgres`: 10 passed, 0 failed/skipped on the fresh migrated database.
@@ -65,6 +65,16 @@ Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
   remain work. Shipping/payment settings are not yet publication prerequisites.
 - Browser acceptance, rate/retention cleanup, breach-password policy, full security
   review and complete demo remain production release gates.
+
+Product lifecycle slice now provides product detail, explicit DRAFT/ARCHIVED
+transitions, SEO metadata, search/legacy collection filter, exact-price sorting,
+bounded offset pagination and safe public detail/projection. Unit 22, memory 4,
+PostgreSQL 10 and populated upgrade rehearsal passed; typecheck/build passed.
+Migration `20261030140000_product_lifecycle` preserves original column values.
+PR #2 https://github.com/rohidas-delcu/commerce-platform/pull/2 is open/draft.
+Latest product implementation commit: `563536d`. Swagger DTO metadata generation
+and cookie/CSRF documentation are also now covered by executed HTTP checks.
+MerchantAccess commit `3bd8d8d` CI run 41054319257 succeeded in every required step.
 
 Exact next task after verifying/pushing this checkpoint: extend the catalog/media
 vertical slice on the session-authorized transactional store boundary. Add product/

@@ -21,8 +21,8 @@ async function bootstrap() {
     app.enableCors({ origin: config.origins });
 
     const swagger = new DocumentBuilder().setTitle("Commerce Platform API")
-      .setDescription("Milestone 1 local development API — not for production merchant authentication.")
-      .setVersion("0.1.0").build();
+      .setDescription("Incremental headless commerce backend — development only until all acceptance gates pass.")
+      .setVersion("0.1.0").addCookieAuth("delcu_session", {type:"apiKey",in:"cookie"}, "merchantSession").build();
     SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
 
     const port = config.port;

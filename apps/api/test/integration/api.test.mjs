@@ -44,6 +44,13 @@ test('store, product and inventory flow preserves ownership and storefront priva
     await delay(100);
   }
   assert.ok(ready, output);
+  const documentation=await request('/docs-json');
+  assert.equal(documentation.status,200);
+  assert.equal(documentation.body.components.schemas.SignupDto.properties.email.type,'string');
+  assert.equal(documentation.body.components.schemas.StoreDto.properties.merchantId.type,'string');
+  assert.ok(documentation.body.paths['/v1/merchant/stores']);
+  assert.equal(documentation.body.components.schemas.SignupDto.properties.password.minLength,15);
+  assert.equal(documentation.body.components.securitySchemes.merchantSession.in,'cookie');
   assert.deepEqual((await request('/health')).body, { status: 'ok' });
   assert.deepEqual((await request('/health/ready')).body, { status: 'ready' });
   assert.deepEqual((await request('/missing-route')).body, { statusCode: 404, code: 'NOT_FOUND', message: 'Cannot GET /missing-route' });
