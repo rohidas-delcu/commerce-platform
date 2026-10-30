@@ -1,0 +1,15 @@
+{
+  "name": "@commerce/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Prisma schema and migrations owned by Commerce API",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "dotenv": "^17.0.0",
+    "prisma": "^7.0.0",
+    "typescript": "^5.9.0"
+  }
+}
