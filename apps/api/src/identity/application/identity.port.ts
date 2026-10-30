@@ -19,3 +19,5 @@ export interface IdentityRepositoryPort {
 }
 
 export interface IdentitySecretsPort { secret(): string; digest(value: string): string; encryptMail(payload: {token: string}): string }
+
+export interface IdentityRepositoryFactoryPort {scoped(storeId:string):IdentityRepositoryPort;}

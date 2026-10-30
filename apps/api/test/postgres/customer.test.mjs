@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {createHash,randomUUID} from 'node:crypto';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {setTimeout as delay} from 'node:timers/promises';
+import {PrismaClient} from '../../dist/generated/prisma/client.js';
+import {PrismaPg} from '@prisma/adapter-pg';
+import {decryptMail} from '../../dist/identity/infrastructure/secrets.js';
+
+test('store customer HTTP authentication, credential separation, address concurrency, wishlist privacy and revocation',{timeout:60000},async t=>{
+  assert.ok(process.env.DATABASE_URL,'Disposable PostgreSQL required.');const previous=process.env.AUTH_OUTBOX_KEY;process.env.AUTH_OUTBOX_KEY='e'.repeat(64);
+  const db=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});
+  const limiterKeys=['browser','mutation'].map(kind=>createHash('sha256').update(`${kind}:127.0.0.1:${Math.floor(Date.now()/900000)}`).digest('hex'));
+  await db.identityThrottle.deleteMany({where:{key:{in:limiterKeys}}});
+  async function storeFixture(){const account=await db.merchantAccount.create({data:{name:'Customer test account'}});const store=await db.store.create({data:{merchantId:account.id,ownerSubjectId:'customer-test-fixture',name:'Customer test store',handle:'customer-'+randomUUID(),status:'PUBLISHED',onboardingState:'COMPLETED',contactEmail:'fixture@example.test',brandingName:'Fixture'}});const product=await db.product.create({data:{storeId:store.id,name:'Private SKU public bag',handle:'bag',status:'ACTIVE',priceMinor:199900n,variants:{create:{name:'Black',sku:'SECRET-SKU',stock:3}}}});return{store,product};}
+  const a=await storeFixture(),b=await storeFixture();
+  const port=23000+Math.floor(Math.random()*1000),base=`http://127.0.0.1:${port}`;
+  const child=spawn(process.execPath,['dist/main.js'],{cwd:new URL('../../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'development',DATA_DRIVER:'postgres',DEMO_AUTH_ENABLED:'false'},stdio:['ignore','pipe','pipe']});let logs='';child.stdout.on('data',c=>{logs+=c;});child.stderr.on('data',c=>{logs+=c;});
+  t.after(async()=>{if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit'),timer=setTimeout(()=>child.kill('SIGKILL'),5000);timer.unref();child.kill('SIGTERM');const[,signal]=await exited;clearTimeout(timer);assert.notEqual(signal,'SIGKILL');}await db.identityThrottle.deleteMany({where:{key:{in:limiterKeys}}});await db.$disconnect();if(previous===undefined)delete process.env.AUTH_OUTBOX_KEY;else process.env.AUTH_OUTBOX_KEY=previous;});
+  let ready=false;for(let i=0;i<100;i++){assert.equal(child.exitCode,null,logs);try{ready=(await fetch(base+'/health/ready')).ok;}catch{}if(ready)break;await delay(100);}assert.ok(ready,logs);
+  async function request(browser,path,method='GET',body,extra={}){const response=await fetch(base+path,{method,headers:{cookie:browser.cookie??'',origin:'http://localhost:5173','x-csrf-token':browser.csrf??'','content-type':'application/json',...extra},body:body===undefined?undefined:JSON.stringify(body)});const cookie=response.headers.get('set-cookie');if(cookie)browser.cookie=cookie.split(';')[0];const text=await response.text(),result=text?JSON.parse(text):null;if(result?.csrfToken)browser.csrf=result.csrfToken;return{status:response.status,body:result,headers:response.headers};}
+  const rootA=`/v1/storefront/${a.store.handle}/customer`,rootB=`/v1/storefront/${b.store.handle}/customer`,email=`customer-${randomUUID()}@example.test`,password='strong customer fixture password 519782';
+  async function token(scopeKey,purpose){const mail=await db.identityMail.findFirstOrThrow({where:{scopeKey,recipient:email,purpose},orderBy:{createdAt:'desc'}});return decryptMail(mail.encryptedPayload).token;}
+  async function signup(browser,root){const bootstrap=await request(browser,root+'/auth/csrf');assert.equal(bootstrap.status,200);assert.equal(bootstrap.headers.get('access-control-allow-credentials'),'true');assert.match(browser.cookie,/^delcu_customer_/);assert.equal((await request(browser,root+'/auth/signup','POST',{email,password,name:'Customer'})).status,201);}
+  const merchant={};await request(merchant,'/v1/auth/csrf');await request(merchant,'/v1/auth/signup','POST',{email,password,name:'Merchant with same email'});await request(merchant,'/v1/auth/verification/confirm','POST',{token:await token('merchant','VERIFY')});assert.equal((await request(merchant,'/v1/auth/login','POST',{email,password})).status,201);const merchantId=(await request(merchant,'/v1/auth/me')).body.id;
+  const customer={},other={};await signup(customer,rootA);const verify=await token('store:'+a.store.id,'VERIFY');await signup(other,rootB);
+  assert.equal((await request(other,rootB+'/auth/verification/confirm','POST',{token:verify})).status,400,'Wrong store must not consume challenge.');
+  assert.equal((await request(customer,rootA+'/auth/login','POST',{email,password})).status,401,'Unverified customer cannot sign in.');
+  assert.equal((await request(customer,rootA+'/auth/verification/confirm','POST',{token:verify})).status,201);
+  assert.equal((await request(customer,rootA+'/auth/verification/confirm','POST',{token:verify})).status,400);
+  assert.equal((await request(customer,rootA+'/auth/login','POST',{email,password})).status,201);
+  await request(other,rootB+'/auth/verification/confirm','POST',{token:await token('store:'+b.store.id,'VERIFY')});await request(other,rootB+'/auth/login','POST',{email,password});
+  const me=(await request(customer,rootA+'/profile')).body,otherMe=(await request(other,rootB+'/profile')).body;assert.notEqual(me.id,merchantId);assert.notEqual(me.id,otherMe.id);assert.equal('passwordHash'in me,false);
+  assert.equal((await request(customer,'/v1/merchant/accounts')).status,401);
+  const customerSecret=customer.cookie.split('=')[1],merchantSecret=merchant.cookie.split('=')[1];
+  assert.equal((await request({cookie:'delcu_session='+customerSecret,csrf:customer.csrf},'/v1/merchant/accounts')).status,401,'Renaming a cookie cannot change session audience.');
+  assert.equal((await request({cookie:`delcu_customer_${b.store.id}=`+customerSecret},rootB+'/profile')).status,401);
+  assert.equal((await request({cookie:`delcu_customer_${a.store.id}=`+merchantSecret},rootA+'/profile')).status,401);
+  const address={name:'Shopper',line1:'12 Example Road',city:'Pune',region:'Maharashtra',postalCode:'411001',countryCode:'IN',phone:'+919999999999'};
+  assert.equal((await request(customer,rootA+'/addresses','POST',address,{'x-csrf-token':''})).status,403);
+  assert.equal((await request(customer,rootA+'/addresses','POST',{...address,unexpected:'reject'})).status,400);
+  const first=await request(customer,rootA+'/addresses','POST',address);assert.equal(first.status,201);assert.equal(first.body.isDefault,true);
+  const defaults=await Promise.all([request(customer,rootA+'/addresses','POST',{...address,line1:'Second',isDefault:true}),request(customer,rootA+'/addresses','POST',{...address,line1:'Third',isDefault:true})]);assert.deepEqual(defaults.map(r=>r.status),[201,201]);
+  let addresses=(await request(customer,rootA+'/addresses')).body;assert.equal(addresses.filter(a=>a.isDefault).length,1);
+  assert.equal((await request(other,rootB+`/addresses/${first.body.id}`,'PATCH',{...address,expectedVersion:first.body.version})).status,404);
+  assert.equal((await request(customer,rootA+`/addresses/${first.body.id}`,'PATCH',{...address,expectedVersion:first.body.version})).status,409);
+  const old=addresses.find(a=>a.id===first.body.id);const edited=await request(customer,rootA+`/addresses/${old.id}`,'PATCH',{...address,line1:'Updated',expectedVersion:old.version});assert.equal(edited.status,200);
+  const defaultAddress=addresses.find(a=>a.isDefault);assert.equal((await request(customer,rootA+`/addresses/${defaultAddress.id}`,'DELETE',{expectedVersion:defaultAddress.version})).status,200);addresses=(await request(customer,rootA+'/addresses')).body;assert.equal(addresses.filter(a=>a.isDefault).length,1);
+  assert.equal((await request(customer,rootA+`/wishlist/${a.product.id}`,'PUT')).status,200);assert.equal((await request(customer,rootA+`/wishlist/${a.product.id}`,'PUT')).status,200);
+  const wishlist=(await request(customer,rootA+'/wishlist')).body;assert.equal(wishlist.items.length,1);assert.equal(wishlist.items[0].id,a.product.id);assert.equal('storeId'in wishlist.items[0],false);assert.equal('sku'in wishlist.items[0].variants[0],false);
+  assert.equal((await request(customer,rootA+`/wishlist/${b.product.id}`,'PUT')).status,404);assert.equal((await request(other,rootB+'/wishlist')).body.items.length,0);
+  await db.product.update({where:{id:a.product.id},data:{status:'ARCHIVED'}});assert.equal((await request(customer,rootA+'/wishlist')).body.items.length,0);
+  const oneCustomer=await db.identity.findUniqueOrThrow({where:{id:me.id}});
+  await assert.rejects(db.merchantMembership.create({data:{merchantId:a.store.merchantId,identityId:me.id,role:'ACCOUNT_OWNER'}}));
+  await assert.rejects(db.identity.update({where:{id:me.id},data:{scopeKey:'merchant',customerStoreId:null}}));
+  await assert.rejects(db.customerWishlist.create({data:{customerId:me.id,storeId:b.store.id,productId:b.product.id}}));
+  await assert.rejects(db.customerAddress.update({where:{id:edited.body.id},data:{storeId:b.store.id}}));
+  await assert.rejects(db.identitySession.create({data:{scopeKey:'merchant',identityId:me.id,csrfDigest:'fixture',expiresAt:new Date(Date.now()+60000),absoluteExpiresAt:new Date(Date.now()+120000)}}));
+  const prior={...customer};assert.equal((await request(customer,rootA+'/auth/refresh','POST',{})).status,201);assert.notEqual(customer.cookie,prior.cookie);
+  assert.equal((await request(prior,rootA+'/auth/refresh','POST',{})).status,401);assert.equal((await request(customer,rootA+'/profile')).status,401);
+  await request(customer,rootA+'/auth/csrf');await request(customer,rootA+'/auth/login','POST',{email,password});
+  assert.equal((await request(customer,rootA+'/auth/password/forgot','POST',{email})).status,201);const recovery=await token('store:'+a.store.id,'RESET');
+  assert.equal((await request(other,rootB+'/auth/password/reset','POST',{token:recovery,password:password+'new'})).status,400);
+  assert.equal((await request(customer,rootA+'/auth/password/reset','POST',{token:recovery,password:password+'new'})).status,201);assert.equal((await request(customer,rootA+'/profile')).status,401);
+  assert.equal((await request(other,rootB+'/profile')).status,200);assert.equal((await request(merchant,'/v1/auth/me')).status,200);
+  await request(customer,rootA+'/auth/csrf');assert.equal((await request(customer,rootA+'/auth/login','POST',{email,password:password+'new'})).status,201);
+  await db.identity.update({where:{id:me.id},data:{status:'SUSPENDED'}});assert.equal((await request(customer,rootA+'/profile')).status,401);
+  await db.store.update({where:{id:b.store.id},data:{suspended:true}});assert.equal((await request(other,rootB+'/profile')).status,404);assert.equal((await request({},rootB+'/auth/csrf')).status,404);
+  await db.store.update({where:{id:b.store.id},data:{suspended:false}});
+  assert.equal((await request(other,rootB+'/auth/logout','POST',{})).status,201);assert.equal((await request(other,rootB+'/profile')).status,401);
+  await request(other,rootB+'/auth/csrf');const unknownEmail=`unknown-${randomUUID()}@example.test`;
+  for(let i=0;i<10;i++)assert.equal((await request(other,rootB+'/auth/login','POST',{email:unknownEmail,password})).status,401);
+  assert.equal((await request(other,rootB+'/auth/login','POST',{email:unknownEmail,password})).status,429);
+  assert.ok(!logs.includes(password)&&!logs.includes(customerSecret)&&!logs.includes(oneCustomer.passwordHash));
+});

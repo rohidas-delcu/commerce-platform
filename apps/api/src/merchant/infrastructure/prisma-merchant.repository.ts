@@ -31,7 +31,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     await tx.$queryRaw`SELECT id FROM "Identity" WHERE id=${p.identityId}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "IdentitySession" WHERE id=${p.id}::uuid FOR UPDATE`;
     const s=await tx.identitySession.findUnique({where:{id:p.id},include:{identity:true}});
-    if(!s || s.identityId!==p.identityId || s.revokedAt || s.expiresAt<=new Date() || s.absoluteExpiresAt<=new Date() || s.identity?.status!=='ACTIVE' || !s.identity.verifiedAt) throw new IdentityError(401,'Authentication required.');
+    if(!s || s.scopeKey!=='merchant'||s.identity?.customerStoreId!==null || s.identityId!==p.identityId || s.revokedAt || s.expiresAt<=new Date() || s.absoluteExpiresAt<=new Date() || s.identity?.status!=='ACTIVE' || !s.identity.verifiedAt) throw new IdentityError(401,'Authentication required.');
   }
   private async account(tx:Prisma.TransactionClient,p:MerchantPrincipal,merchantId:string){
     await tx.$queryRaw`SELECT id FROM "MerchantAccount" WHERE id=${merchantId}::uuid FOR UPDATE`;

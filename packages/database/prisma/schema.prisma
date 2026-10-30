@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  customers Identity[]
   reservations InventoryReservation[]
   assets MediaAsset[]
   collections Collection[]
@@ -53,6 +54,7 @@ model Store {
 }
 
 model Product {
+  wishlists CustomerWishlist[]
   images ProductMedia[]
   collectionLinks CollectionProduct[]
   seoTitle String @default("")
@@ -117,12 +119,20 @@ model InventoryMovement {
 }
 
 model Identity {
+  scopeKey String @default("merchant")
+  customerStoreId String? @db.Uuid
+  customerStore Store? @relation(fields:[customerStoreId],references:[id],onDelete:Restrict)
+  addresses CustomerAddress[]
+  wishlist CustomerWishlist[]
+  @@unique([scopeKey,email])
+  @@unique([id,scopeKey])
+  @@unique([id,customerStoreId])
   issuedInvitations MerchantInvitation[]
   creations StoreCreation[]
   merchantMemberships MerchantMembership[]
   storeMemberships StoreMembership[]
   id String @id @default(uuid()) @db.Uuid
-  email String @unique
+  email String
   name String
   passwordHash String
   verifiedAt DateTime?
@@ -134,9 +144,10 @@ model Identity {
 }
 
 model IdentitySession {
+  scopeKey String @default("merchant")
   id String @id @default(uuid()) @db.Uuid
   identityId String? @db.Uuid
-  identity Identity? @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  identity Identity? @relation(fields: [identityId,scopeKey], references: [id,scopeKey], onDelete: Restrict)
   csrfDigest String
   expiresAt DateTime
   absoluteExpiresAt DateTime
@@ -167,6 +178,7 @@ model IdentityChallenge {
 }
 
 model IdentityMail {
+  scopeKey String @default("merchant")
   id String @id @default(uuid()) @db.Uuid
   recipient String
   purpose String
@@ -350,4 +362,34 @@ model InventoryReservationEvent {
   actor String
   createdAt DateTime @default(now())
   @@unique([reservationId,status])
+}
+
+model CustomerAddress {
+  id String @id @default(uuid()) @db.Uuid
+  customerId String @db.Uuid
+  storeId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  name String
+  line1 String
+  line2 String @default("")
+  city String
+  region String
+  postalCode String
+  countryCode String @db.VarChar(2)
+  phone String
+  isDefault Boolean @default(false)
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([customerId,storeId])
+}
+model CustomerWishlist {
+  customerId String @db.Uuid
+  storeId String @db.Uuid
+  productId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  product Product @relation(fields:[productId,storeId],references:[id,storeId],onDelete:Restrict)
+  createdAt DateTime @default(now())
+  @@id([customerId,productId])
+  @@index([storeId,productId])
 }

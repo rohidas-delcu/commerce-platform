@@ -6,7 +6,7 @@ export function readRuntimeConfig() {
     throw new ConfigurationError('NODE_ENV must be development, test or production.');
   }
   if (mode === 'production') {
-    throw new ConfigurationError('Production mode requires real merchant authentication; Phase 0 is development-only.');
+    throw new ConfigurationError('Production mode is disabled until backend acceptance and security review pass.');
   }
   const driver = process.env.DATA_DRIVER ?? 'memory';
   if (driver !== 'memory' && driver !== 'postgres') {

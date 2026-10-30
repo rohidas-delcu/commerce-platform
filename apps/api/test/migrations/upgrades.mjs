@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -37,12 +37,30 @@ try {
   await fixture.query('INSERT INTO "InventoryMovement" (id,"storeId","variantId","before","after",delta,reason,"actorSubjectId") VALUES ($1,$2,$3,5,10,5,$4,$5)',[m,s,v,'RECEIVED','legacy-actor']);
   const before=await snapshot();
   command('exec','prisma','migrate','resolve','--applied','20261030090000_foundation','--config','packages/database/prisma.config.ts');
+  // Also rehearse upgrading already-issued merchant credentials and sessions.
+  const migrationRoot=new URL('../../../../packages/database/prisma/migrations/',import.meta.url);
+  for(const migration of (await readdir(migrationRoot)).filter(m=>m>'20261030090000_foundation'&&m<='20261030144000_inventory_reservations').sort()){
+    await fixture.query(await readFile(new URL(migration+'/migration.sql',migrationRoot),'utf8'));
+    command('exec','prisma','migrate','resolve','--applied',migration,'--config','packages/database/prisma.config.ts');
+  }
+  const existingIdentity=randomUUID(),existingSession=randomUUID();
+  await fixture.query('INSERT INTO "Identity" (id,email,name,"passwordHash","verifiedAt") VALUES ($1,$2,$3,$4,NOW())',[existingIdentity,'pre-scope@example.test','Preserved merchant','migration-fixture-hash']);
+  await fixture.query('INSERT INTO "IdentitySession" (id,"identityId","csrfDigest","expiresAt","absoluteExpiresAt") VALUES ($1,$2,$3,NOW()+interval \'15 minutes\',NOW()+interval \'1 day\')',[existingSession,existingIdentity,'fixture-digest']);
+  const originalIdentity=(await fixture.query('SELECT to_jsonb(i) AS snapshot FROM "Identity" i WHERE id=$1',[existingIdentity])).rows[0].snapshot;
+  const originalSession=(await fixture.query('SELECT to_jsonb(i) AS snapshot FROM "IdentitySession" i WHERE id=$1',[existingSession])).rows[0].snapshot;
   command('db:deploy');command('db:deploy');command('db:status');command('db:drift');
+  const identityAfter=(await fixture.query('SELECT * FROM "Identity" WHERE id=$1',[existingIdentity])).rows[0];
+  assert.equal(identityAfter.scopeKey,'merchant');assert.equal(identityAfter.customerStoreId,null);
+  const sessionAfter=(await fixture.query('SELECT * FROM "IdentitySession" WHERE id=$1',[existingSession])).rows[0];
+  assert.equal(sessionAfter.scopeKey,'merchant');
+  const identityOriginal=(await fixture.query(`SELECT to_jsonb(i)-'scopeKey'-'customerStoreId' AS snapshot FROM "Identity" i WHERE id=$1`,[existingIdentity])).rows[0].snapshot;
+  const sessionOriginal=(await fixture.query(`SELECT to_jsonb(i)-'scopeKey' AS snapshot FROM "IdentitySession" i WHERE id=$1`,[existingSession])).rows[0].snapshot;
+  assert.deepEqual(identityOriginal,originalIdentity);assert.deepEqual(sessionOriginal,originalSession);
   assert.deepEqual(await snapshot(),before,'Every original commerce column must be preserved.');
   const account=(await fixture.query('SELECT m.* FROM "Store" s JOIN "MerchantAccount" m ON m.id=s."merchantId" WHERE s.id=$1',[s])).rows[0];
   assert.equal(account.status,'QUARANTINED');assert.equal(account.legacySubject,'unmapped-legacy-subject');
   assert.equal((await fixture.query('SELECT COUNT(*)::int AS count FROM "MerchantMembership" WHERE "merchantId"=$1',[account.id])).rows[0].count,0);
-  console.log('PASS: populated Phase 0 upgrade, repeat deployment, status, drift, exact row preservation and unclaimed legacy quarantine.');
+  console.log('PASS: populated Phase 0 upgrade, repeat deployment, status, drift, exact commerce/identity/session preservation and unclaimed legacy quarantine.');
 } finally {
   await fixture?.end();
   // Only the randomly named database created by this process is removed.

@@ -143,7 +143,7 @@ test('production startup refuses demo authentication', async () => {
   child.stdout.on('data', b => { output += b; });
   const [code] = await once(child, 'exit');
   assert.equal(code, 1);
-  assert.match(output, /Production mode requires real merchant authentication/);
+  assert.match(output, /Production mode is disabled until backend acceptance and security review pass/);
 });
 
 test('demo guard requires explicit development mode, opt-in and a valid subject', async () => {

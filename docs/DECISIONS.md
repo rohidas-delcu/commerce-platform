@@ -54,3 +54,21 @@ creation/read/release/expiry only. Expiry processing is conservative until the w
 slice: overdue holds still reduce availability, and cannot commit. Recheck server/DB
 time after lock waits. Release/commit lock the reservation and variants and atomically
 record transitions; failed movement insertion rolls back all counters and state.
+
+## Customer credential namespace (implementation, 2026-10-30)
+
+Use distinct Identity rows keyed by scope/email, with customerStoreId as a real FK
+and immutable namespace. Reuse hashing/challenges/sessions/CSRF/throttling through
+ports. Merchant and customer registrations with the same email remain independent;
+no automatic account linking or permission merging. Compound session FKs and scoped
+repository reads prevent cookie renaming changing authority. SQL triggers forbid
+customer identities in merchant membership/invitation/creation authority records.
+
+Replace the global email unique index with scoped uniqueness in one migration
+transaction, defaulting existing identities/sessions/mail to `merchant`. Preserve
+all existing data; migration rehearsal now covers existing credential/session values.
+Customer cookies use store UUID names, HttpOnly, host-only and production Secure
+__Host- policy. Allowed-origin credentialed CORS supports future browser clients;
+custom domains require appropriate approved origins and same-origin BFF handling.
+Store-scoped address defaults serialize on the customer identity, with a partial
+unique SQL index. Default replacement increments affected address versions.

@@ -1,149 +1,91 @@
 # Current backend implementation status — 2026-10-30
 
-**End-to-end mission IN PROGRESS, not complete.** User authorizes continuing
-verified backend slices without per-slice permission. No merge, deployment or UI.
-Branch: `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
-Scope: BACKEND_REQUIREMENTS.md. Historical proposal-only scope is superseded.
+**Full backend mission IN PROGRESS; no customer order journey yet.** Continue
+verified slices autonomously under BACKEND_REQUIREMENTS.md. No UI, merge or deploy.
+Branch `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
+Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
 
-## Inventory reservation checkpoint
+## Delivered modules
 
-On-hand stock now carries a separate reserved counter; public availability uses
-on-hand minus reserved. Durable multi-line holds have stable store-scoped keys,
-input digests, bounded TTL, lifecycle events and composite tenant foreign keys.
-Reserve/release/expire operations have merchant HTTP APIs; the internal commitment
-use case atomically consumes stock and creates movement records exactly once.
-Order linkage/cancellation restoration and automatic expiry scheduling remain for
-checkout/orders/worker slices. This checkpoint does not claim orders exist.
+- Merchant identity: Argon2id, email verification/recovery, profile/password,
+  session cookies/CSRF, rotation/replay revocation, per-device/all-device logout,
+  PostgreSQL throttling, suspension/deactivation safeguards and encrypted mail staging.
+- MerchantAccess: accounts, scoped roles/invitations, centralized permissions,
+  account/store suspension, last-owner protection, membership revocation checked
+  within the same transaction as commerce writes. Legacy data stays quarantined.
+- Onboarding foundation: idempotent store creation, resumable/versioned locale,
+  timezone/contact/brand settings, complete vs publish separation and archive safeguards.
+  Shipping/payment configuration and logo/settings completion remain pending.
+- Catalog: product/variant metadata and lifecycle, SEO, exact prices, scoped handles/
+  SKUs, search/sort/bounded offset pages; normalized collections with ordered links.
+- Media: bounded reservations, real PNG/JPEG raster/checksum verification, local
+  immutable upload capabilities, SDK S3 signing/checksums, ordered/primary images,
+  optimistic replacement, safe deletion and public visibility checks. Live S3 unverified.
+- Inventory: on-hand/reserved/available, atomic holds, stable keys/digests, bounded
+  TTL, release/expiry/commitment, transition history and atomic movements. Commitment
+  is internal only; checkout/order linkage and cancellation restoration remain pending.
+- Customer checkpoint: independent store-scoped identities reuse credential/session
+  infrastructure, cookie/origin/CSRF policy and throttles. Customer cookies cannot
+  become merchant or another store's authority even when renamed. SQL constraints
+  prevent customer identities acquiring merchant memberships. Addresses have scoped
+  FKs, optimistic versions and serialized default selection; wishlist uses safe
+  public products. Customer order history awaits orders.
 
-Actual current runs: `pnpm test` 29 passed; `pnpm typecheck` passed; build passed
-through both integration commands; `pnpm test:integration` 4 passed;
-disposable PostgreSQL `pnpm test:postgres` 13 passed; `pnpm test:migrations` passed
-(populated upgrade, repeat/status/drift and byte-identical original values).
-No skipped tests. New coverage executes last-unit competition, hold-key retry,
-commit/release race, multi-line rollback, SQL tenant/check constraints, forced
-movement failure rollback, and expiry after waiting on a PostgreSQL row lock.
-Initial implementation/test failures were corrected and the full suite rerun.
-Migration `20261030144000_inventory_reservations` is additive; extends the existing
-movement reason CHECK without modifying historical rows or the original migration.
-Media commit `693c0203c99ce04f9bace12d5ebe120d6c3c7425` passed Actions:
-https://github.com/rohidas-delcu/commerce-platform/actions/runs/41059745083
-Exact next task: store-scoped customer credentials/sessions, addresses and wishlist,
-then carts, pricing/settings, checkout, payments, orders/fulfillment and workers.
+## Actual checkpoint evidence
 
-## Media checkpoint
+- `pnpm test`: 31 passed, 0 failed/skipped.
+- `pnpm typecheck`: passed. Production build passed through integration commands.
+- `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
+- Disposable PostgreSQL `pnpm test:postgres`: 14 passed, 0 failed/skipped. This
+  includes shared HTTP/startup checks, real merchant/customer journeys, repository
+  and SQL checks; it is not 14 independent end-to-end purchase flows.
+- `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
+  DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
+  seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
+  verifies original commerce/identity/session values and unclaimed quarantine,
+  and drops only its own fixture DB. Original foundation migration is unchanged.
+- Executed PostgreSQL races: stock updates, last-unit reservations, commit/release,
+  last-owner removal, membership revocation vs catalog writes, default addresses.
+  Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
+- `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
+  the locked dependency tree. This does not replace security review.
+- Latest pushed verified commit before the customer slice: `0eea7a6748a951443610e88b77850313425d3d79`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41070485796
+  Media `693c020` also passed Actions run41059745083. Customer slice remote CI must
+  be checked after pushing; local results do not establish remote CI success.
 
-Media slice verifies PNG/JPEG raster decoding, SHA-256/size/type, immutable local
-uploads, bounded 15-minute reservations, ordered/primary/alt-text product images,
-optimistic image replacement and referenced-asset deletion protection. Public reads
-require a published available store and an active linked product; object keys and
-capabilities remain private. S3 uses SDK presigned PUT and verified GET checksums.
-No live S3 request has been verified. Bucket/CORS/IAM/lifecycle setup and sandbox
-verification remain external release prerequisites. Expired-upload/orphan cleanup
-still needs the operations worker; tombstones prevent public exposure on failures.
+## Remaining work and exact next task
 
-Executed on this source: `pnpm test` 26 passed; `pnpm typecheck`, `pnpm build`
-passed; disposable PostgreSQL `pnpm test:postgres` 10 passed; populated Phase 0
-`pnpm test:migrations` passed. No failed/skipped tests in those runs. Migration
-`20261030143000_media_assets` is additive; original migration unchanged.
-Collections commit `fb84e8d` CI succeeded:
-https://github.com/rohidas-delcu/commerce-platform/actions/runs/41057783594
-Current media commit/CI: see latest branch history/run; not yet remotely verified
-at the time this checkpoint was written. Draft PR #2 remains open.
-Exact next task: inventory reservation/release/expiry/commit concurrency slice,
-then customer identity, carts, pricing, checkout, payments, orders and fulfillment.
+1. Finish customer checkpoint documentation/commit and inspect its CI; then implement
+   guest/customer carts, expiry, versioned mutations, server-authoritative refresh and
+   login merge. Carts must not reserve stock. Keep customer/merchant/store scopes separate.
+2. Shipping/tax/discount configurations and exact quote engine; finish onboarding
+   shipping/payment/logo settings and publication prerequisites.
+3. Checkout state machine, idempotent durable order snapshots and inventory linkage.
+4. COD, development simulator and Razorpay boundary/signature/status/reconciliation;
+   order/payment/fulfillment transitions, cancellation/refunds and history.
+5. Durable notification delivery/retries, SES adapter, expiry/retention/orphan workers,
+   deterministic seed and executable complete demo; E2E flows A–J and final CI/security.
+6. Complete cursor pagination and response contracts as needed for the full API.
 
-## Verified slices
+## Explicit limits and release gates
 
-1. Identity core, commit `1defee9fd889ea5c00bf74e393112677ed6dbde9`, pushed.
-   Actions https://github.com/rohidas-delcu/commerce-platform/actions/runs/41051657063
-   succeeded. Argon2id, verification/recovery, session/CSRF, rotation/replay,
-   current/all-device revocation, PostgreSQL throttles, encrypted development mail.
-2. MerchantAccess/onboarding checkpoint: accounts, explicit memberships, fixed
-   permission policy, invitations, acceptance/revocation, role changes, last-owner
-   concurrency protection; session-authenticated store/catalog/inventory APIs.
-   Store creation is idempotent; onboarding saves/version checks/resume, locale/
-   timezone/contact/branding-name validation, complete vs publish separation,
-   unpublish, store/account suspension/resume and non-destructive archival.
-   Identity deactivation blocks last owners; safe cases revoke memberships/sessions.
-   Sole-owner suspension freezes the account for audited operator recovery.
-   Legacy rows are attached to quarantined accounts with NO login memberships.
-   Demo headers cannot access real merchant-managed stores.
+Production startup remains disabled until full acceptance/security review. Legacy
+`/v1/admin` demo headers are development-only and cannot reach real merchant stores.
+Customer identity and transactional merchant operations require PostgreSQL; memory
+mode serves the isolated catalog/inventory demo, without simulated secure identity.
+Email is encrypted staging, not verified SES delivery. Live S3/SES/Razorpay require
+owned provider configuration and executed sandbox checks. No real payment claim.
+Expired holds conservatively reduce availability until explicit expiry processing;
+scheduled expiry and orphan cleanup remain pending. Tombstoned media stays private
+on delete failure. Cross-account legal ownership transfer stays disabled; frozen
+ownerless accounts need audited operator recovery. No automatic ownership mapping.
+No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
+policy and full security review remain production gates.
 
-## Actual checkpoint verification
-
-- `pnpm test`: 24 passed, 0 failed/skipped.
-- `pnpm typecheck`, `pnpm build`: passed.
-- `pnpm test:integration`: 4 passed, 0 failed/skipped.
-- Disposable DATABASE_URL + `pnpm test:postgres`: 10 passed, 0 failed/skipped on the fresh migrated database.
-- Merchant HTTP test includes real signup/verification/login, account/store,
-  onboarding, product activation, inventory, publication, invitations and roles,
-  wrong-store/account access, demo-header rejection and last-owner races.
-- Controlled PostgreSQL revocation-lock test passed: a blocked catalog mutation
-  rechecks revoked membership after lock release and inserts nothing.
-- Empty DB deployment/repeat/status/drift passed. `NODE_ENV=test DATABASE_URL=...
-  pnpm test:migrations` passed: creates its own disposable populated Phase 0 DB,
-  upgrades/repeats/status/drift, verifies every original commerce value/ID and
-  quarantines without granting memberships, then removes only its own fixture DB.
-- New migrations: `20261030130000_merchant_access`,
-  `20261030131000_owner_suspension`. Original Phase 0 migration unchanged.
-- Record latest verified slice SHA via `git log -- apps/api/src/merchant` and PR/CI
-  after pushing; source edits and local success alone do not establish remote CI.
-
-## Current limitations / exact remaining tasks
-
-- Not complete: onboarding shipping/payment settings and logo/assets, complete cursor pagination and live storage verification, reservation inventory,
-  store-scoped customer auth/addresses/wishlist, cart/merge, shipping/tax/discount
-  quotes, checkout and authoritative snapshots, COD/simulator/Razorpay boundary,
-  orders/refunds/manual fulfillment/history, shared notification delivery retries
-  and SES, full executable demo and E2E flows A–J.
-- Real authentication is now available at `/v1/merchant`; `/v1/admin` remains
-  development-only legacy demo API. Production still refuses startup. Do not lift
-  this until complete acceptance/security gates pass.
-- Quarantined legacy public catalog reads retain prior development behavior;
-  production ownership cutover remains disabled. Unknown real owners need reviewed
-  mapping, never automatic reassignment to signup identities.
-- Email currently stages encrypted development payloads; no live SES verification.
-  Live S3/SES/Razorpay require owned provider accounts/credentials and sandbox tests.
-- Account/store legal ownership transfer across accounts is disabled (no endpoint).
-  Account recovery from RECOVERY_REQUIRED needs audited operations; no insecure
-  self-service bypass or auto-promotion. Pricing/tax legal compliance not claimed.
-- Lists currently bounded at 100; cursor pagination and complete settings/contracts
-  remain work. Shipping/payment settings are not yet publication prerequisites.
-- Browser acceptance, rate/retention cleanup, breach-password policy, full security
-  review and complete demo remain production release gates.
-
-Product lifecycle slice now provides product detail, explicit DRAFT/ARCHIVED
-transitions, SEO metadata, search/legacy collection filter, exact-price sorting,
-bounded offset pagination and safe public detail/projection. Unit 22, memory 4,
-PostgreSQL 10 and populated upgrade rehearsal passed; typecheck/build passed.
-Migration `20261030140000_product_lifecycle` preserves original column values.
-PR #2 https://github.com/rohidas-delcu/commerce-platform/pull/2 is open/draft.
-Latest product implementation commit: `563536d`. Swagger DTO metadata generation
-and cookie/CSRF documentation are also now covered by executed HTTP checks.
-MerchantAccess commit `3bd8d8d` CI run 41054319257 succeeded in every required step.
-
-Variant metadata slice adds activation, price/compare overrides and validated
-string options. New variants start with zero stock; metadata cannot write stock.
-Concurrent last-active-variant deactivation is rejected and metadata saves retain
-stock. Domain policies are shared by memory and PostgreSQL. Migration
-`20261030141000_variant_metadata` supplies defaults preserving old rows and price/
-JSON constraints. Unit 23 and PostgreSQL 10 tests, build/typecheck and populated
-upgrade rehearsal passed. OpenAPI commit `f1f1637` latest CI run 41055678678 passed.
-
-Collections now provide create/edit/archive, featured and position ordering,
-versioned product link/unlink/reorder, administrative product lists and public
-listing/detail with only active products. Composite tenant FKs reject cross-store
-links. Memory and PostgreSQL use the same application/domain contracts. Migration
-`20261030142000_collections` preserves legacy free-text collection metadata.
-Unit 24, PostgreSQL 10, build/typecheck and populated migration rehearsal passed.
-Variant commit `6e3bc3f` CI run 41056429285 succeeded. Collections CI to verify after push.
-
-Exact next task after verifying/pushing this checkpoint: implement media upload reservation/completion, safe image verification and
-product image ordering/primary selection through development storage and the S3
-adapter boundary. Product/variant lifecycle and normalized collections are now
-implemented, with bounded offset pagination; full cursor pagination remains pending. Then
-continue inventory reservations, customer/cart/pricing/checkout and order/payment/
-fulfillment slices automatically. Do not stop at a plan or infer whole completion.
+Migration history now includes `20261030145000_customer_identity`; scoped email
+uniqueness replaces the global index atomically while preserving merchant credentials,
+IDs and sessions. See schema and migration SQL for CHECKs/triggers not modeled by Prisma.
 
 ## Historical Phase 0 / design evidence (not current authorization)
 

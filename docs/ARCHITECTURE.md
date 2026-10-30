@@ -82,3 +82,22 @@ account, store. Membership mutations share account/store locks with commerce
 writes so authority is rechecked at commit scope. Invitations and membership
 rows use compound tenant FKs. Legacy stores are backfilled to unmapped quarantined
 accounts without touching commerce IDs or creating identity memberships.
+
+## Store customer identity isolation
+
+Reuse IdentityAuthorityPort, IdentityService and scoped IdentityRepositoryPort
+factories for first-party credential/session rules. Identity rows are distinct per
+namespace: `merchant` or `store:<UUID>`, each with its own email uniqueness. Customer
+rows have a non-null customerStoreId FK; merchant rows have null. Namespace is
+immutable and constrained to that FK. Session identity/scope is a composite FK.
+This shares security machinery, never a customer account's merchant permissions.
+Merchant membership/invitation/creation triggers require a merchant identity.
+
+CustomerService depends on ports; concrete scoped repositories/Argon2/secrets are
+wired in AppModule. Scoped identity repositories share the root connection pool.
+Customer addresses/wishlist transact with identity/session, account and store locks,
+rechecking revocation and publication before access. Transactional customer APIs
+require PostgreSQL; there is no permissive memory authentication fallback. Cookies
+are host-only, named per store; a future custom-domain storefront uses a same-origin
+proxy/BFF with its own host cookie, rather than a cookie shared across unrelated domains.
+CORS enables credentials only for the validated explicit origin allowlist.

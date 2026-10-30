@@ -48,7 +48,7 @@ test('merchant identity HTTP lifecycle: verification, CSRF, sessions, rotation, 
   assert.equal((await request(b,'/signup','POST',{email,password,name:'Merchant'},false)).status,403);
   assert.equal((await request(b,'/signup','POST',{email,password,name:'Merchant'})).status,201);
   assert.equal((await request(b,'/signup','POST',{email,password:'another long password which must not replace',name:'Overwrite'})).status,201);
-  const identity = await db.identity.findUniqueOrThrow({where:{email}});
+  const identity = await db.identity.findUniqueOrThrow({where:{scopeKey_email:{scopeKey:'merchant',email}}});
   assert.match(identity.passwordHash,/^\$argon2id\$/);
   assert.equal((await request(b,'/login','POST',{email,password})).status,401);
   async function challenge(purpose) {

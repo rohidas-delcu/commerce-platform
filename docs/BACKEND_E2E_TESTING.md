@@ -29,3 +29,11 @@ MerchantAccess HTTP suite tests sessions → account/store/onboarding → catalo
 inventory → publication, invitation and role lifecycle, cross-tenant access,
 last-owner races, and a blocked write observing revocation after an account lock.
 PostgreSQL test files run sequentially to isolate loopback rate-counter fixtures.
+
+Customer HTTP coverage now executes same-email independent merchant/two-store signup,
+one-time and cross-store challenge checks, unverified login, cookie renaming attacks,
+CSRF, actual Argon2 login, scoped addresses and concurrent default selection, SQL
+scope/FK guards, safe wishlist/archive filtering, session replay revocation, password
+recovery, suspension/logout and brute-force throttling. These are customer account
+journeys; purchase/order flows B–I remain pending. Migration rehearsal additionally
+preserves issued merchant credential/session values across namespace migration.

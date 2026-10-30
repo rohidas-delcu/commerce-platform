@@ -1,3 +1,9 @@
+import {FirstPartyIdentityAuthority} from './identity/infrastructure/credentials.js';
+import * as identitySecrets from './identity/infrastructure/secrets.js';
+import {CustomerService} from './customer/application/customer.service.js';
+import {PrismaCustomerRepository} from './customer/infrastructure/prisma-customer.repository.js';
+import {CustomerController,CustomerGuard} from './customer/http/customer.controller.js';
+import {PrismaIdentityRepository} from './identity/infrastructure/prisma-identity.repository.js';
 import {StorageModule} from './media/storage.module.js';
 import {MediaController} from './media/http/media.controller.js';
 import {MediaService} from './media/application/media.service.js';
@@ -14,8 +20,11 @@ import { AdminCommerceController, HealthController, LocalDemoAuthGuard, Storefro
 
 @Module({
   imports: [IdentityModule, MerchantModule,StorageModule],
-  controllers: [MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
+  controllers: [CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
   providers: [
+    CustomerGuard,
+    {provide:PrismaCustomerRepository,useFactory:()=>new PrismaCustomerRepository()},
+    {provide:CustomerService,useFactory:(commerce:CommerceRepository,identity:PrismaIdentityRepository,customers:PrismaCustomerRepository)=>new CustomerService(commerce,identity,customers,new FirstPartyIdentityAuthority(),identitySecrets),inject:[COMMERCE_REPOSITORY,PrismaIdentityRepository,PrismaCustomerRepository]},
     {provide:MediaService,useFactory:(repo:CommerceRepository,storage:ObjectStoragePort)=>new MediaService(repo,storage),inject:[COMMERCE_REPOSITORY,OBJECT_STORAGE]},
     CommerceService,
     LocalDemoAuthGuard,

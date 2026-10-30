@@ -4,8 +4,8 @@ import type { IdentityRepositoryPort, IdentitySecretsPort } from './identity.por
 export interface IdentityRequest { headers: Record<string, string | string[] | undefined>; ip?: string; identitySession?: BrowserSession }
 export class IdentityService {
   private dummy: Promise<string>;
-  constructor(readonly repository: IdentityRepositoryPort, private authority: IdentityAuthorityPort, private secrets: IdentitySecretsPort) {
-    this.dummy = authority.hash(this.secrets.secret());
+  constructor(readonly repository: IdentityRepositoryPort, private authority: IdentityAuthorityPort, private secrets: IdentitySecretsPort,private options:{baseCookieName?:string;rateScope?:string;dummyHash?:Promise<string>}={}) {
+    this.dummy = options.dummyHash??authority.hash(this.secrets.secret());
   }
   async checkHealth() { if (process.env.DATA_DRIVER === 'postgres') await this.repository.checkHealth(); }
   private available() {
@@ -13,12 +13,13 @@ export class IdentityService {
   }
   async rate(kind: string, key: string, limit: number, window = 900000) {
     const bucket = Math.floor(Date.now()/window);
-    await this.repository.throttle(this.secrets.digest(`${kind}:${key}:${bucket}`), limit, new Date((bucket+1)*window));
+    await this.repository.throttle(this.secrets.digest(`${this.options.rateScope&&!(['browser','mutation'].includes(kind))?this.options.rateScope+':':''}${kind}:${key}:${bucket}`), limit, new Date((bucket+1)*window));
   }
   token(request: IdentityRequest) {
     const cookie = request.headers.cookie;
     if (typeof cookie !== 'string') throw new IdentityError(401, 'Authentication required.');
-    const name = process.env.NODE_ENV === 'production' ? '__Host-delcu_session' : 'delcu_session';
+    const baseName=this.options.baseCookieName??'delcu_session';
+    const name = process.env.NODE_ENV === 'production' ? '__Host-'+baseName : baseName;
     const values = cookie.split(';').map(c => c.trim()).filter(c => c.startsWith(`${name}=`));
     const value = values[0]?.slice(name.length+1);
     if (values.length !== 1 || !value || !/^[A-Za-z0-9_-]{43}$/.test(value)) throw new IdentityError(401, 'Authentication required.');

@@ -157,3 +157,33 @@ is reserved for the future checkout/order application flow; no HTTP client may m
 an order paid or arbitrarily invoke stock commitment. Expired holds never commit;
 expiry is rechecked after acquiring database locks. Conservative holds remain
 reserved until explicit expiry processing; automatic scheduling is pending.
+
+## Store customer accounts
+
+Base `/v1/storefront/:handle/customer`. Only active merchant-managed published
+stores accept customer accounts. `GET auth/csrf` returns CSRF and a host-only cookie
+`delcu_customer_<store UUID>` (production Secure `__Host-` prefix; production disabled).
+Every mutation requires this cookie, allowlisted Origin and x-csrf-token. Use
+credentialed fetch or a same-origin BFF; no cookie sharing across unrelated domains.
+
+Public-with-CSRF operations: `POST auth/signup` `{email,password,name}`;
+`auth/verification/resend` `{email}`; `auth/verification/confirm` `{token}`;
+`auth/login` `{email,password}`; `auth/password/forgot` `{email}`;
+`auth/password/reset` `{token,password}`. Verification/reset tokens are store-scoped,
+one-time and absent from API responses. Challenges stage encrypted development mail.
+`POST auth/refresh` rotates; reuse revokes the family. Authenticated operations:
+`POST auth/logout`, `auth/logout-all`, `auth/password/change`
+`{currentPassword,password}`; `GET auth/sessions`, `DELETE auth/sessions/:id`;
+`GET profile`, `PATCH profile` `{name}`. Profile excludes credential material.
+A customer cookie grants no merchant API access, even if renamed.
+
+`GET/POST addresses`; `PATCH/DELETE addresses/:id`. Create/full edit fields:
+`{name,line1,line2?,city,region,postalCode,countryCode,phone,isDefault?}`.
+Edit/delete require expectedVersion (delete body `{expectedVersion}`). Max20;
+first becomes default. Selecting a new default increments the former default's
+version. Omitted isDefault on edit preserves it; clear by choosing another default.
+Deleting a default selects the oldest remaining address. No cross-store access.
+`GET wishlist?limit=&offset=` returns safe active public products;
+`PUT/DELETE wishlist/:productId` are idempotent, bounded at500 saved products.
+Wishlist does not expose internal SKU, merchant or audit fields. Customer order
+history/details are pending the orders slice; these endpoints do not claim them.

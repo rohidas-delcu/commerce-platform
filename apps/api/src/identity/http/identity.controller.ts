@@ -1,3 +1,4 @@
+import {sessionCookie} from './session-cookie.js';
 import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
 import {applyDecorators, Body, Controller, Get, Post, Patch, Delete, Param, ParseUUIDPipe, Req, Res, UseGuards, Injectable, SetMetadata, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -28,11 +29,7 @@ const Mutation = () => applyDecorators(ApiHeader({name:'x-csrf-token',required:t
 export class IdentityController {
   constructor(private service: IdentityService) {}
   private cookies(response: IdentityResponse, value: string, csrf: string, clear = false) {
-    const production = process.env.NODE_ENV === 'production';
-    const name = production ? '__Host-delcu_session' : 'delcu_session';
-    response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Set-Cookie', `${name}=${clear ? '' : value}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${clear ? 0 : 1800}${production ? '; Secure' : ''}`);
-    return {csrfToken: csrf};
+    return sessionCookie(response,value,csrf,clear);
   }
   @ApiOperation({security:[],summary:'Bootstrap or retain the browser session and obtain a CSRF token.'})
   @Get('csrf') @Access('bootstrap')
