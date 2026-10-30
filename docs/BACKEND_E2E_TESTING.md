@@ -58,3 +58,12 @@ cancel/retry and expiry release correctly, with on-hand unchanged and no sale mo
 Tests cover start-key mismatch, active-checkout uniqueness, stale versions, private SKU
 exclusion, cross-customer reads and a direct SQL source-cart/customer FK violation.
 These checks still do not place an order or verify a payment.
+
+COD HTTP/PostgreSQL coverage now places one real order through concurrent retries,
+checks exact DUE/paid0 amounts, order/counter/outbox uniqueness and one stock deduction.
+A controlled BEFORE INSERT order failure proves stock, reservation, checkout, cart,
+counter and notification rollback before successful retry. Price/policy changes require
+re-quote. Order history remains unchanged after catalog price edits. Customer/merchant
+projections, editor permission denial, SQL tenant/item references and immutable financial/
+event history are tested. No real cash collection, email delivery, gateway or fulfillment
+is implied by these placement checks.

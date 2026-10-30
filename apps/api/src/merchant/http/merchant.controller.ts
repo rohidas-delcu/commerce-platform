@@ -1,3 +1,4 @@
+import {OrderQueryDto} from '../../orders/http/orders.dto.js';
 import {PricingDto} from '../../pricing/http/pricing.dto.js';
 import {ReservationDto} from '../../inventory/inventory.dto.js';
 import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
@@ -113,4 +114,6 @@ export class MerchantController {
   @Get('stores/:storeId/pricing') pricing(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string){return this.service.pricing(r.identitySession!,id);}
   @Mutation()
   @Put('stores/:storeId/pricing') savePricing(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() b:PricingDto){return this.service.savePricing(r.identitySession!,id,b);}
+  @Get('stores/:storeId/orders') orders(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Query() q:OrderQueryDto){return this.service.orders(r.identitySession!,id,q);}
+  @Get('stores/:storeId/orders/:orderId') order(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string){return this.service.order(r.identitySession!,id,order);}
 }

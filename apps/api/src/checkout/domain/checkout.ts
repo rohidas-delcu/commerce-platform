@@ -6,6 +6,7 @@ export type CheckoutStatus='DRAFT'|'READY'|'COMPLETED'|'CANCELLED'|'EXPIRED';
 export type CheckoutItem={productId:string;variantId:string;productName:string;variantName:string;sku:string;quantity:number;unitPriceMinor:string;subtotalMinor:string;};
 export type CheckoutSnapshot={baseVersion:number;cartVersion:number;currencyCode:string;totals:ReturnType<typeof calculateQuote>;shippingMethodName:string;items:CheckoutItem[];};
 export interface Checkout {
+  orderId?:string|null;
   id:string;cartId:string;status:CheckoutStatus;version:number;expiresAt:Date;
   contactEmail:string;contactName:string;shippingMethodId:string|null;
   shippingAddress:AddressInput|null;snapshot:CheckoutSnapshot|null;
@@ -22,7 +23,7 @@ export function checkoutVersion(checkout:Pick<Checkout,'status'|'version'|'expir
 }
 export function checkoutProjection(checkout:Checkout){
   const snapshot=checkout.snapshot,totals=snapshot?.totals;
-  return{id:checkout.id,cartId:checkout.cartId,status:checkout.status,version:checkout.version,expiresAt:checkout.expiresAt,contactEmail:checkout.contactEmail,contactName:checkout.contactName,shippingMethodId:checkout.shippingMethodId,shippingAddress:checkout.shippingAddress?customerAddress(checkout.shippingAddress):null,snapshot:snapshot&&totals?{
+  return{id:checkout.id,orderId:checkout.orderId??null,cartId:checkout.cartId,status:checkout.status,version:checkout.version,expiresAt:checkout.expiresAt,contactEmail:checkout.contactEmail,contactName:checkout.contactName,shippingMethodId:checkout.shippingMethodId,shippingAddress:checkout.shippingAddress?customerAddress(checkout.shippingAddress):null,snapshot:snapshot&&totals?{
     cartVersion:snapshot.cartVersion,currencyCode:snapshot.currencyCode,shippingMethodName:snapshot.shippingMethodName,
     totals:{subtotalMinor:totals.subtotalMinor,discountMinor:totals.discountMinor,shippingMinor:totals.shippingMinor,taxMinor:totals.taxMinor,totalMinor:totals.totalMinor,taxInclusive:totals.taxInclusive,taxBasisPoints:totals.taxBasisPoints,shippingMethodId:totals.shippingMethodId,policyVersion:totals.policyVersion,discountCode:totals.discountCode},
     items:snapshot.items.map(item=>({productId:item.productId,variantId:item.variantId,productName:item.productName,variantName:item.variantName,quantity:item.quantity,unitPriceMinor:item.unitPriceMinor,subtotalMinor:item.subtotalMinor}))

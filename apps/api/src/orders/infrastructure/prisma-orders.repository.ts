@@ -1,0 +1,12 @@
+import type {PrismaClient,Prisma} from '../../generated/prisma/client.js';
+import type {OrderReadRepositoryPort} from '../application/orders.port.js';
+import type {Order,OrderQuery} from '../domain/orders.js';
+import type {AddressInput} from '../../customer/domain/customer.js';
+export const orderInclude={items:{orderBy:{variantId:'asc' as const}},events:{orderBy:[{createdAt:'asc' as const},{id:'asc' as const}]}};
+type Row=Prisma.OrderGetPayload<{include:typeof orderInclude}>;
+export function orderDomain(row:Row):Order{return{id:row.id,number:row.number,checkoutId:row.checkoutId,status:row.status as Order['status'],paymentStatus:row.paymentStatus as Order['paymentStatus'],fulfillmentStatus:row.fulfillmentStatus as Order['fulfillmentStatus'],paymentMethod:row.paymentMethod as Order['paymentMethod'],version:row.version,createdAt:row.createdAt,contactEmail:row.contactEmail,contactName:row.contactName,shippingAddress:row.shippingAddress as unknown as AddressInput,shippingMethodName:row.shippingMethodName,currencyCode:row.currencyCode,subtotalMinor:row.subtotalMinor.toString(),discountMinor:row.discountMinor.toString(),shippingMinor:row.shippingMinor.toString(),taxMinor:row.taxMinor.toString(),shippingTaxMinor:row.shippingTaxMinor.toString(),taxInclusive:row.taxInclusive,totalMinor:row.totalMinor.toString(),amountDueMinor:row.amountDueMinor.toString(),paidMinor:row.paidMinor.toString(),items:row.items.map(item=>({...item,unitPriceMinor:item.unitPriceMinor.toString(),subtotalMinor:item.subtotalMinor.toString(),discountMinor:item.discountMinor.toString(),taxMinor:item.taxMinor.toString()})),events:row.events};}
+export class PrismaOrderReadRepository implements OrderReadRepositoryPort {
+  constructor(private db:PrismaClient|Prisma.TransactionClient){}
+  async find(storeId:string,id:string){const row=await this.db.order.findFirst({where:{id,storeId},include:orderInclude});return row?orderDomain(row):null;}
+  async list(storeId:string,input:OrderQuery&{limit:number;offset:number}){return(await this.db.order.findMany({where:{storeId,...(input.status?{status:input.status}:{}),...(input.query?{OR:[{number:{contains:input.query,mode:'insensitive'}},{contactEmail:{contains:input.query,mode:'insensitive'}},{contactName:{contains:input.query,mode:'insensitive'}}]}:{})},orderBy:[{createdAt:'desc'},{id:'asc'}],take:input.limit+1,skip:input.offset,include:orderInclude})).map(orderDomain);}
+}

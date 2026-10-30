@@ -238,7 +238,7 @@ Final checkout must revalidate/recalculate and persist snapshots; this response 
 not a stock guarantee, payment acceptance or durable checkout. Coupon arithmetic
 exists in the domain but coupon persistence/redemption APIs are still pending.
 
-## Durable customer checkout (order placement pending)
+## Durable customer checkout
 
 Base `/v1/storefront/:handle/customer/checkouts`. Verified store customer session,
 Origin/CSRF for mutations; initial checkout requires login/guest-cart merge.
@@ -256,5 +256,29 @@ reserving twice. Invalid catalog/configuration or insufficient available stock40
 `POST :id/cancel` `{expectedVersion}` releases once and closes the checkout.
 DRAFT expires24h after creation; READY expires with its hold. Closed/expired edits
 fail409. On-demand expiry and reservation scans work; scheduled workers are pending.
-Placement is not implemented yet: READY is not an order, payment or committed sale.
-Final placement must revalidate current cart/catalog/policy and commit atomically.
+READY is not an order, payment or committed sale. The COD placement endpoint below
+revalidates current cart/catalog/policy and commits atomically.
+
+
+## COD placement and order reads
+
+`POST /v1/storefront/:handle/customer/checkouts/:id/place`
+`{expectedVersion,paymentMethod:"COD"}` with Idempotency-Key, verified customer
+cookie and CSRF. Requires READY/nonexpired hold and enabled COD policy. Revalidates
+catalog, cart/version, currency and policy; changed data409 requires a new quote.
+Same successful key/input returns the existing order without duplicate stock/order/
+outbox effects; changed input under a used key409. No caller amounts are accepted.
+Placement atomically commits held stock, immutable order/items/tax/contact/address,
+per-store order number, source checkout/cart and one PENDING notification record.
+COD begins `paymentStatus:DUE`, full amountDueMinor and paidMinor0; it does not claim
+capture or cash collection. Notification staging is not email delivery.
+
+`GET /v1/storefront/:handle/customer/orders` (limit/offset/status/query) and `/:id`
+returns only the owning customer's order history/detail, immutable snapshots, separate
+order/payment/fulfillment states and safe timeline. SKU/actor identity/placement keys
+are excluded. Completed checkout GET/start replay includes its orderId.
+`GET /v1/merchant/stores/:storeId/orders` and `/:id` use central `orders.read`,
+initially ACCOUNT_OWNER/STORE_ADMIN only. Merchant detail includes internal SKU and
+actor references. Store editors/viewers do not inherit order/customer PII access.
+Cash collection, fulfillment, cancellation/refund and other payment methods remain
+pending. Transactional order APIs require PostgreSQL; memory mode explicitly refuses.

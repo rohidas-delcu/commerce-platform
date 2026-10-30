@@ -111,4 +111,7 @@ export class MerchantService {
 
   pricing(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',s=>s.pricing(p.identityId!,id));}
   savePricing(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['savePricing']>[2]){return this.commerce(p,id,'store.settings',s=>s.savePricing(p.identityId!,id,input));}
+
+  orders(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['orders']>[2]){return this.commerce(p,id,'orders.read',s=>s.orders(p.identityId!,id,input));}
+  order(p:MerchantPrincipal,id:string,order:string){return this.commerce(p,id,'orders.read',s=>s.order(p.identityId!,id,order));}
 }

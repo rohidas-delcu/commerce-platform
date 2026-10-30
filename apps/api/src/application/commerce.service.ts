@@ -1,3 +1,4 @@
+import {orderQuery,orderProjection,type OrderQuery} from '../orders/domain/orders.js';
 import {pricingPolicy,assertPricingReady,type PricingPolicy} from '../pricing/domain/pricing.js';
 import {InventoryService} from '../inventory/application/inventory.service.js';
 import type {ReservationRequest} from '../inventory/domain/inventory.js';
@@ -176,4 +177,7 @@ export class CommerceService {
 
   async pricing(subject:string,storeId:string){await this.ownedStore(storeId,subject);return this.repository.pricing.policy(storeId);}
   async savePricing(subject:string,storeId:string,input:PricingPolicy){const store=await this.ownedStore(storeId,subject);const policy=pricingPolicy(input);if(store.status==='PUBLISHED')assertPricingReady(policy);if(policy.payments.simulator&&process.env.NODE_ENV!=='development')throw new DomainError('INVALID','Payment simulator is development-only.');return this.repository.pricing.savePolicy(storeId,policy,subject);}
+
+  async orders(subject:string,storeId:string,input:OrderQuery){await this.ownedStore(storeId,subject);const query=orderQuery(input),found=await this.repository.orders.list(storeId,query);return{items:found.slice(0,query.limit).map(order=>orderProjection(order,true)),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
+  async order(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);const order=await this.repository.orders.find(storeId,id);if(!order)throw new DomainError('NOT_FOUND','Order not found.');return orderProjection(order,true);}
 }

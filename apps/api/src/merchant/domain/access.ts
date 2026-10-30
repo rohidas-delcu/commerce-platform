@@ -1,9 +1,9 @@
 import { IdentityError } from '../../identity/domain/identity.js';
 export type StoreRole = 'ACCOUNT_OWNER' | 'STORE_ADMIN' | 'STORE_EDITOR' | 'STORE_VIEWER';
-export type Permission = 'store.read' | 'store.settings' | 'store.publish' | 'catalog.write' | 'inventory.write' | 'members.manage';
+export type Permission = 'store.read' | 'store.settings' | 'store.publish' | 'catalog.write' | 'inventory.write' | 'members.manage' | 'orders.read';
 const permissions: Record<StoreRole, readonly Permission[]> = {
-  ACCOUNT_OWNER: ['store.read','store.settings','store.publish','catalog.write','inventory.write','members.manage'],
-  STORE_ADMIN: ['store.read','store.settings','store.publish','catalog.write','inventory.write'],
+  ACCOUNT_OWNER: ['store.read','store.settings','store.publish','catalog.write','inventory.write','members.manage','orders.read'],
+  STORE_ADMIN: ['store.read','store.settings','store.publish','catalog.write','inventory.write','orders.read'],
   STORE_EDITOR: ['store.read','catalog.write','inventory.write'],
   STORE_VIEWER: ['store.read']
 };

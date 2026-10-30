@@ -7,7 +7,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {PrismaClient} from '../../dist/generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {decryptMail} from '../../dist/identity/infrastructure/secrets.js';
-test('durable checkout resumes, protects tenant/private data, reserves the last unit once and releases on changes/cancel/expiry',{timeout:60000},async t=>{
+test('durable checkout resumes, protects tenant/private data, reserves the last unit once and releases on changes/cancel/expiry and places one immutable COD order',{timeout:60000},async t=>{
   assert.ok(process.env.DATABASE_URL,'Disposable PostgreSQL required.');const previous=process.env.AUTH_OUTBOX_KEY;process.env.AUTH_OUTBOX_KEY='f'.repeat(64);
   const db=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});
   const keys=['browser','mutation'].map(kind=>createHash('sha256').update(`${kind}:127.0.0.1:${Math.floor(Date.now()/900000)}`).digest('hex'));await db.identityThrottle.deleteMany({where:{key:{in:keys}}});
@@ -45,6 +45,34 @@ test('durable checkout resumes, protects tenant/private data, reserves the last 
   await db.checkout.update({where:{id:loserHeld.body.id},data:{expiresAt:new Date(Date.now()-1)}});
   assert.equal((await request(loser,loserPath+'/reserve','POST',{expectedVersion:loserHeld.body.version})).status,409);assert.equal((await request(loser,loserPath)).body.status,'EXPIRED');
   const final=await db.productVariant.findUniqueOrThrow({where:{id:variantId}});assert.equal(final.stock,1);assert.equal(final.reserved,0);assert.equal(await db.inventoryMovement.count({where:{storeId:store.id}}),0,'No stock commitment before order placement.');
+  const orderStartKey=randomUUID(),orderStartBody={cartId:winner.cart.id,expectedCartVersion:winner.cart.version};
+  const orderCheckout=await request(winner,checkoutRoot,'POST',orderStartBody,{'idempotency-key':orderStartKey});assert.equal(orderCheckout.status,201);const orderPath=checkoutRoot+'/'+orderCheckout.body.id;
+  await request(winner,orderPath,'PATCH',{expectedVersion:0,shippingMethodId:'standard',shippingAddress:address});let readyOrder=await request(winner,orderPath+'/reserve','POST',{expectedVersion:1});assert.equal(readyOrder.status,201);
+  await db.product.update({where:{id:product.id},data:{priceMinor:2002n}});
+  assert.equal((await request(winner,orderPath+'/place','POST',{expectedVersion:readyOrder.body.version,paymentMethod:'COD'},{'idempotency-key':randomUUID()})).status,409,'Catalog change must require requote.');
+  await db.product.update({where:{id:product.id},data:{priceMinor:1001n}});await db.storePricing.update({where:{storeId:store.id},data:{version:2}});
+  assert.equal((await request(winner,orderPath+'/place','POST',{expectedVersion:readyOrder.body.version,paymentMethod:'COD'},{'idempotency-key':randomUUID()})).status,409,'Policy change must require requote.');
+  readyOrder=await request(winner,orderPath+'/reserve','POST',{expectedVersion:readyOrder.body.version});assert.equal(readyOrder.status,201);
+  assert.equal((await request(winner,orderPath+'/place','POST',{expectedVersion:readyOrder.body.version,paymentMethod:'CARD'},{'idempotency-key':randomUUID()})).status,400);
+  assert.equal((await request(winner,orderPath+'/place','POST',{expectedVersion:readyOrder.body.version,paymentMethod:'COD',totalMinor:'1'},{'idempotency-key':randomUUID()})).status,400);
+  const placeBody={expectedVersion:readyOrder.body.version,paymentMethod:'COD'},placeKey=randomUUID(),trigger='order_reject_'+randomUUID().replaceAll('-','');
+  await db.$executeRawUnsafe(`CREATE FUNCTION "${trigger}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'controlled order failure'; END; $$`);
+  await db.$executeRawUnsafe(`CREATE TRIGGER "${trigger}" BEFORE INSERT ON "Order" FOR EACH ROW WHEN (NEW."storeId"='${store.id}'::uuid) EXECUTE FUNCTION "${trigger}"()`);
+  try{
+    const rejected=await request(winner,orderPath+'/place','POST',placeBody,{'idempotency-key':placeKey});assert.equal(rejected.status,500);assert.equal(JSON.stringify(rejected.body).includes('controlled order failure'),false);
+    const unchanged=await db.productVariant.findUniqueOrThrow({where:{id:variantId}});assert.equal(unchanged.stock,1);assert.equal(unchanged.reserved,1);assert.equal(await db.order.count({where:{storeId:store.id}}),0);assert.equal(await db.orderNotification.count({where:{storeId:store.id}}),0);assert.equal((await db.checkout.findUniqueOrThrow({where:{id:readyOrder.body.id}})).status,'READY');
+  }finally{await db.$executeRawUnsafe(`DROP TRIGGER "${trigger}" ON "Order"`);await db.$executeRawUnsafe(`DROP FUNCTION "${trigger}"()`);}
+  const placements=await Promise.all([request(winner,orderPath+'/place','POST',placeBody,{'idempotency-key':placeKey}),request(winner,orderPath+'/place','POST',placeBody,{'idempotency-key':placeKey})]);assert.deepEqual(placements.map(r=>r.status),[201,201],JSON.stringify(placements));assert.equal(placements[0].body.id,placements[1].body.id);const placed=placements[0].body;
+  assert.equal(placed.number,'DLC-00000001');assert.equal(placed.paymentMethod,'COD');assert.equal(placed.paymentStatus,'DUE');assert.equal(placed.amountDueMinor,'1233');assert.equal(placed.paidMinor,'0');assert.equal(placed.totalMinor,'1233');assert.equal('sku'in placed.items[0],false);assert.equal(placed.events.length,1);
+  const committed=await db.productVariant.findUniqueOrThrow({where:{id:variantId}});assert.equal(committed.stock,0);assert.equal(committed.reserved,0);assert.equal(await db.inventoryMovement.count({where:{storeId:store.id,reason:'ORDER_COMMITTED'}}),1);assert.equal(await db.orderNotification.count({where:{storeId:store.id,status:'PENDING'}}),1);
+  assert.equal((await request(winner,orderPath)).body.orderId,placed.id);assert.equal((await request(winner,checkoutRoot,'POST',orderStartBody,{'idempotency-key':orderStartKey})).body.orderId,placed.id);assert.equal((await db.cart.findUniqueOrThrow({where:{id:winner.cart.id}})).status,'CHECKED_OUT');
+  assert.equal((await request(winner,root+'/customer/orders')).body.items[0].id,placed.id);assert.equal((await request(loser,root+'/customer/orders/'+placed.id)).status,404);
+  await db.product.update({where:{id:product.id},data:{priceMinor:8888n}});const saved=(await request(winner,root+'/customer/orders/'+placed.id)).body;assert.equal(saved.totalMinor,'1233');assert.equal(saved.items[0].unitPriceMinor,'1001');
+  await assert.rejects(db.order.update({where:{id:placed.id},data:{totalMinor:1234n}}));await assert.rejects(db.orderEvent.updateMany({where:{orderId:placed.id},data:{kind:'FAKE'}}));
+  const rawItem=await db.orderItem.findFirstOrThrow({where:{orderId:placed.id}});await assert.rejects(db.orderItem.create({data:{...rawItem,id:randomUUID(),storeId:randomUUID()}}));
+  async function merchant(role){const m={email:'operator-'+randomUUID()+'@example.test'};await request(m,'/v1/auth/csrf');await request(m,'/v1/auth/signup','POST',{email:m.email,password,name:'Operator'});const mail=await db.identityMail.findFirstOrThrow({where:{scopeKey:'merchant',recipient:m.email,purpose:'VERIFY'}});await request(m,'/v1/auth/verification/confirm','POST',{token:decryptMail(mail.encryptedPayload).token});assert.equal((await request(m,'/v1/auth/login','POST',{email:m.email,password})).status,201);const identity=(await request(m,'/v1/auth/me')).body;await db.merchantMembership.create({data:{merchantId:account.id,identityId:identity.id,role:role==='OWNER'?'ACCOUNT_OWNER':'MEMBER'}});if(role==='EDITOR')await db.storeMembership.create({data:{merchantId:account.id,storeId:store.id,identityId:identity.id,role:'STORE_EDITOR'}});return m;}
+  const owner=await merchant('OWNER'),editor=await merchant('EDITOR'),merchantPath='/v1/merchant/stores/'+store.id+'/orders';
+  assert.equal((await request(owner,merchantPath)).body.items[0].id,placed.id);assert.equal((await request(owner,merchantPath+'/'+placed.id)).body.items[0].sku,'SECRET-CHECKOUT-SKU');assert.equal((await request(editor,merchantPath)).status,403);
   const aIdentity=await db.identity.findUniqueOrThrow({where:{scopeKey_email:{scopeKey:'store:'+store.id,email:a.email}}});
   await assert.rejects(db.checkout.create({data:{storeId:store.id,customerId:aIdentity.id,cartId:b.cart.id,cartVersion:1,key:randomUUID(),digest:'a'.repeat(64),contactName:'Buyer',contactEmail:a.email,expiresAt:new Date(Date.now()+60000)}}));
   assert.ok(!logs.includes(password)&&!logs.includes('SECRET-CHECKOUT-SKU'));

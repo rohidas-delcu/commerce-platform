@@ -1,3 +1,4 @@
+import type {OrderReadRepositoryPort} from '../orders/application/orders.port.js';
 import type {PricingRepositoryPort} from '../pricing/application/pricing.port.js';
 import type {InventoryRepositoryPort} from '../inventory/application/inventory.port.js';
 import type {MediaRepositoryPort} from '../media/application/media.port.js';
@@ -6,6 +7,7 @@ import type { InventoryMovement, Product, Store, ProductQuery, Variant, Collecti
 export const COMMERCE_REPOSITORY = Symbol("COMMERCE_REPOSITORY");
 
 export interface CommerceRepository {
+  readonly orders:OrderReadRepositoryPort;
   readonly pricing:PricingRepositoryPort;
   readonly media:MediaRepositoryPort;
   readonly inventory:InventoryRepositoryPort;

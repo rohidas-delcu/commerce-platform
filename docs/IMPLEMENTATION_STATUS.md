@@ -1,6 +1,6 @@
 # Current backend implementation status — 2026-10-30
 
-**Full backend mission IN PROGRESS; no customer order placement yet.** Continue
+**Full backend mission IN PROGRESS; COD placement works, full lifecycle still pending.** Continue
 verified slices autonomously under BACKEND_REQUIREMENTS.md. No UI, merge or deploy.
 Branch `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
 Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
@@ -34,7 +34,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   become merchant or another store's authority even when renamed. SQL constraints
   prevent customer identities acquiring merchant memberships. Addresses have scoped
   FKs, optimistic versions and serialized default selection; wishlist uses safe
-  public products. Customer order history awaits orders.
+  public products. Customer order history/detail now uses independent customer scope.
 
 - Pricing checkpoint: versioned country-zone flat/free-threshold shipping, explicit
   NONE/EXCLUSIVE/INCLUSIVE tax settings, a TaxCalculatorPort, exact rounding and
@@ -50,11 +50,20 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   hold, change inputs with atomic hold release, cancel or expire. Customer-safe
   projections omit private SKU and authority fields. DRAFT lasts24h; READY uses
   the bounded hold lifetime. Guest cart merge precedes this initial authenticated
-  checkout API. Order placement, payments and fulfillment remain pending.
+  checkout API. COD placement now commits immutable orders/stock/outbox atomically;
+  cash collection, other payment methods and fulfillment remain pending.
+
+- COD order checkpoint: idempotent READY placement revalidates current cart,
+  catalog, currency and policy; commits the hold, order/items, source checkout/cart
+  and one notification outbox entry in a single transaction. Orders preserve exact
+  prices/contact/shipping/tax snapshots and per-store numbers. COD starts DUE, never
+  captured/paid. Customer-safe history/detail and owner/admin merchant read APIs
+  are implemented; store editors cannot read order PII. Immutable SQL snapshot/
+  item/event guards and exact tax allocation are executed in tests.
 
 ## Actual checkpoint evidence
 
-- `pnpm test`: 35 passed, 0 failed/skipped.
+- `pnpm test`: 37 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
 - Disposable PostgreSQL `pnpm test:postgres`: 15 passed, 0 failed/skipped. This
@@ -70,19 +79,20 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before checkout: `b5941261930db7a751ccd20c833ddc301d1efba2`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41075016169
-  Carts `e4e6629` also passed Actions run41073307532. Checkout remote CI must
+- Latest pushed verified implementation before COD: `769f12536cc6dd4056bff9d860d8847c1d5de6f9`.
+  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41076565558
+  Pricing `b594126` also passed Actions run41075016169. COD remote CI must
   be checked after pushing; local results do not establish remote CI success.
 
 ## Remaining work and exact next task
 
-1. Commit checkout checkpoint and inspect CI; implement COD order placement
-   atomically from READY checkout with idempotency and inventory commitment. Couple coupon
-   persistence/eligibility/redemption to that transaction before claiming discounts complete.
+1. Commit COD checkpoint and inspect CI; implement explicit manual ready/dispatch/
+   delivery, separate audited COD collection and eligible cancellation with exactly-once
+   inventory restoration. Add persistent coupon management/redemption in the placement
+   transaction before claiming discounts complete.
 2. Finish logo/branding settings and review all onboarding/publication prerequisites.
-3. Final placement must revalidate quote/catalog/policy/cart versions; add customer/
-   merchant order history and explicit manual fulfillment/cancellation/collection.
+3. Complete remaining payment/simulator/reconciliation/refund lifecycles and security
+   acceptance; never infer captured payment from a browser callback.
 4. COD, development simulator and Razorpay boundary/signature/status/reconciliation;
    order/payment/fulfillment transitions, cancellation/refunds and history.
 5. Durable notification delivery/retries, SES adapter, expiry/retention/orphan workers,
@@ -104,7 +114,9 @@ ownerless accounts need audited operator recovery. No automatic ownership mappin
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030152000_checkout` (source cart/customer/store FK, active-cart uniqueness)
+Migration history now includes `20261030153000_cod_orders` (immutable snapshots/items/events, staged outbox,
+exact money/tenant constraints and per-store counters),
+`20261030152000_checkout` (source cart/customer/store FK, active-cart uniqueness)
 and `20261030151000_store_pricing` (versioned JSON policy) and
 `20261030150000_carts` (additive cart/line FKs,
 owner/capability CHECKs and one active cart per customer). The earlier

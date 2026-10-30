@@ -1,3 +1,4 @@
+import {PlaceCodDto} from '../../orders/http/orders.dto.js';
 import {Controller,Post,Get,Patch,Req,Param,ParseUUIDPipe,Body,Headers,UseGuards} from '@nestjs/common';
 import {ApiTags,ApiCookieAuth,ApiHeader} from '@nestjs/swagger';
 import {CustomerGuard} from '../../customer/http/customer.controller.js';
@@ -17,4 +18,5 @@ export class CheckoutController {
   @Patch(':checkoutId') configure(@Req() r:CustomerRequest,@Param('checkoutId',ParseUUIDPipe) id:string,@Body() b:CheckoutSettingsDto){return this.service.configure(this.context(r),id,b);}
   @Post(':checkoutId/reserve') reserve(@Req() r:CustomerRequest,@Param('checkoutId',ParseUUIDPipe) id:string,@Body() b:CheckoutVersionDto){return this.service.reserve(this.context(r),id,b.expectedVersion);}
   @Post(':checkoutId/cancel') cancel(@Req() r:CustomerRequest,@Param('checkoutId',ParseUUIDPipe) id:string,@Body() b:CheckoutVersionDto){return this.service.cancel(this.context(r),id,b.expectedVersion);}
+  @Post(':checkoutId/place') place(@Req() r:CustomerRequest,@Param('checkoutId',ParseUUIDPipe) id:string,@Body() b:PlaceCodDto,@Headers('idempotency-key') key:string){return this.service.placeCod(this.context(r),id,b.expectedVersion,key);}
 }

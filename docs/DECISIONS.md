@@ -113,3 +113,16 @@ release holds and clear quotes; quote replacement rolls back on failure. No inve
 commitment or order is inferred from READY. Order placement must revalidate before
 committing, and notification/payment/fulfillment states stay separate. Do not enable
 production or claim full checkout acceptance at this checkpoint.
+
+## COD order placement and immutable snapshots (implementation, 2026-10-30)
+
+Commit validated READY checkout/hold, immutable order/items, cart completion and a
+unique notification intent in one PostgreSQL transaction. Recheck current catalog,
+cart/currency/policy and inventory expiry; refuse changed quotes rather than silently
+changing a charge. Place COD as amount-due, not captured/paid. Use per-store transactional
+number counters and customer-scoped request digests/source uniqueness for retries.
+Allocate discount/tax integer units by deterministic largest remainder, including a
+shipping tax component; persist tax inclusion explicitly. Customer order projections
+omit SKU/authority; merchant order read permission is owner/admin only initially.
+SQL prevents snapshot/item/event mutation. Notification intents are durable and pending;
+delivery workers and full cash/fulfillment/cancellation lifecycles still follow.

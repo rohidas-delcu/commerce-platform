@@ -63,3 +63,13 @@ clear snapshots in the same transaction; quote failure rolls back release/replac
 GET processes due expiry; background scheduling remains pending. READY does not
 commit inventory and cannot by itself create paid/order state. Checkout actions are
 audited without contact/address/token data in operational logs.
+
+COD placement: READY checkout + ACTIVE owned cart + valid hold → COMPLETED checkout,
+CHECKED_OUT cart and one PLACED order with payment DUE and fulfillment UNFULFILLED.
+Order/items/totals and notification intent commit with stock movement; any failure
+rolls everything back. Retries use durable placement keys and source uniqueness.
+Final placement refuses catalog/cart/policy/currency changes and expired/closed holds.
+Order numbers are per-store transaction counters. Original prices and contact/delivery
+snapshots remain immutable even when the catalog changes. Exact largest-remainder tax
+allocation conserves every minor unit across item/shipping components. COD payment
+collection, fulfillment and cancellation are not implemented at this checkpoint.
