@@ -53,7 +53,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   the bounded hold lifetime. Guest cart merge precedes this initial authenticated
   checkout API. COD placement now commits immutable orders/stock/outbox atomically;
   manual fulfillment/cash collection/cancellation now have verified APIs; other
-  payment methods, refunds and delivery workers remain pending.
+  payment methods and refunds remain pending; notification delivery now has a worker.
 
 - COD order checkpoint: idempotent READY placement revalidates current cart,
   catalog, currency and policy; commits the hold, order/items, source checkout/cart
@@ -69,7 +69,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   events. Eligible unpaid/undispatched cancellation restores committed stock once
   and voids amount due. Forced restoration failure rolls back stock/order/history.
   Internal notes work on open/closed orders and are excluded from the explicit
-  customer-visible event allowlist. Notification intents are queued, not delivered.
+  customer-visible event allowlist. Notification intents now have independent delivery.
 
 - Coupons: owner/admin management with scoped code uniqueness, versioned fixed/
   percentage rules, dates and usage limits; guest/customer cart application/removal
@@ -92,14 +92,20 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   name/locale/branding fields. Logo images follow store publication and cannot be
   deleted while referenced. No frontend/mockup/palette/design changes were made.
 
+- Notifications: shared application/transport ports, private development mailbox,
+  explicit SES SDK boundary, PostgreSQL SKIP LOCKED leases/tenant-linked attempt history,
+  bounded backoff, UNKNOWN outcome safety, stale challenge suppression and safe receipt
+  projections. Optional in-process delivery and trusted one-shot CLI share the service;
+  shutdown waits for active sends before closing its transport/database. No public preview.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 40 passed, 0 failed/skipped.
+- `pnpm test`: 45 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 18 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 19 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not18 independent purchase flows.
+  and SQL checks; these totals include shared suites, not19 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -112,23 +118,31 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
   the locked dependency tree. This does not replace security review.
-- Latest pushed verified implementation before branding: `0c48ab33441e79eb4d84910db84f7a22d436c790`.
-  Actions succeeded: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41086962712
-  Coupons `42d6da3` also passed run41085205485. Check branding CI after pushing;
-  local results do not establish remote CI success.
+- Frozen dependency install passed using `/workspace/.pnpm-store`; `pnpm audit --prod`
+  reported no known vulnerabilities with the SES SDK dependency included.
+- Prisma validation/generation, deployment/repeat/status/drift passed with20 migrations.
+- Targeted notification HTTP/PostgreSQL suite passed, including forced acknowledgement
+  rollback after file acceptance, concurrent claims, unknown/late receipts, capped retries,
+  exact receipt money, private note exclusion, dispatch references and tenant attempt FKs.
+- `pnpm worker:once identity 00000000-0000-0000-0000-000000000000` executed and closed
+  successfully with zero processed jobs (deliberate nonexistent fixture selector).
+- Latest pushed implementation before this notification checkpoint:
+  `4f6b493db7173abad8f49da8694d3ba6998c8d9f` (branding), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41089295576
+  Notification local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit branding checkpoint/inspect CI; implement the durable notification
-   delivery worker, private development mailbox and SES adapter boundary/retries.
-2. Review final onboarding/publication and operational lifecycle prerequisites.
-3. Complete remaining payment/simulator/reconciliation/refund lifecycles and security
-   acceptance; never infer captured payment from a browser callback.
-4. Add supported refund workflows and late/unknown-payment recovery without
-   inventing provider guarantees or treating refunds as physical stock returns.
-5. Durable notification delivery/retries, SES adapter, expiry/retention/orphan workers,
-   deterministic seed and executable complete demo; E2E flows A–J and final CI/security.
-6. Complete cursor pagination and response contracts as needed for the full API.
+1. Commit/push notification checkpoint and inspect remote CI, then implement trusted
+   expiry processing for checkouts, inventory holds/quota and carts, including closed
+   stores, using existing transition rules rather than duplicated business logic.
+2. Complete PaymentPort, development simulator and durable payment/reconciliation
+   lifecycle; add/test Razorpay test-only adapter boundary. Never infer capture from
+   browser callbacks or blindly retry unknown provider outcomes.
+3. Supported refunds/late payment recovery, final publication prerequisites and
+   retention/orphan cleanup. Refunds never imply physical inventory returns.
+4. Deterministic seed and executable full simulated-payment/fulfillment demo, all
+   E2E flows A–J, remaining response/cursor contracts and final CI/security acceptance.
 
 ## Explicit limits and release gates
 
@@ -136,7 +150,8 @@ Production startup remains disabled until full acceptance/security review. Legac
 `/v1/admin` demo headers are development-only and cannot reach real merchant stores.
 Customer identity, carts and transactional merchant operations require PostgreSQL; memory
 mode serves the isolated catalog/inventory demo, without simulated secure identity.
-Email is encrypted staging, not verified SES delivery. Live S3/SES/Razorpay require
+Email delivery is now implemented as private local files or explicit SES provider
+acceptance; live SES delivery is not verified. Live S3/SES/Razorpay require
 owned provider configuration and executed sandbox checks. No real payment claim.
 Expired holds conservatively reduce availability until explicit expiry processing;
 scheduled expiry and orphan cleanup remain pending. Tombstoned media stays private
@@ -147,7 +162,8 @@ remain unavailable. Merchant business mutations remain subject to store/account 
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030160000_store_branding` (nullable tenant-scoped logo reference),
+Migration history now includes `20261030161000_notification_delivery` (leases and scoped attempt ledger),
+`20261030160000_store_branding` (nullable tenant-scoped logo reference),
 `20261030155000_coupon_redemption` (coupon quota leases/immutable usage ledgers)
 and `20261030155100_zero_amount_orders` (NOT_REQUIRED, preserving amounts/IDs),
 `20261030154000_manual_fulfillment` (command ledger, event data and cancellation

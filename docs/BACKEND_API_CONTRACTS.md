@@ -362,3 +362,9 @@ while referenced by a product or logo409. Branding name remains part of settings
 branding:{name,logo:{id,url,altText}|null}}`. Logo bytes are public only while the
 store is available/published. No merchant identity, private object key or token leaks.
 Existing catalog response shapes remain compatible. No frontend/design is implemented.
+
+Notification delivery is internal, not a public API. Trusted workers consume durable
+identity/order intents. Private local mailbox files and provider receipts must never
+be exposed through administrative/public/customer responses. Provider ACCEPTED is not
+an inbox DELIVERED assertion. See LOCAL_DEVELOPMENT.md for the worker CLI and future
+client link contracts; these links do not implement or change any visual design.

@@ -108,3 +108,14 @@ managed namespace. Signup, catalog/wishlist content, carts and checkout require 
 active published store. Both paths retain the same scoped identity/session checks;
 no demo or merchant identity becomes customer authority. Unused closed namespaces
 remain hidden. Availability intent is static use-case metadata and centralized policy.
+
+## Notification delivery
+
+NotificationService formats approved identity/order projections through ports;
+PrismaNotificationRepository owns queue leases, attempt history and acknowledgements.
+DevelopmentMailer provides a private local mailbox; SesMailer implements an official
+SDK adapter boundary. Transactional intent creation is independent of transport
+availability, so a notification outage cannot undo an order. An optional in-process
+worker drains bounded batches with up to five concurrent sends and awaits active
+work during shutdown. Trusted CLI `pnpm worker:once` runs the same service without
+exposing an HTTP delivery endpoint. Global production startup refusal still applies.

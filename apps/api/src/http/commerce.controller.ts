@@ -1,3 +1,4 @@
+import {NotificationService} from '../notifications/application/notifications.service.js';
 import {CheckoutService} from '../checkout/application/checkout.service.js';
 import {CartService} from '../cart/application/cart.service.js';
 import {CustomerService} from '../customer/application/customer.service.js';
@@ -104,11 +105,11 @@ export class StorefrontCommerceController {
 
 @Controller("health")
 export class HealthController {
-  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository, @Optional() private readonly identity?: IdentityService, @Optional() private readonly merchant?: MerchantService, @Optional() private readonly customer?:CustomerService, @Optional() private readonly carts?:CartService, @Optional() private readonly checkouts?:CheckoutService) {}
+  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository, @Optional() private readonly identity?: IdentityService, @Optional() private readonly merchant?: MerchantService, @Optional() private readonly customer?:CustomerService, @Optional() private readonly carts?:CartService, @Optional() private readonly checkouts?:CheckoutService, @Optional() private readonly notifications?:NotificationService) {}
 
   @Get("ready")
   async ready() {
-    try { await this.repository.checkHealth(); await this.identity?.checkHealth(); await this.merchant?.checkHealth(); await this.customer?.checkHealth(); await this.carts?.checkHealth(); await this.checkouts?.checkHealth(); return { status: "ready" }; }
+    try { await this.repository.checkHealth(); await this.identity?.checkHealth(); await this.merchant?.checkHealth(); await this.customer?.checkHealth(); await this.carts?.checkHealth(); await this.checkouts?.checkHealth(); await this.notifications?.checkHealth(); return { status: "ready" }; }
     catch { throw new ServiceUnavailableException("Repository is unavailable."); }
   }
   @Get()

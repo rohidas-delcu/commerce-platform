@@ -178,3 +178,21 @@ logo references protect deletion like product images. Clear a logo explicitly be
 deleting its bytes. Public store profile selects only name/locale/branding fields;
 logo publication uses the same store availability policy as catalog/media. Keep logo
 optional rather than inventing placeholder artwork, colors or a new storefront design.
+
+## Durable notification delivery (implementation, 2026-10-30)
+
+Keep identity and order intents transactional with their source operations; deliver
+through a shared application service and transport port in the same monolith.
+Claim bounded batches with PostgreSQL SKIP LOCKED leases and record every attempt
+with a source/tenant FK. Only a positive provider receipt means ACCEPTED; this is
+not proof of inbox delivery. Retry definite throttling/local I/O with bounded
+exponential backoff (five attempts). Uncertain SES/network results and expired
+non-idempotent leases become UNKNOWN and require reconciliation; never blindly
+resend. Late original receipts may resolve their own lease, never a newer lease.
+
+Development delivery writes one private mode0600 JSON file per immutable message
+identity under a mode0700 directory. Replays deduplicate by that identity. No public
+mailbox/token preview API. SES uses the official SDK with automatic retries disabled,
+explicit sender/region/HTTPS application links and no development fallback. Secrets,
+recipients and body/token contents stay out of operational logs. SES acceptance,
+bounce/complaint processing, retention and live sandbox checks remain distinct gates.

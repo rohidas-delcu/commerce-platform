@@ -17,7 +17,7 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   const limiterKeys=['browser','mutation'].map(kind=>createHash('sha256').update(`${kind}:127.0.0.1:${Math.floor(Date.now()/900000)}`).digest('hex'));
   await db.identityThrottle.deleteMany({where:{key:{in:limiterKeys}}});
   const port=22000+Math.floor(Math.random()*1000),base=`http://127.0.0.1:${port}`;
-  const child=spawn(process.execPath,['dist/main.js'],{cwd:new URL('../../',import.meta.url),env:{...process.env,PORT:String(port),NODE_ENV:'development',DATA_DRIVER:'postgres',DEMO_AUTH_ENABLED:'true'},stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,['dist/main.js'],{cwd:new URL('../../',import.meta.url),env:{...process.env, COMMERCE_WORKER_ENABLED: 'false', NOTIFICATION_PROVIDER: 'development',PORT:String(port),NODE_ENV:'development',DATA_DRIVER:'postgres',DEMO_AUTH_ENABLED:'true'},stdio:['ignore','pipe','pipe']});
   let logs='';child.stdout.on('data',b=>{logs+=b;});child.stderr.on('data',b=>{logs+=b;});
   t.after(async()=>{
     if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit'),timer=setTimeout(()=>child.kill('SIGKILL'),5000);timer.unref();child.kill('SIGTERM');const[,signal]=await exited;clearTimeout(timer);assert.notEqual(signal,'SIGKILL');}

@@ -83,3 +83,11 @@ coupon eligibility/redemption must use the same order transaction and durable un
 redemption identity before discounts are marked complete. Preserve transactionally
 staged notifications even before delivery workers exist. Test actual HTTP + PostgreSQL
 last-unit/duplicate placement/rollback/expiry and tenant isolation.
+
+## Notification checkpoint
+
+Private development delivery, SES SDK boundary, durable leases/attempts, retry/unknown
+safety and worker lifecycle have executed unit and PostgreSQL/HTTP verification.
+Full backend remains in progress. Next: trusted commerce expiry, payment simulator/
+provider reconciliation/refunds, full executable demo and final security acceptance.
+Live S3/SES/Razorpay activation still needs owned configuration and sandbox evidence.

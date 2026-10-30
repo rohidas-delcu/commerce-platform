@@ -98,3 +98,12 @@ asset visibility, exact public metadata and referenced deletion protection. Unpu
 hides profile/logo; clearing the reference allows deletion. Memory metadata/reference
 behavior is covered separately. Shared HTTP fixtures force local storage in their own
 private temporary directories, preventing unintended live S3 calls or user-file cleanup.
+
+Notification coverage: `apps/api/test/notifications.test.mjs` exercises exact money,
+application links, private file permissions/deduplication, production mailbox refusal,
+application failure isolation and non-live SES command/error classification.
+`apps/api/test/postgres/notifications.test.mjs` executes real HTTP signup, trusted
+worker delivery and verification, consumed-link suppression, PostgreSQL claim races,
+retry deadlines, unknown outcomes, local crash deduplication, forced acknowledgement
+rollback, late original receipts and a real COD transaction followed by safe receipt
+mail. Assertions never print challenge links, recipients or provider credentials.

@@ -7,10 +7,12 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "worker:once": "node dist/worker.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1159.0",
+    "@aws-sdk/client-sesv2": "^3.1159.0",
     "@aws-sdk/s3-request-presigner": "^3.1159.0",
     "@nestjs/common": "^12.3.2",
     "@nestjs/core": "^12.3.2",

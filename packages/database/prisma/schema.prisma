@@ -194,6 +194,18 @@ model IdentityChallenge {
 }
 
 model IdentityMail {
+  deliveryAttempts NotificationAttempt[]
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  lockedUntil DateTime?
+  leaseToken String? @db.Uuid
+  provider String?
+  providerMessageId String?
+  acceptedAt DateTime?
+  lastErrorCode String?
+  @@unique([id,scopeKey])
+  @@index([status,availableAt])
   scopeKey String @default("merchant")
   id String @id @default(uuid()) @db.Uuid
   recipient String
@@ -573,6 +585,12 @@ model OrderEvent {
   @@index([orderId,createdAt])
 }
 model OrderNotification {
+  deliveryAttempts NotificationAttempt[]
+  leaseToken String? @db.Uuid
+  provider String?
+  providerMessageId String?
+  acceptedAt DateTime?
+  @@unique([id,storeId])
   id String @id @default(uuid()) @db.Uuid
   orderId String @db.Uuid
   storeId String @db.Uuid
@@ -669,4 +687,24 @@ model CouponHold {
   @@unique([id,storeId])
   @@unique([checkoutId,checkoutVersion])
   @@index([couponId,status,expiresAt])
+}
+
+model NotificationAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  identityMailId String? @db.Uuid
+  identityScopeKey String?
+  identityMail IdentityMail? @relation(fields:[identityMailId,identityScopeKey],references:[id,scopeKey],onDelete:Restrict)
+  orderNotificationId String? @db.Uuid
+  storeId String? @db.Uuid
+  orderNotification OrderNotification? @relation(fields:[orderNotificationId,storeId],references:[id,storeId],onDelete:Restrict)
+  leaseToken String @unique @db.Uuid
+  provider String
+  attemptNumber Int
+  status String @default("SENDING")
+  providerMessageId String?
+  errorCode String?
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  @@index([identityMailId])
+  @@index([orderNotificationId,storeId])
 }

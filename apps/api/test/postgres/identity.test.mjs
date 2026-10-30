@@ -19,7 +19,7 @@ test('merchant identity HTTP lifecycle: verification, CSRF, sessions, rotation, 
   await db.identityThrottle.deleteMany({where:{key:{in:limiterKeys}}});
   const port = 17000 + Math.floor(Math.random()*1000), base = `http://127.0.0.1:${port}/v1/auth`;
   const child = spawn(process.execPath, ['dist/main.js'], {cwd: new URL('../../', import.meta.url),
-    env: {...process.env, NODE_ENV: 'development', DATA_DRIVER: 'postgres', DEMO_AUTH_ENABLED: 'false', PORT: String(port), AUTH_OUTBOX_KEY: key}, stdio: ['ignore','pipe','pipe']});
+    env: {...process.env, COMMERCE_WORKER_ENABLED: 'false', NOTIFICATION_PROVIDER: 'development', NODE_ENV: 'development', DATA_DRIVER: 'postgres', DEMO_AUTH_ENABLED: 'false', PORT: String(port), AUTH_OUTBOX_KEY: key}, stdio: ['ignore','pipe','pipe']});
   let logs = '';
   child.stdout.on('data', b => {logs += b;}); child.stderr.on('data', b => {logs += b;});
   t.after(async () => {

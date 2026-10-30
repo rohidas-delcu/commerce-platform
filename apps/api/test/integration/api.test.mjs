@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const port = 13000 + Math.floor(Math.random() * 1000);
 const base = `http://127.0.0.1:${port}`;
-const env = { ...process.env, NODE_ENV: 'development', DEMO_AUTH_ENABLED: 'true',
+const env = { ...process.env, COMMERCE_WORKER_ENABLED: 'false', NOTIFICATION_PROVIDER: 'development', NODE_ENV: 'development', DEMO_AUTH_ENABLED: 'true',
   DATA_DRIVER: process.env.TEST_DATA_DRIVER || 'memory', PORT: String(port) };
 
 async function request(path, method = 'GET', body, subject = 'test-merchant') {

@@ -22,7 +22,8 @@
     "db:drift": "prisma migrate diff --from-config-datasource --to-schema packages/database/prisma/schema.prisma --exit-code --config packages/database/prisma.config.ts",
     "test:database": "node --test apps/api/test/postgres/schema.test.mjs",
     "dev:setup": "node scripts/init-development.mjs",
-    "test:migrations": "node apps/api/test/migrations/upgrades.mjs"
+    "test:migrations": "node apps/api/test/migrations/upgrades.mjs",
+    "worker:once": "pnpm --filter @commerce/api worker:once"
   },
   "devDependencies": {
     "dotenv": "^17.0.0",

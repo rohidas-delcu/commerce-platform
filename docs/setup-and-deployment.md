@@ -109,3 +109,18 @@ A demo subject header can impersonate merchants and must remain local developmen
 only. No payments, React implementation or additional microservices are included.
 
 Do not merge or begin Phase 1 until Phase 0's PR and verification are reviewed.
+
+## Notification provider prerequisites (not a production release)
+
+Use NOTIFICATION_PROVIDER=ses only with an owned SES account/region, a verified
+SES_FROM_EMAIL, SES_REGION and explicitly configured HTTPS MERCHANT_APP_URL and
+STOREFRONT_APP_URL. SES_CONFIGURATION_SET is optional. Credentials use the AWS SDK
+credential chain; keep them server-side and grant only required sending permissions.
+Invalid/missing provider configuration fails startup; there is no local fallback.
+SDK retries are disabled because SES SendEmail has no application idempotency promise.
+A timeout/uncertain outcome is UNKNOWN, not a retryable failure. Reconcile provider
+history before any operator-authorized replacement intent; this implementation does
+not expose a dangerous automatic requeue endpoint. Provider accepted is not delivered.
+Live SES sandbox recipient verification, sender/domain reputation, bounce/complaint
+handling, privacy/retention and security acceptance remain unverified release gates.
+Production runtime remains disabled. Local adapter contract fakes are not live SES.
