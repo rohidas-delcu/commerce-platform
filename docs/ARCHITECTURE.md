@@ -50,3 +50,11 @@ Public responses explicitly select fields; HTTP errors share
 Clean compilation and memory/PostgreSQL integration now pass locally. See
 `IMPLEMENTATION_STATUS.md` for exact evidence, remote CI and the pending review
 gate. Production deployment is not authorized.
+
+## Phase 1 design review (2026-10-30)
+
+[Phase 1 design and decision pack](PHASE1_DESIGN.md) records the requested
+identity, membership, onboarding, migration and frontend-contract proposals.
+Design work is authorized; implementation and provider selection are not.
+Phase 0 PR #1 is still open and fetched main remains at `3de3dc1`.
+All P01–P10 decisions require approval; this link does not adopt them.

@@ -49,3 +49,11 @@ orders, reservations, fulfillment, taxes, subscriptions and other deferred
 capabilities are not implemented or approved for the next phase by this document.
 Phase 1 scope, authentication provider, production hosting and UI implementation
 require explicit future decisions. Do not infer them from roadmap terminology.
+
+## Phase 1 design review (2026-10-30)
+
+[Phase 1 design and decision pack](PHASE1_DESIGN.md) records the requested
+identity, membership, onboarding, migration and frontend-contract proposals.
+Design work is authorized; implementation and provider selection are not.
+Phase 0 PR #1 is still open and fetched main remains at `3de3dc1`.
+All P01–P10 decisions require approval; this link does not adopt them.

@@ -64,7 +64,7 @@ but GitHub run/step metadata and PR creation are available. Production dependenc
 audit previously reported no known vulnerabilities at `997edba`; it was not rerun
 for this path/test-only correction and is not a permanent security guarantee.
 
-## Exact next task
+## Phase 0 handoff (historical; current design task follows)
 
 Request human review of draft PR #1 and the migration/security/test evidence.
 The corrected-code Actions run succeeded. Confirm the latest documentation-only
@@ -72,3 +72,21 @@ branch run is also green before review; its final result is reported in the PR.
 Do not merge automatically. After Phase 0 review, wait for explicit Phase 1 scope;
 real authentication, React, checkout, payments and additional business features
 remain outside current approval. Do not deploy to production.
+
+## Phase 1 design-only handoff — 2026-10-30
+
+Audited backend HEAD `36c998812d43c4fdcb7f74487a304b5ff9e72dab`.
+GitHub PR #1 is OPEN (not merged); fetched main is
+`3de3dc145a6c81d331b6861c3b7c138c21e2f9c1`. Do not assume Phase 0 merged.
+[Design pack](PHASE1_DESIGN.md) covers current contracts, recommended OIDC/session
+strategy, memberships/policies, onboarding, migration/rollback, API/screens,
+risks, planned E2E tests, work packages and product decisions P01–P10.
+No provider or proposed policy is approved. No Phase 1 implementation started.
+No application tests rerun; prior results above remain historical evidence.
+Only documentation/link checks apply to this revision.
+
+Exact next task: review/resolve P01–P10, including Phase 0 merge/review,
+identity authority and tenant/owner semantics, then explicitly authorize a bounded
+implementation package. Do not implement React or change production code now.
+Latest documentation commit: discover via `git log -- docs/PHASE1_DESIGN.md`;
+no new PR or merge was requested for this design-only continuation.
