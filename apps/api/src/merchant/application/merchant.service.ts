@@ -114,4 +114,6 @@ export class MerchantService {
 
   orders(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['orders']>[2]){return this.commerce(p,id,'orders.read',s=>s.orders(p.identityId!,id,input));}
   order(p:MerchantPrincipal,id:string,order:string){return this.commerce(p,id,'orders.read',s=>s.order(p.identityId!,id,order));}
+
+  orderCommand(p:MerchantPrincipal,id:string,order:string,input:Parameters<CommerceService['orderCommand']>[3]){return this.commerce(p,id,'orders.manage',s=>s.orderCommand(p.identityId!,id,order,input));}
 }

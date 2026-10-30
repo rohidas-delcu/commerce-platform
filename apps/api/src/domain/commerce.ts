@@ -2,7 +2,7 @@ import {availableStock} from '../inventory/domain/inventory.js';
 import type {ProductImage} from '../media/domain/media.js';
 export type StoreStatus = "DRAFT" | "PUBLISHED";
 export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
-export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER" | "ORDER_COMMITTED";
+export type InventoryReason = "STOCK_COUNT" | "RECEIVED" | "DAMAGED" | "RETURNED" | "OTHER" | "ORDER_COMMITTED" | "ORDER_CANCELLED";
 
 export interface Store {
   merchantManaged?: boolean;
@@ -125,7 +125,7 @@ export function checkedStockChange(before: number, after: number, reason: string
     throw new DomainError("INVALID", "Stock must be a non-negative integer.");
   }
   if (before === after) throw new DomainError("INVALID", "Inventory is unchanged.");
-  if (!["STOCK_COUNT", "RECEIVED", "DAMAGED", "RETURNED", "OTHER"].includes(reason)) {
+  if (!["STOCK_COUNT", "RECEIVED", "DAMAGED", "RETURNED", "OTHER", "ORDER_CANCELLED"].includes(reason)) {
     throw new DomainError("INVALID", "A recognized stock adjustment reason is required.");
   }
   return after - before;

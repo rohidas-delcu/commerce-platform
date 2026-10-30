@@ -280,5 +280,26 @@ are excluded. Completed checkout GET/start replay includes its orderId.
 `GET /v1/merchant/stores/:storeId/orders` and `/:id` use central `orders.read`,
 initially ACCOUNT_OWNER/STORE_ADMIN only. Merchant detail includes internal SKU and
 actor references. Store editors/viewers do not inherit order/customer PII access.
-Cash collection, fulfillment, cancellation/refund and other payment methods remain
-pending. Transactional order APIs require PostgreSQL; memory mode explicitly refuses.
+Manual cash collection/fulfillment/cancellation are described below; refunds and
+other payment methods remain pending. Transactional order APIs require PostgreSQL; memory mode explicitly refuses.
+
+
+## Manual fulfillment, COD collection and cancellation
+
+Owner/admin `orders.manage`, merchant session + Origin/CSRF, base
+`/v1/merchant/stores/:storeId/orders/:orderId`. Commands use body
+`{expectedVersion,key}`; key is a stable8–100 character operation key. Same key/input
+returns current order without repeating effects; different input under a used key409.
+`POST ready`, then `POST dispatch` (optional carrier/reference text), then `POST deliver`.
+Backward/invalid transitions409. Delivery alone does not mark COD paid.
+`POST collect-cod` adds amountMinor and requires DELIVERED plus the exact outstanding
+amount. This is an audited merchant report of cash received, not gateway capture.
+Order becomes COMPLETED with payment PAID/paidMinor=total/amountDue0.
+`POST cancel` adds nonempty reason, permitted only while unpaid and undispatched.
+It restores committed stock exactly once, preserves financial snapshots and sets
+CANCELLED/VOID/due0. Dispatched/delivered cancellations/refunds are not implemented.
+`POST notes` adds a private note (max2000), including on closed orders. Notes/unknown
+internal events never appear in customer history; dispatch carrier/reference does.
+Every command uses transaction locks, optimistic versions, immutable events and a
+unique durable command identity. Notification intents are staged; no email delivery
+is claimed. Store editors/viewers cannot execute these order commands.

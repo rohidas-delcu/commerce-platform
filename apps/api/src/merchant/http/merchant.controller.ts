@@ -1,4 +1,4 @@
-import {OrderQueryDto} from '../../orders/http/orders.dto.js';
+import {OrderQueryDto,OrderCommandDto,DispatchDto,CollectCodDto,CancelOrderDto,OrderNoteDto} from '../../orders/http/orders.dto.js';
 import {PricingDto} from '../../pricing/http/pricing.dto.js';
 import {ReservationDto} from '../../inventory/inventory.dto.js';
 import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
@@ -116,4 +116,17 @@ export class MerchantController {
   @Put('stores/:storeId/pricing') savePricing(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Body() b:PricingDto){return this.service.savePricing(r.identitySession!,id,b);}
   @Get('stores/:storeId/orders') orders(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Query() q:OrderQueryDto){return this.service.orders(r.identitySession!,id,q);}
   @Get('stores/:storeId/orders/:orderId') order(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string){return this.service.order(r.identitySession!,id,order);}
+
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/ready') readyOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:OrderCommandDto){return this.service.orderCommand(r.identitySession!,id,order,{...b,action:{kind:'READY'}});}
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/dispatch') dispatchOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:DispatchDto){return this.service.orderCommand(r.identitySession!,id,order,{expectedVersion:b.expectedVersion,key:b.key,action:{kind:'DISPATCH',carrier:b.carrier,reference:b.reference}});}
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/deliver') deliverOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:OrderCommandDto){return this.service.orderCommand(r.identitySession!,id,order,{...b,action:{kind:'DELIVER'}});}
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/collect-cod') collectCod(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:CollectCodDto){return this.service.orderCommand(r.identitySession!,id,order,{expectedVersion:b.expectedVersion,key:b.key,action:{kind:'COLLECT_COD',amountMinor:b.amountMinor}});}
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/cancel') cancelOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:CancelOrderDto){return this.service.orderCommand(r.identitySession!,id,order,{expectedVersion:b.expectedVersion,key:b.key,action:{kind:'CANCEL',reason:b.reason}});}
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/notes') noteOrder(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:OrderNoteDto){return this.service.orderCommand(r.identitySession!,id,order,{expectedVersion:b.expectedVersion,key:b.key,action:{kind:'NOTE',note:b.note}});}
 }

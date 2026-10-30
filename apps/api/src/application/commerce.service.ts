@@ -1,4 +1,4 @@
-import {orderQuery,orderProjection,type OrderQuery} from '../orders/domain/orders.js';
+import {orderQuery,orderProjection,type OrderQuery,type OrderAction} from '../orders/domain/orders.js';
 import {pricingPolicy,assertPricingReady,type PricingPolicy} from '../pricing/domain/pricing.js';
 import {InventoryService} from '../inventory/application/inventory.service.js';
 import type {ReservationRequest} from '../inventory/domain/inventory.js';
@@ -180,4 +180,6 @@ export class CommerceService {
 
   async orders(subject:string,storeId:string,input:OrderQuery){await this.ownedStore(storeId,subject);const query=orderQuery(input),found=await this.repository.orders.list(storeId,query);return{items:found.slice(0,query.limit).map(order=>orderProjection(order,true)),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
   async order(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);const order=await this.repository.orders.find(storeId,id);if(!order)throw new DomainError('NOT_FOUND','Order not found.');return orderProjection(order,true);}
+
+  async orderCommand(subject:string,storeId:string,id:string,input:{expectedVersion:number;key:string;action:OrderAction}){await this.ownedStore(storeId,subject);if(typeof input.key!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(input.key))throw new DomainError('INVALID','Stable command key required.');return orderProjection(await this.repository.orders.command(storeId,id,input,subject),true);}
 }

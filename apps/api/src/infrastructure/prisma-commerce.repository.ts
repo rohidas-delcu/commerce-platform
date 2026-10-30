@@ -63,11 +63,11 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
   private readonly db: PrismaClient | Prisma.TransactionClient;
 
   constructor(transaction?: Prisma.TransactionClient) {
-    if (transaction) {this.db = transaction;this.orders=new PrismaOrderReadRepository(transaction);this.pricing=new PrismaPricingRepository(transaction);this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
+    if (transaction) {this.db = transaction;this.orders=new PrismaOrderReadRepository(transaction,(tx,input)=>new PrismaCommerceRepository(tx).adjustStock(input));this.pricing=new PrismaPricingRepository(transaction);this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is required for DATA_DRIVER=postgres.");
     this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, { schema: new URL(connectionString).searchParams.get("schema") ?? "public" }) });
-    this.orders=new PrismaOrderReadRepository(this.db);
+    this.orders=new PrismaOrderReadRepository(this.db,(tx,input)=>new PrismaCommerceRepository(tx).adjustStock(input));
     this.pricing=new PrismaPricingRepository(this.db);
     this.media=new PrismaMediaRepository(this.db);
     this.inventory=new PrismaInventoryRepository(this.db);

@@ -73,3 +73,12 @@ Order numbers are per-store transaction counters. Original prices and contact/de
 snapshots remain immutable even when the catalog changes. Exact largest-remainder tax
 allocation conserves every minor unit across item/shipping components. COD payment
 collection, fulfillment and cancellation are not implemented at this checkpoint.
+
+Manual COD fulfillment: UNFULFILLED → READY → DISPATCHED → DELIVERED; payment stays
+DUE throughout. A separate exact cash collection after delivery sets PAID and order
+COMPLETED. Unpaid/undispatched orders may cancel → CANCELLED/VOID, restoring purchased
+stock once with ORDER_CANCELLED movements. No return/refund is inferred from delivery.
+Command keys bind canonical action/version/input; retries replay without extra effects.
+Stock restoration, command/event history, order state and notifications share a
+transaction. Internal notes append immutable private history on any order state.
+Customer event visibility is an explicit allowlist and excludes all private notes.

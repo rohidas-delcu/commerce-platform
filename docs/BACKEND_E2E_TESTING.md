@@ -67,3 +67,11 @@ re-quote. Order history remains unchanged after catalog price edits. Customer/me
 projections, editor permission denial, SQL tenant/item references and immutable financial/
 event history are tested. No real cash collection, email delivery, gateway or fulfillment
 is implied by these placement checks.
+
+The COD PostgreSQL journey now also executes owner/admin ready/dispatch/delivery,
+separate collection, duplicate commands and private-note visibility. A second order
+is cancelled with a controlled restoration-insert failure, proving rollback, followed
+by concurrent retry proving exactly one stock restoration and cancellation notice.
+Invalid backward transitions, premature/wrong-amount collection, late cancellation
+and editor writes are rejected. Customer COMPLETED/CANCELLED filters and safe carrier
+history are verified. This does not verify refunds, online payments or email delivery.

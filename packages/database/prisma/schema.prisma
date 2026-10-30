@@ -489,6 +489,7 @@ model StoreOrderCounter {
   value BigInt @default(0)
 }
 model Order {
+  commands OrderCommand[]
   id String @id @default(uuid()) @db.Uuid
   storeId String @db.Uuid
   store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
@@ -550,6 +551,7 @@ model OrderItem {
   @@unique([orderId,variantId])
 }
 model OrderEvent {
+  data Json @default("{}")
   id String @id @default(uuid()) @db.Uuid
   orderId String @db.Uuid
   storeId String @db.Uuid
@@ -575,4 +577,14 @@ model OrderNotification {
   deliveredAt DateTime?
   createdAt DateTime @default(now())
   @@index([status,availableAt])
+}
+
+model OrderCommand {
+  orderId String @db.Uuid
+  storeId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+  key String
+  digest String
+  createdAt DateTime @default(now())
+  @@id([orderId,key])
 }

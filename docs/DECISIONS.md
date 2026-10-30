@@ -126,3 +126,16 @@ shipping tax component; persist tax inclusion explicitly. Customer order project
 omit SKU/authority; merchant order read permission is owner/admin only initially.
 SQL prevents snapshot/item/event mutation. Notification intents are durable and pending;
 delivery workers and full cash/fulfillment/cancellation lifecycles still follow.
+
+## Manual fulfillment and cash reporting (implementation, 2026-10-30)
+
+Use forward manual READY/DISPATCH/DELIVER actions, with optional plain carrier/reference
+text; do not integrate courier APIs. Allow unpaid COD fulfillment. Require delivered
+state and exact outstanding amount before an authorized merchant records collected
+cash; this is not provider capture. Cancellation is limited to unpaid/undispatched
+orders and atomically restores committed quantities once, using the existing stock
+adjustment contract. Never assume a monetary refund means physical stock was returned.
+Command keys/digests and optimistic versions protect concurrent retries, preserving
+immutable events/snapshots. Owner/admin order-manage permission is centralized. Private
+notes can append to closed orders but are excluded from customer-visible history.
+Keep notification staging transactional; delivery and refunds still require later slices.
