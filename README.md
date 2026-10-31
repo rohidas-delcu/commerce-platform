@@ -10,7 +10,26 @@ COD and development simulated payments/refunds, orders/manual fulfillment,
 notifications and bounded maintenance are implemented. See
 [verified status](docs/IMPLEMENTATION_STATUS.md) for current evidence and limits.
 Production startup remains disabled; live providers require owned sandbox/security
-acceptance. No merchant admin, storefront UI or approved HTML design was changed.
+acceptance. Merchant admin and consumer storefront apps are in stacked draft
+branches; see [admin status](docs/ADMIN_UI_STATUS.md) and
+[storefront status](docs/STOREFRONT_UI_STATUS.md).
+
+## React development
+
+With Node 24, pnpm 11.25.0 and an API on port 3000:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev:admin       # merchant admin, port 5173
+pnpm dev:storefront  # customer storefront, port 5174
+pnpm typecheck:storefront
+pnpm test:storefront
+pnpm build:storefront
+```
+
+The consumer storefront starts at `/s/:handle` and uses independently scoped
+customer cookies. Live payments, PostgreSQL-backed Playwright and production
+deployment have not been verified.
 
 ## Run the complete backend demo
 

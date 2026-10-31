@@ -1,5 +1,13 @@
 # Current backend implementation status — 2026-10-31
 
+> **Frontend continuation:** The separate merchant/admin UI is in draft PR #3,
+> stacked on backend PR #2. Customer storefront work is in
+> `feature/commerce-storefront-ui`; see `ADMIN_UI_STATUS.md` and
+> `STOREFRONT_UI_STATUS.md` for their evidence and pending gates. The backend
+> status below describes the earlier backend-only checkpoint and must not be
+> mistaken for the current entire monorepo. No PR was merged or deployed by the
+> frontend work.
+
 **Self-contained backend journey verified locally; final remote CI/review pending.**
 COD and simulated paid purchase/fulfillment/refund work; external provider acceptance
 and production release remain blocked. No UI, automatic merge or deployment.

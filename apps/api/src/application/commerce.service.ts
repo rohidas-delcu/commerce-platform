@@ -170,6 +170,19 @@ export class CommerceService {
     const store=await this.publishedStore(handle),asset=store.logoAssetId?await this.repository.media.asset(store.logoAssetId):null,brand=store.brandingName||store.name;
     return{handle:store.handle,name:store.name,countryCode:store.countryCode,currencyCode:store.currencyCode,branding:{name:brand,logo:asset?.storeId===store.id&&asset.status==='COMPLETE'?{id:asset.id,url:'/v1/media/'+asset.id,altText:brand}:null}};
   }
+  async publicCheckoutOptions(handle:string){
+    const store=await this.publishedStore(handle);
+    const policy=await this.repository.pricing.policy(store.id);
+    if(!policy)throw new DomainError('CONFLICT','Checkout policy is unavailable.');
+    // Explicit public allowlist. Tax policy and merchant-owned configuration never
+    // leave this boundary; the server always calculates the final quote.
+    return{
+      currencyCode:store.currencyCode,
+      countryCode:store.countryCode,
+      shipping:policy.shipping.filter(method=>method.active).map(method=>({id:method.id,name:method.name,countries:[...method.countries],rateMinor:method.rateMinor,freeAboveMinor:method.freeAboveMinor})),
+      payments:{cod:policy.payments.cod,simulator:policy.payments.simulator&&process.env.NODE_ENV==='development'}
+    };
+  }
   async publicCatalog(handle:string,input:ProductQuery={}){
     const store=await this.publishedStore(handle),page=await this.page(store.id,productQuery({...input,status:'ACTIVE'}));
     return{store:{handle:store.handle,name:store.name,currencyCode:store.currencyCode,countryCode:store.countryCode},products:page.items.map(publicProduct),pagination:{limit:page.limit,offset:page.offset,nextOffset:page.nextOffset}};

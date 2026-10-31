@@ -73,3 +73,11 @@ on `feature/commerce-admin-ui`, stacked on backend PR #2. Keep frontend artifact
 separate; do not treat draft backend PR2 as merged, merge either PR automatically,
 deploy, enable live providers, bypass PostgreSQL authorization or claim browser E2E
 acceptance without running it. The older backend report remains historical evidence.
+
+## Consumer storefront continuation (2026-10-31)
+
+The user authorized finishing the consumer storefront without additional phase-by-
+phase approval. `apps/storefront` belongs to `feature/commerce-storefront-ui`, stacked
+on admin PR #3. Read `docs/STOREFRONT_UI_STATUS.md` for test evidence, scope and
+remaining real browser/PostgreSQL acceptance. Do not automatically merge/deploy,
+enable live providers, or remove production startup guards.
