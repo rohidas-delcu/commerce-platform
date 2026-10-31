@@ -72,7 +72,6 @@ function Storefront({ handle }: { handle: string }) {
     const guest = profile ? null : cartQuery.data;
     await api.post(handle, '/customer/auth/login', { email, password });
     const current = await api.get<Profile>(handle, '/customer/profile');
-    qc.setQueryData(['shop', handle, 'profile'], current);
     // Guest capability remains in an HttpOnly cookie. Merge once against the
     // authenticated cart using the pre-login version, never by copying client prices.
     if (guest?.items.length) {
@@ -82,6 +81,10 @@ function Storefront({ handle }: { handle: string }) {
         guestVersion: guest.version,
       });
     }
+    // Publish the authenticated identity only after the guest cart is merged.
+    // Otherwise account-route redirects can race the merge and render an
+    // empty authenticated bag in checkout.
+    qc.setQueryData(['shop', handle, 'profile'], current);
     await refreshCart();
   }
   async function logout() {

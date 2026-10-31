@@ -110,11 +110,10 @@ test('public guest cart, verified customer signup, COD checkout, merchant delive
     try {
       await expect(page.getByRole('heading', { name: 'Delivery details' })).toBeVisible();
     } catch (error) {
-      // Safe CI diagnostic: the path and view headings contain no email tokens,
-      // cookies, credentials, or shipping/contact values.
+      // Safe CI diagnostic: log only the path, not query tokens, cookies,
+      // credentials, email addresses, or shipping/contact values.
       const path = new URL(page.url()).pathname;
-      const headings = (await page.locator('h1, h2').allTextContents()).join(' | ');
-      throw new Error(`Authenticated checkout did not open. Path: ${path}. Headings: ${headings}`, {
+      throw new Error(`Authenticated checkout did not open. Path: ${path}`, {
         cause: error,
       });
     }

@@ -130,7 +130,8 @@ export function AccountPage() {
     try {
       if (screen === 'login') {
         await login(email, password);
-        navigate({ to: next, replace: true });
+        // The profile guard below performs the single post-login redirect.
+        // Do not race it with a second imperative navigation.
       } else if (screen === 'signup') {
         await api.post(handle, '/customer/auth/signup', { name, email, password });
         setPassword('');
