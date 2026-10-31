@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  payments PaymentAttempt[]
   logoAssetId String? @db.Uuid
   logo MediaAsset? @relation("StoreLogo",fields:[logoAssetId,id],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
   coupons DiscountCoupon[]
@@ -130,6 +131,7 @@ model InventoryMovement {
 }
 
 model Identity {
+  payments PaymentAttempt[]
   couponRedemptions CouponRedemption[]
   orders Order[]
   orderEvents OrderEvent[]
@@ -358,6 +360,7 @@ model ProductMedia {
 }
 
 model InventoryReservation {
+  payments PaymentAttempt[]
   checkout Checkout?
   id String @id @db.Uuid
   storeId String @db.Uuid
@@ -473,6 +476,7 @@ model StorePricing {
 }
 
 model Checkout {
+  payment PaymentAttempt?
   couponHolds CouponHold[]
   order Order?
   id String @id @default(uuid()) @db.Uuid
@@ -511,6 +515,7 @@ model StoreOrderCounter {
   value BigInt @default(0)
 }
 model Order {
+  payment PaymentAttempt?
   couponRedemption CouponRedemption?
   commands OrderCommand[]
   id String @id @default(uuid()) @db.Uuid
@@ -710,4 +715,91 @@ model NotificationAttempt {
   finishedAt DateTime?
   @@index([identityMailId])
   @@index([orderNotificationId,storeId])
+}
+
+model PaymentAttempt {
+ id String @id @default(uuid()) @db.Uuid
+ storeId String @db.Uuid
+ store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+ customerId String @db.Uuid
+ customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+ checkoutId String @db.Uuid
+ checkout Checkout @relation(fields:[checkoutId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+ checkoutVersion Int
+ reservationId String @db.Uuid
+ reservation InventoryReservation @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+ key String
+ digest String
+ method String
+ scenario String
+ delaySeconds Int @default(2)
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ status String @default("INITIATING")
+ providerOrderId String?
+ providerPaymentId String?
+ orderId String? @db.Uuid
+ order Order? @relation(fields:[orderId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+ reviewCode String?
+ nextReconcileAt DateTime @default(now())
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ observations PaymentObservation[]
+ simulation SimulatedPayment?
+ @@unique([id,storeId])
+ @@unique([id,storeId,method,amountMinor,currencyCode])
+ @@unique([checkoutId,storeId,customerId])
+ @@unique([orderId,storeId,customerId])
+ @@unique([storeId,customerId,key])
+ @@unique([storeId,method,providerOrderId])
+ @@unique([storeId,method,providerPaymentId])
+ @@index([status,nextReconcileAt])
+}
+model PaymentObservation {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ storeId String @db.Uuid
+ method String
+ expectedAmountMinor BigInt
+ expectedCurrencyCode String @db.VarChar(3)
+ attempt PaymentAttempt @relation(fields:[attemptId,storeId,method,expectedAmountMinor,expectedCurrencyCode],references:[id,storeId,method,amountMinor,currencyCode],onDelete:Restrict)
+ eventId String
+ status String
+ providerOrderId String
+ providerPaymentId String?
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ createdAt DateTime @default(now())
+ @@unique([attemptId,eventId])
+ @@index([storeId,createdAt])
+}
+model SimulatedPayment {
+ attemptId String @id @db.Uuid
+ storeId String @db.Uuid
+ method String @default("SIMULATOR")
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ attempt PaymentAttempt @relation(fields:[attemptId,storeId,method,amountMinor,currencyCode],references:[id,storeId,method,amountMinor,currencyCode],onDelete:Restrict)
+ scenario String
+ version Int @default(0)
+ status String @default("PENDING")
+ dueAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ events SimulatedPaymentEvent[]
+ @@unique([attemptId,storeId])
+ @@unique([attemptId,storeId,method,amountMinor,currencyCode])
+ @@index([status,dueAt])
+}
+model SimulatedPaymentEvent {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ storeId String @db.Uuid
+ payment SimulatedPayment @relation(fields:[attemptId,storeId],references:[attemptId,storeId],onDelete:Restrict)
+ key String
+ kind String
+ sequence Int
+ createdAt DateTime @default(now())
+ @@unique([attemptId,key])
+ @@unique([attemptId,sequence])
 }

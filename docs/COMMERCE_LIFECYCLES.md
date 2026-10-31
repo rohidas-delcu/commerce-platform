@@ -92,3 +92,13 @@ include live leases, preventing asynchronous-payment races. Coupon validity and 
 expiry are rechecked after locks. No discount silently disappears from a placed order.
 For zero total, payment is NOT_REQUIRED and fulfillment delivery completes the order;
 no paid/captured assertion or payment-confirmation notification is created.
+
+Development payment: INITIATING → PENDING/UNKNOWN → CAPTURED → SUCCEEDED. Definitive
+failure releases checkout stock/quota and closes that checkout. A failed provider
+payment can later report capture, but the closed/expired checkout causes review instead
+of a paid order. CAPTURED observations persist independently of failed order inserts;
+reconciliation uses the same placement key and transaction to avoid duplicate orders,
+stock movements, redemptions or confirmation intents. Late/invalid money remains
+REVIEW_REQUIRED for a later supported resolution/refund workflow. Simulated CAPTURED
+state is absorbing even if an older FAILED event arrives. Paid order delivery completes
+the order without any COD cash operation. Refunds never imply physical stock returns.

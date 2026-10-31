@@ -6,7 +6,7 @@ export type FulfillmentStatus='UNFULFILLED'|'READY'|'DISPATCHED'|'DELIVERED'|'CA
 export interface OrderItem {id:string;productId:string;variantId:string;productName:string;variantName:string;sku:string;quantity:number;unitPriceMinor:string;subtotalMinor:string;discountMinor:string;taxMinor:string;}
 export interface OrderEvent {id:string;kind:string;actorId:string;createdAt:Date;carrier?:string|null;reference?:string|null;internalReason?:string|null;internalNote?:string|null;}
 export interface Order {
-  id:string;number:string;checkoutId:string;status:OrderStatus;paymentStatus:PaymentStatus;fulfillmentStatus:FulfillmentStatus;paymentMethod:'COD';version:number;createdAt:Date;
+  id:string;number:string;checkoutId:string;status:OrderStatus;paymentStatus:PaymentStatus;fulfillmentStatus:FulfillmentStatus;paymentMethod:'COD'|'SIMULATOR'|'RAZORPAY';version:number;createdAt:Date;
   contactEmail:string;contactName:string;shippingAddress:AddressInput;shippingMethodName:string;currencyCode:string;
   discountCode?:string|null;subtotalMinor:string;discountMinor:string;shippingMinor:string;taxMinor:string;shippingTaxMinor:string;taxInclusive:boolean;totalMinor:string;amountDueMinor:string;paidMinor:string;items:OrderItem[];events:OrderEvent[];
 }
@@ -44,7 +44,7 @@ export function orderTransition(order:Order,action:OrderAction){
     case 'NOTE':break;
     case 'READY':if(fulfillmentStatus!=='UNFULFILLED')throw new DomainError('CONFLICT','Order cannot be marked ready.');fulfillmentStatus='READY';break;
     case 'DISPATCH':if(fulfillmentStatus!=='READY')throw new DomainError('CONFLICT','Mark order ready before dispatch.');fulfillmentStatus='DISPATCHED';notification='ORDER_DISPATCHED';break;
-    case 'DELIVER':if(fulfillmentStatus!=='DISPATCHED')throw new DomainError('CONFLICT','Only dispatched orders can be delivered.');fulfillmentStatus='DELIVERED';if(paymentStatus==='NOT_REQUIRED')status='COMPLETED';notification='ORDER_DELIVERED';break;
+    case 'DELIVER':if(fulfillmentStatus!=='DISPATCHED')throw new DomainError('CONFLICT','Only dispatched orders can be delivered.');fulfillmentStatus='DELIVERED';if(['NOT_REQUIRED','PAID'].includes(paymentStatus))status='COMPLETED';notification='ORDER_DELIVERED';break;
     case 'COLLECT_COD':if(order.paymentMethod!=='COD'||paymentStatus!=='DUE'||fulfillmentStatus!=='DELIVERED'||BigInt(action.amountMinor)!==BigInt(amountDueMinor))throw new DomainError('CONFLICT','Record the exact outstanding COD amount after delivery.');paymentStatus='PAID';paidMinor=order.totalMinor;amountDueMinor='0';status='COMPLETED';notification='PAYMENT_CONFIRMATION';break;
     case 'CANCEL':if(!['UNFULFILLED','READY'].includes(fulfillmentStatus)||!['DUE','NOT_REQUIRED'].includes(paymentStatus))throw new DomainError('CONFLICT','Only unpaid, undispatched orders can be cancelled.');status='CANCELLED';paymentStatus='VOID';fulfillmentStatus='CANCELLED';amountDueMinor='0';notification='ORDER_CANCELLED';restoreInventory=true;break;
   }

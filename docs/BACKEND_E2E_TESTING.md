@@ -114,3 +114,11 @@ Immutable expired quota is inserted as a separate labeled persistence fixture. T
 verify closed/archived/suspended tenant reclamation, competing workers, busy-lock
 skipping, tenant selectors, standalone release/expiry races and forced event-insert
 rollback. Exact on-hand/reserved values and one expiry audit/event are asserted.
+
+Payment tests execute real HTTP customer checkout, durable simulated provider state,
+concurrent identical starts/confirmations, exact paid orders, immutable financial/SQL
+checks, inventory commitment, notification intent uniqueness and merchant delivery.
+Further suites cover failure, timeout, delayed worker reconciliation, expired-hold
+late capture, mismatched provider observations and a forced order-insert failure after
+capture persisted. The receipt survives rollback and retry creates one order/movement.
+These are development provider tests, never a verified live gateway/sandbox claim.

@@ -72,3 +72,15 @@ COMMERCE_WORKER_ENABLED=true now runs expiry and mail sequentially once per tick
 without overlapping batches. Keep it false in deterministic tests. Closed stores
 still release abandoned reservations/quota. Expiry preserves history and on-hand
 stock; it does not implement legal data retention or delete orphaned upload bytes.
+
+## Development payment simulator
+
+Enable simulator in a development store's versioned pricing policy. Start a payment
+against a READY reserved customer checkout through the API contracts above. Manual
+simulation is a CSRF-protected store-customer operation; no arbitrary callback becomes
+capture proof. DELAYED is durable and completes through trusted reconciliation.
+After build, `DATA_DRIVER=postgres pnpm worker:once payments [store UUID]` runs a bounded
+batch; COMMERCE_WORKER_ENABLED=true now processes expiry, payments and mail each tick.
+Do not run tests against an interactive demo database. UNKNOWN/REVIEW_REQUIRED money
+is conservative and may block editing/retrying that cart until supported resolution;
+never requeue it blindly. Live gateway capture/refund claims remain disabled.

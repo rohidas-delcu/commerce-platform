@@ -1,3 +1,5 @@
+import {PaymentModule} from './payments/payments.module.js';
+import {PaymentsController} from './payments/http/payments.controller.js';
 import {OperationsModule} from './operations/operations.module.js';
 import {NotificationModule} from './notifications/notifications.module.js';
 import {CustomerOrdersController} from './orders/http/customer-orders.controller.js';
@@ -28,8 +30,8 @@ import { MemoryCommerceRepository } from "./infrastructure/memory-commerce.repos
 import { AdminCommerceController, HealthController, LocalDemoAuthGuard, StorefrontCommerceController } from "./http/commerce.controller.js";
 
 @Module({
-  imports: [OperationsModule,NotificationModule,IdentityModule, MerchantModule,StorageModule],
-  controllers: [CustomerOrdersController,CheckoutController,CartController,CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
+  imports: [PaymentModule,OperationsModule,NotificationModule,IdentityModule, MerchantModule,StorageModule],
+  controllers: [PaymentsController,CustomerOrdersController,CheckoutController,CartController,CustomerController,MediaController,AdminCommerceController, StorefrontCommerceController, HealthController],
   providers: [
     {provide:PrismaCheckoutRepository,useFactory:()=>new PrismaCheckoutRepository()},
     {provide:CheckoutService,useFactory:(repository:PrismaCheckoutRepository)=>new CheckoutService(repository),inject:[PrismaCheckoutRepository]},

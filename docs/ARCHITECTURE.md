@@ -129,3 +129,17 @@ helpers and the inventory transition implementation. Work acquires account/store
 locks and rechecks due resources, without acquiring or impersonating an identity
 session. Closed stores remain eligible. Each job is atomic; other jobs survive a
 failure. New scan indexes cover global reservation deadlines and expired mail leases.
+
+## Payment checkpoint
+
+PaymentService coordinates a repository port and PaymentPort; development simulation
+is a separate optional capability. DevelopmentPaymentSimulator persists provider state/
+events through its own adapter. PaymentAttempt/PaymentObservation preserve exact money,
+source version/hold and scoped receipt identity. Provider observations commit before
+order finalization. Shared `place-checkout.ts` validates and commits both COD and verified
+payment orders; there is no duplicated tax/stock/order-placement implementation.
+
+Trusted reconciliation locks customer identity → account → store → checkout → payment,
+aligning with authenticated requests without impersonating a session. The worker runs
+expiry, payment reconciliation and notification delivery in sequence, with no overlapping
+batches. Unknown/late/mismatched results never become unconditional order placement.

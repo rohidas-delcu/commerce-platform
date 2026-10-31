@@ -208,3 +208,29 @@ existing inventory transition adapter. Expire one resource transaction at a time
 failure rolls back stock, quota/state/history and stays due for retry. Closure or
 suspension cannot prevent resource reclamation. Keep inventory on-hand unchanged.
 No record deletion/retention policy is inferred from expiry; financial history stays.
+
+## Development payment observations and order commitment (implementation, 2026-10-31)
+
+Use PaymentPort for provider intent creation and authoritative observation, with an
+explicit development simulation capability separate from the generic provider port.
+Only SIMULATOR is wired at this checkpoint; no live or Razorpay fallback exists.
+Persist immutable verified observations before a second transaction finalizes the
+order. If order insertion fails, the captured receipt survives and reconciliation
+can retry the same logical order. Reuse one checkout validation/placement implementation
+for COD and captured payments, preserving stock/quota/snapshot invariants.
+
+A checkout has one durable payment identity, with immutable quote/amount/currency,
+source hold/version and request digest. Payment/checkout/cart mutations cannot race
+an in-flight or unresolved payment. Provider capture is distinct from order success;
+late, mismatched or unfulfillable money becomes REVIEW_REQUIRED, never an oversold
+paid order. Timeouts remain UNKNOWN until an authoritative result or review. Expiry
+still releases bounded holds. Definitive failure cancels that checkout and releases
+holds atomically; an active cart can start a new checkout once no unresolved payment
+blocks it. Paid simulated fulfillment completes on delivery without COD collection.
+
+The simulator persists provider state and immutable event identities, supports manual,
+success/failure/timeout/delay, deduplicates repeated events and never downgrades capture
+on an out-of-order failure. It refuses production; SIMULATOR remains explicit in orders.
+Deferred SQL constraints require a matching observation and tenant/amount-consistent
+payment before an online order can commit. Full provider/refund/recovery acceptance
+remains pending; do not mark bank/gateway settlement or legal compliance verified.

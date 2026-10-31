@@ -1,3 +1,4 @@
+import {assertCartPaymentMutable} from '../../payments/infrastructure/payment-locks.js';
 import {expireCart} from './cart-lifecycle.js';
 import {PrismaPricingRepository} from '../../pricing/infrastructure/prisma-pricing.repository.js';
 import {discountAmount} from '../../pricing/domain/pricing.js';
@@ -34,7 +35,7 @@ export class PrismaCartRepository implements CartRepositoryPort {
   });}
   current(c:CartContext){return this.scope(c,async(tx,customerId)=>domain(await this.load(tx,c,customerId)));}
   update(c:CartContext,version:number,operation:Parameters<CartRepositoryPort['update']>[2]){return this.scope(c,async(tx,customerId)=>{
-    const row=await this.load(tx,c,customerId);cartVersion(domain(row),version);
+    const row=await this.load(tx,c,customerId);await assertCartPaymentMutable(tx,row.id);cartVersion(domain(row),version);
     if(operation.type==='set'){
       cartQuantity(operation.quantity);
       const variant=await tx.productVariant.findFirst({where:{id:operation.variantId,storeId:c.storeId,active:true,product:{status:'ACTIVE'}},include:{product:{select:{priceMinor:true}}}});
@@ -65,6 +66,7 @@ export class PrismaCartRepository implements CartRepositoryPort {
       const prior=await tx.cart.findFirst({where:{id:source.mergedIntoId,storeId:c.storeId,customerId,status:'ACTIVE'},include});
       if(prior&&prior.expiresAt>new Date())return domain(prior);throw new DomainError('CONFLICT','Merged cart is no longer active.');
     }
+    await assertCartPaymentMutable(tx,source.id);if(target)await assertCartPaymentMutable(tx,target.id);
     cartVersion(domain(source),guestVersion);
     if(target&&target.expiresAt<=new Date()){await expireCart(tx,target.id,new Date());target=null;}
     if(!target){if(version!==0)throw new DomainError('CONFLICT','Cart changed.');target=await tx.cart.create({data:{storeId:c.storeId,customerId,expiresAt:expires()},include});}

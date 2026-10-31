@@ -96,3 +96,9 @@ Trusted checkout/inventory/cart expiry now has executed PostgreSQL/HTTP verifica
 request/worker transitions are shared, and opt-in scheduling survives store closure.
 Next implementation task is the durable development payment flow and provider port,
 followed by Razorpay boundary/refunds and the complete executable backend demo.
+
+The development payment slice now has verified HTTP/PostgreSQL success, failure,
+timeout, delay, duplicate/out-of-order events, late capture review and financial/order
+rollback recovery. Shared placement preserves existing COD flows. Next: refund ledgers/
+manual COD and simulated refunds, candidate Razorpay boundary, payment notices and
+complete executable demo; provider sandbox and final security remain release gates.

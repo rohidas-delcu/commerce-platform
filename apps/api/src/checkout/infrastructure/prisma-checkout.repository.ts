@@ -1,6 +1,7 @@
+import {placeCheckout} from './place-checkout.js';
+import {assertCheckoutPaymentMutable,assertCartPaymentMutable} from '../../payments/infrastructure/payment-locks.js';
 import {releaseCheckout,expireCheckout} from './checkout-lifecycle.js';
-import {isDeepStrictEqual} from 'node:util';
-import {allocateMinor,type OrderQuery} from '../../orders/domain/orders.js';
+import {type OrderQuery} from '../../orders/domain/orders.js';
 import {orderDomain,orderInclude} from '../../orders/infrastructure/prisma-orders.repository.js';
 import {createHash} from 'node:crypto';
 import {PrismaClient,Prisma} from '../../generated/prisma/client.js';
@@ -35,7 +36,7 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
     const prior=await tx.checkout.findUnique({where:{storeId_customerId_key:{storeId:c.storeId,customerId,key}}});
     if(prior){if(prior.digest!==digest)throw new DomainError('CONFLICT','Checkout key already used for different input.');return this.view(tx,await this.expire(tx,prior,customerId));}
     const cart=await tx.cart.findFirst({where:{id:cartId,storeId:c.storeId,customerId,status:'ACTIVE',expiresAt:{gt:new Date()}},include:{lines:true}});
-    if(!cart)throw new DomainError('NOT_FOUND','Active customer cart not found.');if(!cart.lines.length||cart.version!==cartVersion)throw new DomainError('CONFLICT','Cart is empty or changed.');
+    if(!cart)throw new DomainError('NOT_FOUND','Active customer cart not found.');if(!cart.lines.length||cart.version!==cartVersion)throw new DomainError('CONFLICT','Cart is empty or changed.');await assertCartPaymentMutable(tx,cart.id);
     const active=await tx.checkout.findFirst({where:{storeId:c.storeId,cartId,status:{in:['DRAFT','READY']}}});
     if(active&&['DRAFT','READY'].includes((await this.expire(tx,active,customerId)).status))throw new DomainError('CONFLICT','An active checkout already exists for this cart. Resume it.');
     const profile=await tx.identity.findUniqueOrThrow({where:{id:customerId},select:{name:true,email:true}});
@@ -44,7 +45,7 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
   private async view(tx:Prisma.TransactionClient,row:Row){const order=await tx.order.findFirst({where:{checkoutId:row.id,storeId:row.storeId,customerId:row.customerId},select:{id:true}});return{...domain(row),orderId:order?.id??null};}
   get(c:CheckoutContext,id:string){return this.scope(c,async(tx,customerId)=>this.view(tx,await this.expire(tx,await this.load(tx,c,customerId,id),customerId)));}
   configure(c:CheckoutContext,id:string,input:CheckoutChanges){return this.scope(c,async(tx,customerId)=>{
-    const row=await this.load(tx,c,customerId,id);checkoutVersion(domain(row),input.expectedVersion);
+    const row=await this.load(tx,c,customerId,id);await assertCheckoutPaymentMutable(tx,id);checkoutVersion(domain(row),input.expectedVersion);
     const contact=checkoutContact(input.contactEmail??row.contactEmail,input.contactName??row.contactName);
     const address=input.shippingAddress?customerAddress(input.shippingAddress):null;
     await this.release(tx,row,customerId);
@@ -54,7 +55,7 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
   reserve(c:CheckoutContext,id:string,version:number){return this.scope(c,async(tx,customerId)=>{
     const row=await this.load(tx,c,customerId,id),existing=domain(row);
     if(row.status==='READY'&&row.expiresAt>new Date()&&existing.snapshot?.baseVersion===version)return existing;
-    checkoutVersion(existing,version);
+    await assertCheckoutPaymentMutable(tx,id);checkoutVersion(existing,version);
     if(!row.shippingAddress||!row.shippingMethodId)throw new DomainError('CONFLICT','Shipping address and method required.');
     await this.release(tx,row,customerId);
     const repo=new PrismaCommerceRepository(tx),inventory=new InventoryService(repo.inventory);
@@ -82,57 +83,12 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
     return domain(await tx.checkout.update({where:{id},data:{status:'READY',version:{increment:1},cartVersion:cart.version,snapshot:json,reservationId:reservation.id,expiresAt:reservation.expiresAt}}));
   });}
   cancel(c:CheckoutContext,id:string,version:number){return this.scope(c,async(tx,customerId)=>{
-    const row=await this.load(tx,c,customerId,id);if(row.status==='CANCELLED')return domain(row);checkoutVersion(domain(row),version);await this.release(tx,row,customerId);
+    const row=await this.load(tx,c,customerId,id);if(row.status==='CANCELLED')return domain(row);await assertCheckoutPaymentMutable(tx,id);checkoutVersion(domain(row),version);await this.release(tx,row,customerId);
     await this.audit(tx,customerId,'CHECKOUT_CANCELLED',id);
     return domain(await tx.checkout.update({where:{id},data:{status:'CANCELLED',version:{increment:1},reservationId:null}}));
   });}
 
   orders(c:CheckoutContext,input:OrderQuery&{limit:number;offset:number}){return this.scope(c,async(tx,customerId)=>(await tx.order.findMany({where:{storeId:c.storeId,customerId,...(input.status?{status:input.status}:{}),...(input.query?{number:{contains:input.query,mode:'insensitive'}}:{})},orderBy:[{createdAt:'desc'},{id:'asc'}],take:input.limit+1,skip:input.offset,include:orderInclude})).map(orderDomain),'account');}
   order(c:CheckoutContext,id:string){return this.scope(c,async(tx,customerId)=>{const row=await tx.order.findFirst({where:{id,storeId:c.storeId,customerId},include:orderInclude});if(!row)throw new DomainError('NOT_FOUND','Order not found.');return orderDomain(row);},'account');}
-  placeCod(c:CheckoutContext,id:string,version:number,key:string){return this.scope(c,async(tx,customerId)=>{
-    const digest=createHash('sha256').update(JSON.stringify({checkoutId:id,version,paymentMethod:'COD'})).digest('hex');
-    const previous=await tx.order.findUnique({where:{storeId_customerId_placementKey:{storeId:c.storeId,customerId,placementKey:key}},include:orderInclude});
-    if(previous){if(previous.placementDigest!==digest)throw new DomainError('CONFLICT','Order key already used for different input.');return orderDomain(previous);}
-    const row=await this.load(tx,c,customerId,id);checkoutVersion(domain(row),version);
-    if(row.status!=='READY'||!row.reservationId||!row.snapshot||!row.shippingAddress||!row.shippingMethodId)throw new DomainError('CONFLICT','A ready reserved checkout is required.');
-    const snapshot=domain(row).snapshot!;
-    const repo=new PrismaCommerceRepository(tx),policy=await repo.pricing.policy(c.storeId);assertPricingReady(policy);
-    if(!policy?.payments.cod)throw new DomainError('CONFLICT','Cash on delivery is not available.');
-    const cart=await tx.cart.findFirst({where:{id:row.cartId,storeId:c.storeId,customerId,status:'ACTIVE',expiresAt:{gt:new Date()}},include:{lines:{orderBy:{variantId:'asc'}}}});
-    const currency=(await tx.store.findUniqueOrThrow({where:{id:c.storeId},select:{currencyCode:true}})).currencyCode;
-    if(!cart||currency!==snapshot.currencyCode||cart.version!==snapshot.cartVersion||policy.version!==snapshot.totals.policyVersion)throw new DomainError('CONFLICT','Cart or policy changed. Requote checkout.');
-    const coupon=cart.couponId?await repo.pricing.couponRule(c.storeId,cart.couponId,customerId,cart.id):null;
-    if((cart.couponId??null)!==(snapshot.couponId??null)||(coupon?.version??null)!==(snapshot.couponVersion??null))throw new DomainError('CONFLICT','Coupon changed. Requote checkout.');
-    const products=await repo.productsForVariants(c.storeId,cart.lines.map(line=>line.variantId));
-    const items:CheckoutItem[]=cart.lines.map(line=>{
-      const product=products.find(p=>p.variants.some(v=>v.id===line.variantId)),variant=product?.variants.find(v=>v.id===line.variantId);
-      if(!product||product.status!=='ACTIVE'||!variant||variant.active===false)throw new DomainError('CONFLICT','Product unavailable. Requote checkout.');
-      const unitPriceMinor=variant.priceMinor??product.priceMinor;
-      return{productId:product.id,variantId:variant.id,productName:product.name,variantName:variant.name,sku:variant.sku,quantity:line.quantity,unitPriceMinor,subtotalMinor:(BigInt(unitPriceMinor)*BigInt(line.quantity)).toString()};
-    });
-    if(!isDeepStrictEqual(items,snapshot.items))throw new DomainError('CONFLICT','Catalog changed. Requote checkout.');
-    const address=customerAddress(row.shippingAddress as unknown as AddressInput),totals=calculateQuote(policy,{discount:coupon??undefined,subtotalMinor:items.reduce((sum,item)=>sum+BigInt(item.subtotalMinor),0n).toString(),countryCode:address.countryCode,shippingMethodId:row.shippingMethodId,customerId,now:new Date()});
-    if(!isDeepStrictEqual(totals,snapshot.totals))throw new DomainError('CONFLICT','Quote changed. Requote checkout.');
-    const reservation=await repo.inventory.find(c.storeId,row.reservationId);
-    if(!reservation||reservation.status!=='ACTIVE'||!isDeepStrictEqual(reservation.lines,items.map(item=>({variantId:item.variantId,quantity:item.quantity}))))throw new DomainError('CONFLICT','Inventory hold unavailable.');
-    await new InventoryService(repo.inventory).transition(c.storeId,row.reservationId,'commit',customerId);
-    let couponHold: {id:string;restoreOnCancellation:boolean}|null=null;
-    if(coupon){
-      if(!snapshot.couponHoldId)throw new DomainError('CONFLICT','Coupon lease missing. Requote checkout.');
-      const[clock]=await tx.$queryRaw<{now:Date}[]>`SELECT clock_timestamp() AS now`;assertCouponEligible(coupon,customerId,clock.now);
-      const held=await tx.couponHold.findFirst({where:{id:snapshot.couponHoldId,storeId:c.storeId,customerId,checkoutId:id,couponId:coupon.id,couponVersion:coupon.version,status:'HELD',expiresAt:{gt:clock.now}}});
-      if(!held)throw new DomainError('CONFLICT','Coupon lease expired or unavailable.');
-      const consumed=await tx.couponHold.updateMany({where:{id:held.id,status:'HELD',expiresAt:{gt:clock.now}},data:{status:'CONSUMED',closedAt:clock.now}});if(consumed.count!==1)throw new DomainError('CONFLICT','Coupon lease changed.');couponHold=held;
-    }
-    const counter=await tx.storeOrderCounter.upsert({where:{storeId:c.storeId},create:{storeId:c.storeId,value:1n},update:{value:{increment:1}}});
-    const number='DLC-'+counter.value.toString().padStart(8,'0');
-    const discounts=allocateMinor(BigInt(totals.discountMinor),items.map(item=>BigInt(item.subtotalMinor))),taxWeights=items.map((item,index)=>BigInt(item.subtotalMinor)-discounts[index]);
-    taxWeights.push(policy.tax.shippingTaxable?BigInt(totals.shippingMinor):0n);const taxes=allocateMinor(BigInt(totals.taxMinor),taxWeights),shippingTaxMinor=taxes[taxes.length-1];
-    const order=await tx.order.create({data:{storeId:c.storeId,customerId,checkoutId:id,placementKey:key,placementDigest:digest,number,paymentStatus:BigInt(totals.totalMinor)===0n?'NOT_REQUIRED':'DUE',contactEmail:row.contactEmail,contactName:row.contactName,shippingAddress:{...address},shippingMethodName:snapshot.shippingMethodName,currencyCode:snapshot.currencyCode,taxSnapshot:{...totals,shippingTaxable:policy.tax.shippingTaxable,shippingTaxMinor:shippingTaxMinor.toString()},subtotalMinor:BigInt(totals.subtotalMinor),discountMinor:BigInt(totals.discountMinor),shippingMinor:BigInt(totals.shippingMinor),taxMinor:BigInt(totals.taxMinor),shippingTaxMinor,taxInclusive:totals.taxInclusive,totalMinor:BigInt(totals.totalMinor),amountDueMinor:BigInt(totals.totalMinor),items:{create:items.map((item,index)=>({...item,unitPriceMinor:BigInt(item.unitPriceMinor),subtotalMinor:BigInt(item.subtotalMinor),discountMinor:discounts[index],taxMinor:taxes[index]}))},events:{create:{kind:'PLACED',actorId:customerId}}},include:orderInclude});
-    if(coupon&&couponHold)await tx.couponRedemption.create({data:{orderId:order.id,storeId:c.storeId,customerId,couponId:coupon.id,couponVersion:coupon.version,holdId:couponHold.id,discountMinor:BigInt(totals.discountMinor),restoreOnCancellation:couponHold.restoreOnCancellation}});
-    await tx.orderNotification.create({data:{orderId:order.id,storeId:c.storeId,kind:'ORDER_CONFIRMATION',key:order.id+':ORDER_CONFIRMATION'}});
-    await tx.checkout.update({where:{id},data:{status:'COMPLETED',version:{increment:1}}});
-    await tx.cart.update({where:{id:cart.id},data:{status:'CHECKED_OUT',version:{increment:1}}});
-    await this.audit(tx,customerId,'ORDER_PLACED',order.id);return orderDomain(order);
-  });}
+  placeCod(c:CheckoutContext,id:string,version:number,key:string){return this.scope(c,async(tx,customerId)=>{await assertCheckoutPaymentMutable(tx,id);return placeCheckout(tx,c.storeId,customerId,id,version,key);});}
 }

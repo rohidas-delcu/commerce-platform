@@ -368,3 +368,24 @@ identity/order intents. Private local mailbox files and provider receipts must n
 be exposed through administrative/public/customer responses. Provider ACCEPTED is not
 an inbox DELIVERED assertion. See LOCAL_DEVELOPMENT.md for the worker CLI and future
 client link contracts; these links do not implement or change any visual design.
+
+## Development payment APIs
+
+All paths below use a verified store customer cookie and mutation CSRF/Origin rules.
+Amounts/currency/provider references are server-owned; client totals are rejected.
+
+| Method/path (under `/v1/storefront/:handle/customer`) | Contract |
+| --- | --- |
+| POST `checkouts/:id/payments` | Idempotency-Key; `{expectedVersion,method:"SIMULATOR",scenario?,delaySeconds?}`. Requires available commerce and a ready reserved nonzero quote. |
+| GET `payments/:id` | Own scoped payment projection, also available after store closure. |
+| POST `payments/:id/reconcile` | Fetch authoritative provider state and retry safe order finalization. A browser result is never proof. |
+| POST `payments/:id/simulate` | Development/test-only `{key,event}` where event is PENDING/CAPTURED/FAILED/UNKNOWN; same key with another event conflicts. No gateway payment can use this route. |
+
+Scenarios: MANUAL (default), SUCCESS, FAILURE, TIMEOUT and DELAYED (1–300 seconds,
+default2). Projection exposes id/checkout/method/state, exact amount/currency, orderId,
+requiresReview and timestamps; no customer ownership IDs, digest or provider secrets.
+`SUCCEEDED` means a matching paid simulated order committed. `CAPTURED` preserves the
+provider observation when finalization needs retry. `REVIEW_REQUIRED` has no automatic
+resend, stock commitment or refund claim. Zero totals use NOT_REQUIRED placement rather
+than a fake charge. API registration is documented in `/docs`; full response schema
+coverage and real provider activation remain later acceptance tasks.
