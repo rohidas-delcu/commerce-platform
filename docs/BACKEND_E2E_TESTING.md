@@ -122,3 +122,11 @@ Further suites cover failure, timeout, delayed worker reconciliation, expired-ho
 late capture, mismatched provider observations and a forced order-insert failure after
 capture persisted. The receipt survives rollback and retry creates one order/movement.
 These are development provider tests, never a verified live gateway/sandbox claim.
+
+Manual refund tests execute COD placement → delivery → collected cash → partial/full
+cash returns. They cover uncollected rejection, editor/foreign merchant denial,
+customer receipt privacy, concurrent retry/over-refund prevention, immutable ledger,
+pagination, tenant FKs, customer-actor rejection and forced event-insert rollback.
+Gross paid, original totals, fulfillment and stock are asserted unchanged; refund
+notification identities are unique. This does not verify an actual cash handover or
+provider refund; CASH_RETURNED is an explicit audited merchant assertion.

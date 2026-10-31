@@ -143,3 +143,10 @@ Trusted reconciliation locks customer identity → account → store → checkou
 aligning with authenticated requests without impersonating a session. The worker runs
 expiry, payment reconciliation and notification delivery in sequence, with no overlapping
 batches. Unknown/late/mismatched results never become unconditional order placement.
+
+Manual refunds use a RefundRepositoryPort on the same transaction-bound commerce
+repository supplied by MerchantAccess. Existing centralized orders.manage/ orders.read
+policy controls mutation/read; controllers do not define independent role logic.
+The immutable ledger, gross cash and refunded balance are separate. Customer receipts
+expose totals/status and an approved refund event, excluding the merchant's private
+cash-return reference. Memory mode explicitly refuses financial records.

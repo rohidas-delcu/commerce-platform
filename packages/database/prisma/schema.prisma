@@ -21,6 +21,7 @@ enum ProductStatus {
 }
 
 model Store {
+  refunds Refund[]
   payments PaymentAttempt[]
   logoAssetId String? @db.Uuid
   logo MediaAsset? @relation("StoreLogo",fields:[logoAssetId,id],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
@@ -131,6 +132,7 @@ model InventoryMovement {
 }
 
 model Identity {
+  refunds Refund[]
   payments PaymentAttempt[]
   couponRedemptions CouponRedemption[]
   orders Order[]
@@ -515,6 +517,8 @@ model StoreOrderCounter {
   value BigInt @default(0)
 }
 model Order {
+  refunds Refund[]
+  refundedMinor BigInt @default(0)
   payment PaymentAttempt?
   couponRedemption CouponRedemption?
   commands OrderCommand[]
@@ -802,4 +806,25 @@ model SimulatedPaymentEvent {
  createdAt DateTime @default(now())
  @@unique([attemptId,key])
  @@unique([attemptId,sequence])
+}
+
+model Refund {
+ id String @id @default(uuid()) @db.Uuid
+ storeId String @db.Uuid
+ store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+ orderId String @db.Uuid
+ order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+ actorId String @db.Uuid
+ actor Identity @relation(fields:[actorId],references:[id],onDelete:Restrict)
+ method String
+ status String
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ reference String
+ key String
+ digest String
+ createdAt DateTime @default(now())
+ @@unique([id,storeId])
+ @@unique([storeId,key])
+ @@index([orderId,storeId,createdAt])
 }

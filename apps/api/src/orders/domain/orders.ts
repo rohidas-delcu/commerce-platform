@@ -1,23 +1,23 @@
 import {DomainError} from '../../domain/commerce.js';
 import {customerAddress,type AddressInput} from '../../customer/domain/customer.js';
 export type OrderStatus='PLACED'|'COMPLETED'|'CANCELLED';
-export type PaymentStatus='DUE'|'PAID'|'VOID'|'NOT_REQUIRED';
+export type PaymentStatus='DUE'|'PAID'|'VOID'|'NOT_REQUIRED'|'PARTIALLY_REFUNDED'|'REFUNDED';
 export type FulfillmentStatus='UNFULFILLED'|'READY'|'DISPATCHED'|'DELIVERED'|'CANCELLED';
 export interface OrderItem {id:string;productId:string;variantId:string;productName:string;variantName:string;sku:string;quantity:number;unitPriceMinor:string;subtotalMinor:string;discountMinor:string;taxMinor:string;}
 export interface OrderEvent {id:string;kind:string;actorId:string;createdAt:Date;carrier?:string|null;reference?:string|null;internalReason?:string|null;internalNote?:string|null;}
 export interface Order {
   id:string;number:string;checkoutId:string;status:OrderStatus;paymentStatus:PaymentStatus;fulfillmentStatus:FulfillmentStatus;paymentMethod:'COD'|'SIMULATOR'|'RAZORPAY';version:number;createdAt:Date;
   contactEmail:string;contactName:string;shippingAddress:AddressInput;shippingMethodName:string;currencyCode:string;
-  discountCode?:string|null;subtotalMinor:string;discountMinor:string;shippingMinor:string;taxMinor:string;shippingTaxMinor:string;taxInclusive:boolean;totalMinor:string;amountDueMinor:string;paidMinor:string;items:OrderItem[];events:OrderEvent[];
+  discountCode?:string|null;subtotalMinor:string;discountMinor:string;shippingMinor:string;taxMinor:string;shippingTaxMinor:string;taxInclusive:boolean;totalMinor:string;amountDueMinor:string;paidMinor:string;refundedMinor:string;items:OrderItem[];events:OrderEvent[];
 }
 export interface OrderQuery {limit?:number;offset?:number;status?:OrderStatus;query?:string;}
 export function orderQuery(input:OrderQuery){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000||(input.status&&!['PLACED','COMPLETED','CANCELLED'].includes(input.status))||(input.query!==undefined&&(typeof input.query!=='string'||input.query.length>100)))throw new DomainError('INVALID','Invalid order query.');return{...input,limit,offset};}
 export function orderProjection(order:Order,merchant=false){
   return{id:order.id,number:order.number,checkoutId:order.checkoutId,status:order.status,paymentStatus:order.paymentStatus,fulfillmentStatus:order.fulfillmentStatus,paymentMethod:order.paymentMethod,version:order.version,createdAt:order.createdAt,
     contactEmail:order.contactEmail,contactName:order.contactName,shippingAddress:customerAddress(order.shippingAddress),shippingMethodName:order.shippingMethodName,currencyCode:order.currencyCode,
-    discountCode:order.discountCode??null,subtotalMinor:order.subtotalMinor,discountMinor:order.discountMinor,shippingMinor:order.shippingMinor,taxMinor:order.taxMinor,shippingTaxMinor:order.shippingTaxMinor,taxInclusive:order.taxInclusive,totalMinor:order.totalMinor,amountDueMinor:order.amountDueMinor,paidMinor:order.paidMinor,
+    discountCode:order.discountCode??null,subtotalMinor:order.subtotalMinor,discountMinor:order.discountMinor,shippingMinor:order.shippingMinor,taxMinor:order.taxMinor,shippingTaxMinor:order.shippingTaxMinor,taxInclusive:order.taxInclusive,totalMinor:order.totalMinor,amountDueMinor:order.amountDueMinor,paidMinor:order.paidMinor,refundedMinor:order.refundedMinor??'0',
     items:order.items.map(item=>({id:item.id,productId:item.productId,variantId:item.variantId,productName:item.productName,variantName:item.variantName,quantity:item.quantity,unitPriceMinor:item.unitPriceMinor,subtotalMinor:item.subtotalMinor,discountMinor:item.discountMinor,taxMinor:item.taxMinor,...(merchant?{sku:item.sku}:{})})),
-    events:order.events.filter(event=>merchant||['PLACED','READY','DISPATCH','DELIVER','COLLECT_COD','CANCEL'].includes(event.kind)).map(event=>({id:event.id,kind:event.kind,createdAt:event.createdAt,...(event.kind==='DISPATCH'?{carrier:event.carrier??null,reference:event.reference??null}:{}),...(merchant?{actorId:event.actorId,internalReason:event.internalReason??null,internalNote:event.internalNote??null}:{})}))};
+    events:order.events.filter(event=>merchant||['PLACED','READY','DISPATCH','DELIVER','COLLECT_COD','CANCEL','REFUND_RECORDED'].includes(event.kind)).map(event=>({id:event.id,kind:event.kind,createdAt:event.createdAt,...(event.kind==='DISPATCH'?{carrier:event.carrier??null,reference:event.reference??null}:{}),...(merchant?{actorId:event.actorId,internalReason:event.internalReason??null,internalNote:event.internalNote??null}:{})}))};
 }
 /** Largest remainder allocation; tie order is stable and all integer units are conserved. */
 export function allocateMinor(total:bigint,weights:bigint[]){

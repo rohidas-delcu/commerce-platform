@@ -102,3 +102,8 @@ timeout, delay, duplicate/out-of-order events, late capture review and financial
 rollback recovery. Shared placement preserves existing COD flows. Next: refund ledgers/
 manual COD and simulated refunds, candidate Razorpay boundary, payment notices and
 complete executable demo; provider sandbox and final security remain release gates.
+
+Manual collected-COD cash-return records now have verified partial/full, idempotency,
+concurrency, isolation/privacy, immutable financial history and rollback coverage.
+Next extend this same ledger for asynchronous simulated/provider refunds and captured
+payments without orders; no duplicate ledger or automatic physical return semantics.

@@ -389,3 +389,19 @@ provider observation when finalization needs retry. `REVIEW_REQUIRED` has no aut
 resend, stock commitment or refund claim. Zero totals use NOT_REQUIRED placement rather
 than a fake charge. API registration is documented in `/docs`; full response schema
 coverage and real provider activation remain later acceptance tasks.
+
+## Manual COD refunds
+
+Owner/admin `POST /v1/merchant/stores/:storeId/orders/:orderId/refunds/manual-cod`
+accepts `{expectedVersion,key,amountMinor,confirmation:"CASH_RETURNED",reference}`.
+Amount is an exact positive minor-unit string and cannot exceed collected cash less
+previous refunds. Uncollected COD and non-COD payments are rejected. Same key/input
+replays one record; different input or stale order version conflicts. Reference is
+private merchant evidence, never a customer-facing refund note or gateway receipt.
+
+Owner/admin GET `.../orders/:orderId/refunds?limit=50&offset=0` returns a bounded page
+with items/limit/offset/nextOffset (limit1–100, offset0–10000). Customer order receipts
+retain totalMinor/paidMinor and add refundedMinor, with PARTIALLY_REFUNDED/REFUNDED
+payment statuses and safe REFUND_RECORDED timeline entries. Delivered fulfillment,
+stock and original financial/contact snapshots stay intact. No return/courier or
+provider refund is implied by recording a manual cash return.

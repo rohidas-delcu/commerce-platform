@@ -1,3 +1,4 @@
+import {UnavailableRefundRepository} from '../refunds/infrastructure/unavailable-refunds.repository.js';
 import {UnavailableOrderReadRepository} from '../orders/infrastructure/unavailable-orders.repository.js';
 import {MemoryPricingRepository} from '../pricing/infrastructure/memory-pricing.repository.js';
 import {MemoryInventoryRepository} from '../inventory/infrastructure/memory-inventory.repository.js';
@@ -13,6 +14,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
   private readonly stores = new Map<string, Store>();
   private readonly products = new Map<string, Product>();
   readonly orders=new UnavailableOrderReadRepository();
+  readonly refunds=new UnavailableRefundRepository();
   readonly pricing=new MemoryPricingRepository();
   readonly media=new MemoryMediaRepository(this.stores,this.products);
   private readonly collections=new Map<string,Collection>();

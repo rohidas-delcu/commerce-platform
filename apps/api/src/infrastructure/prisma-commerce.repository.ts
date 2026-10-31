@@ -1,3 +1,4 @@
+import {PrismaRefundRepository} from '../refunds/infrastructure/prisma-refunds.repository.js';
 import {PrismaOrderReadRepository} from '../orders/infrastructure/prisma-orders.repository.js';
 import {PrismaPricingRepository} from '../pricing/infrastructure/prisma-pricing.repository.js';
 import {PrismaInventoryRepository} from '../inventory/infrastructure/prisma-inventory.repository.js';
@@ -59,16 +60,18 @@ function movementDomain(row: {
 @Injectable()
 export class PrismaCommerceRepository implements CommerceRepository, OnModuleDestroy, OnModuleInit {
   readonly orders:PrismaOrderReadRepository;
+  readonly refunds:PrismaRefundRepository;
   readonly pricing:PrismaPricingRepository;
   readonly media:PrismaMediaRepository;
   readonly inventory:PrismaInventoryRepository;
   private readonly db: PrismaClient | Prisma.TransactionClient;
 
   constructor(transaction?: Prisma.TransactionClient) {
-    if (transaction) {this.db = transaction;this.orders=new PrismaOrderReadRepository(transaction,(tx,input)=>new PrismaCommerceRepository(tx).adjustStock(input));this.pricing=new PrismaPricingRepository(transaction);this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
+    if (transaction) {this.db = transaction;this.refunds=new PrismaRefundRepository(transaction);this.orders=new PrismaOrderReadRepository(transaction,(tx,input)=>new PrismaCommerceRepository(tx).adjustStock(input));this.pricing=new PrismaPricingRepository(transaction);this.media=new PrismaMediaRepository(transaction);this.inventory=new PrismaInventoryRepository(transaction);return;}
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is required for DATA_DRIVER=postgres.");
     this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5000, max: 10 }, { schema: new URL(connectionString).searchParams.get("schema") ?? "public" }) });
+    this.refunds=new PrismaRefundRepository(this.db);
     this.orders=new PrismaOrderReadRepository(this.db,(tx,input)=>new PrismaCommerceRepository(tx).adjustStock(input));
     this.pricing=new PrismaPricingRepository(this.db);
     this.media=new PrismaMediaRepository(this.db);
@@ -87,9 +90,10 @@ export class PrismaCommerceRepository implements CommerceRepository, OnModuleDes
       this.db.storePricing.findFirst({select:{version:true}}),
       this.db.discountCoupon.findFirst({select:{id:true}}),
       this.db.couponRedemption.findFirst({select:{orderId:true}}),
-      this.db.order.findFirst({select:{id:true}}),
+      this.db.order.findFirst({select:{id:true,refundedMinor:true}}),
       this.db.orderNotification.findFirst({select:{id:true}}),
       this.db.inventoryReservation.findFirst({select:{id:true}}),
+      this.db.refund.findFirst({select:{id:true}}),
       this.db.inventoryReservationEvent.findFirst({select:{id:true}}),
       this.db.mediaAsset.findFirst({select:{id:true,status:true}}),
       this.db.productMedia.findFirst({select:{assetId:true}}),

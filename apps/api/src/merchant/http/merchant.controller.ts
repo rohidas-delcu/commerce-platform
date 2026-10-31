@@ -1,3 +1,4 @@
+import {ManualRefundDto,RefundQueryDto} from '../../refunds/http/refunds.dto.js';
 import {CreateCouponDto,UpdateCouponDto,CouponQueryDto} from '../../pricing/http/coupons.dto.js';
 import {OrderQueryDto,OrderCommandDto,DispatchDto,CollectCodDto,CancelOrderDto,OrderNoteDto} from '../../orders/http/orders.dto.js';
 import {PricingDto} from '../../pricing/http/pricing.dto.js';
@@ -139,4 +140,8 @@ export class MerchantController {
   @Patch('stores/:storeId/coupons/:couponId') updateCoupon(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('couponId',ParseUUIDPipe) coupon:string,@Body() b:UpdateCouponDto){return this.service.updateCoupon(r.identitySession!,id,coupon,b);}
   @Mutation()
   @Post('stores/:storeId/coupons/:couponId/archive') archiveCoupon(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('couponId',ParseUUIDPipe) coupon:string,@Body() b:VersionDto){return this.service.updateCoupon(r.identitySession!,id,coupon,{expectedVersion:b.expectedVersion,active:false});}
+  @Get('stores/:storeId/orders/:orderId/refunds') refunds(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Query() query:RefundQueryDto){return this.service.refunds(r.identitySession!,id,order,query);}
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/refunds/manual-cod') manualRefund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:ManualRefundDto){return this.service.manualRefund(r.identitySession!,id,order,b);}
+
 }

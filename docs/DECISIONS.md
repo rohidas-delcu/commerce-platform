@@ -234,3 +234,15 @@ on an out-of-order failure. It refuses production; SIMULATOR remains explicit in
 Deferred SQL constraints require a matching observation and tenant/amount-consistent
 payment before an online order can commit. Full provider/refund/recovery acceptance
 remains pending; do not mark bank/gateway settlement or legal compliance verified.
+
+## Manual COD refund records (implementation, 2026-10-31)
+
+Collected COD can record exact partial/full cash returns only through owner/admin
+order-manage authority, explicit CASH_RETURNED confirmation and a private reference.
+This records the merchant's cash action, not bank/gateway verification. Preserve gross
+paid and immutable original totals; add a separate refunded balance and immutable
+ledger. Same-key retries cannot add money twice; optimistic versions and store/order
+locks prevent over-refunds. A deferred SQL invariant ties the balance to the ledger.
+Refund failure rolls back balance/event/notification atomically. Never restore stock
+or change delivered fulfillment merely because cash was refunded. Online/development
+provider refunds and late-payment resolution remain the next distinct slice.

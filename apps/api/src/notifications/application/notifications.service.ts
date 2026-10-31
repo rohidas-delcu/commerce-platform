@@ -15,10 +15,11 @@ export class NotificationService {
       return{id:job.messageId,to:job.recipient,subject:purpose+' — Delcu',text:`Hello ${safeLine(context.name)||'there'},\n\n${purpose}:\n${this.links.identity(context,token)}\n\nThis link expires at ${context.expiresAt.toISOString()}. If you did not request it, you can ignore this message.\n\nDelcu`};
     }
     const order=await this.repository.orderContext(job);if(!order)return null;
-    const subjects:Record<string,string>={ORDER_CONFIRMATION:'Order confirmed',ORDER_DISPATCHED:'Order dispatched',ORDER_DELIVERED:'Order delivered',ORDER_CANCELLED:'Order cancelled',PAYMENT_CONFIRMATION:'Payment recorded'};
+    const subjects:Record<string,string>={ORDER_CONFIRMATION:'Order confirmed',ORDER_DISPATCHED:'Order dispatched',ORDER_DELIVERED:'Order delivered',ORDER_CANCELLED:'Order cancelled',PAYMENT_CONFIRMATION:'Payment recorded',REFUND_RECORDED:'Refund recorded'};
     const title=subjects[job.purpose];if(!title)throw new Error('Unsupported notification.');
-    let detail=`Order: ${safeLine(order.number)}\nOrder total: ${moneyText(order.totalMinor,order.currencyCode)}`;
+    let detail=`Order: ${safeLine(order.number)}\nOrder total: ${moneyText(order.totalMinor,order.currencyCode)}\nPayment method: ${order.paymentMethod==='SIMULATOR'?'Development simulation':order.paymentMethod==='COD'?'Cash on delivery':'Online payment'}`;
     if(job.purpose==='PAYMENT_CONFIRMATION')detail+=`\nAmount recorded: ${moneyText(order.paidMinor,order.currencyCode)}`;
+    if(job.purpose==='REFUND_RECORDED')detail+='\nRefunds recorded total: '+moneyText(order.refundedMinor,order.currencyCode);
     if(job.purpose==='ORDER_DISPATCHED')detail+=`${order.carrier?'\nCarrier: '+safeLine(order.carrier):''}${order.reference?'\nReference: '+safeLine(order.reference):''}`;
     return{id:job.messageId,to:order.recipient,subject:title+' '+safeLine(order.number)+' — Delcu',text:`Hello ${safeLine(order.name)||'there'},\n\n${title}.\n${detail}\n\nView your order:\n${this.links.order(order)}\n\nDelcu`};
   }

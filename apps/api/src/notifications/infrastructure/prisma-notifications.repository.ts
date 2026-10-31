@@ -66,7 +66,7 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
   async orderContext(job:NotificationJob):Promise<OrderMailContext|null>{
     const mail=await this.db.orderNotification.findFirst({where:{id:job.id,storeId:job.storeId,orderId:job.orderId},include:{order:{include:{store:{select:{handle:true}},events:{where:{kind:'DISPATCH'},orderBy:{createdAt:'desc'},take:1}}}}});
     if(!mail)return null;const order=mail.order,data=order.events[0]?.data,dispatch=data&&typeof data==='object'&&!Array.isArray(data)?data:{};
-    return{recipient:order.contactEmail,name:order.contactName,handle:order.store.handle,number:order.number,orderId:order.id,currencyCode:order.currencyCode,totalMinor:order.totalMinor.toString(),paidMinor:order.paidMinor.toString(),paymentMethod:order.paymentMethod,carrier:typeof dispatch.carrier==='string'?dispatch.carrier:null,reference:typeof dispatch.reference==='string'?dispatch.reference:null};
+    return{recipient:order.contactEmail,name:order.contactName,handle:order.store.handle,number:order.number,orderId:order.id,currencyCode:order.currencyCode,totalMinor:order.totalMinor.toString(),paidMinor:order.paidMinor.toString(),refundedMinor:order.refundedMinor.toString(),paymentMethod:order.paymentMethod,carrier:typeof dispatch.carrier==='string'?dispatch.carrier:null,reference:typeof dispatch.reference==='string'?dispatch.reference:null};
   }
   async finish(job:NotificationJob,outcome:DeliveryOutcome){
     return this.db.$transaction(async tx=>{

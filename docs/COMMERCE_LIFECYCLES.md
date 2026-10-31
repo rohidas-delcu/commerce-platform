@@ -102,3 +102,10 @@ stock movements, redemptions or confirmation intents. Late/invalid money remains
 REVIEW_REQUIRED for a later supported resolution/refund workflow. Simulated CAPTURED
 state is absorbing even if an older FAILED event arrives. Paid order delivery completes
 the order without any COD cash operation. Refunds never imply physical stock returns.
+
+Collected COD refunds: PAID → PARTIALLY_REFUNDED → REFUNDED, with gross paid preserved
+and an immutable exact ledger. Merchant explicitly records cash already returned.
+The delivered/completed order remains delivered/completed. No refund action changes
+on-hand/reserved stock or creates a return movement. Each successful record adds one
+safe customer timeline event and one independent notification intent; rollback adds
+neither. Provider refund initiation/status and late-capture recovery are separate.
