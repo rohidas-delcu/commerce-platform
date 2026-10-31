@@ -62,3 +62,14 @@ provider contract fakes as live acceptance. After verified backend delivery, sto
 review; do not automatically continue into frontend work. Database runtime supports
 public schema only, with a provisioned AUTH_OUTBOX_KEY. Account/store/member/invitation
 lists use page envelopes; preserve this documented contract.
+
+## Subsequent, user-authorized frontend work (2026-10-31)
+
+After the backend draft delivery, the user expressly authorized continuing to the
+React merchant/admin UI and then the consumer storefront UI. That new instruction
+supersedes the earlier backend-only prohibition **for these separate frontend
+branches**. The merchant UI implementation is tracked in `docs/ADMIN_UI_STATUS.md`
+on `feature/commerce-admin-ui`, stacked on backend PR #2. Keep frontend artifacts
+separate; do not treat draft backend PR2 as merged, merge either PR automatically,
+deploy, enable live providers, bypass PostgreSQL authorization or claim browser E2E
+acceptance without running it. The older backend report remains historical evidence.

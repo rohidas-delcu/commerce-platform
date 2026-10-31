@@ -204,3 +204,13 @@ with LEGACY_NOT_COLLECTED. Closed-store receipts/finance retain live tenant auth
 Cross-account legal ownership transfer and ownerless-account operator recovery stay
 disabled. No tax/legal compliance, real-browser UI, live settlement or production
 readiness claim. Architecture remains one DDD-informed modular monolith.
+
+## Subsequent frontend development (new authorization, 2026-10-31)
+
+The earlier instruction to stop at backend review was superseded by the user's
+express authorization to continue with the merchant and then customer UI. Backend
+PR #2 remains a separate draft and the backend runtime and live-payment constraints
+above remain unchanged. The React merchant admin is under implementation on
+`feature/commerce-admin-ui` as a **stacked, independently reviewed change**.
+Read `docs/ADMIN_UI_STATUS.md` for implemented screens, exact UI test/build
+results, unavailable real-browser/PostgreSQL gates, and the next customer UI task.

@@ -9,6 +9,10 @@
   },
   "scripts": {
     "dev": "pnpm --filter @commerce/api dev",
+    "dev:admin": "pnpm --filter @commerce/admin dev",
+    "build:admin": "pnpm --filter @commerce/admin build",
+    "typecheck:admin": "pnpm --filter @commerce/admin typecheck",
+    "test:admin": "pnpm --filter @commerce/admin test",
     "build": "pnpm --filter @commerce/api build",
     "typecheck": "pnpm --filter @commerce/database typecheck && pnpm --filter @commerce/api typecheck",
     "test": "tsx --tsconfig apps/api/tsconfig.json --test apps/api/test/*.test.mjs",
