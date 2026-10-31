@@ -6,7 +6,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const port = 13000 + Math.floor(Math.random() * 1000);
 const base = `http://127.0.0.1:${port}`;
-const env = { ...process.env, NODE_ENV: 'development', DEMO_AUTH_ENABLED: 'true',
+const env = { ...process.env, COMMERCE_WORKER_ENABLED: 'false', NOTIFICATION_PROVIDER: 'development', NODE_ENV: 'development', DEMO_AUTH_ENABLED: 'true',
+  AUTH_OUTBOX_KEY: 'a'.repeat(64), // Isolated integration fixture only.
   DATA_DRIVER: process.env.TEST_DATA_DRIVER || 'memory', PORT: String(port) };
 
 async function request(path, method = 'GET', body, subject = 'test-merchant') {
@@ -44,6 +45,16 @@ test('store, product and inventory flow preserves ownership and storefront priva
     await delay(100);
   }
   assert.ok(ready, output);
+  const documentation=await request('/docs-json');
+  assert.equal(documentation.status,200);
+  assert.equal(documentation.body.components.schemas.SignupDto.properties.email.type,'string');
+  assert.equal(documentation.body.components.schemas.StoreDto.properties.merchantId.type,'string');
+  assert.ok(documentation.body.paths['/v1/merchant/stores']);
+  assert.equal(documentation.body.components.schemas.SignupDto.properties.password.minLength,15);
+  assert.equal(documentation.body.components.securitySchemes.merchantSession.in,'cookie');
+  assert.ok(documentation.body.paths['/v1/merchant/accounts'].get.parameters.some(p=>p.name==='offset'));
+  assert.equal(documentation.body.components.schemas.CheckoutSettingsDto.properties.billingSameAsShipping.type,'boolean');
+  assert.equal(documentation.body.components.schemas.CheckoutSettingsDto.properties.billingAddress.$ref,'#/components/schemas/AddressDto');
   assert.deepEqual((await request('/health')).body, { status: 'ok' });
   assert.deepEqual((await request('/health/ready')).body, { status: 'ready' });
   assert.deepEqual((await request('/missing-route')).body, { statusCode: 404, code: 'NOT_FOUND', message: 'Cannot GET /missing-route' });
@@ -136,7 +147,7 @@ test('production startup refuses demo authentication', async () => {
   child.stdout.on('data', b => { output += b; });
   const [code] = await once(child, 'exit');
   assert.equal(code, 1);
-  assert.match(output, /Production mode requires real merchant authentication/);
+  assert.match(output, /Production mode is disabled until backend acceptance and security review pass/);
 });
 
 test('demo guard requires explicit development mode, opt-in and a valid subject', async () => {
@@ -168,6 +179,8 @@ test('startup rejects invalid configuration and unavailable PostgreSQL without l
   for (const overrides of [
     { DATA_DRIVER: 'invalid' },
     { PORT: '0' },
+    { DATA_DRIVER:'postgres', AUTH_OUTBOX_KEY:'', DATABASE_URL:'postgresql://test:never-log-this@127.0.0.1:1/unavailable' },
+    { DATA_DRIVER:'postgres', DATABASE_URL:'postgresql://test:never-log-this@127.0.0.1:1/unavailable?schema=other' },
     { DATA_DRIVER: 'postgres', DATABASE_URL: 'postgresql://test:never-log-this@127.0.0.1:1/unavailable' }
   ]) {
     const child = spawn(process.execPath, ['dist/main.js'], {

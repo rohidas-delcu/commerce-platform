@@ -1,11 +1,21 @@
+import {CleanupService} from '../operations/application/cleanup.service.js';
+import {RefundService} from '../refunds/application/refunds.service.js';
+import {PaymentService} from '../payments/application/payments.service.js';
+import {MaintenanceService} from '../operations/application/maintenance.service.js';
+import {NotificationService} from '../notifications/application/notifications.service.js';
+import {CheckoutService} from '../checkout/application/checkout.service.js';
+import {CartService} from '../cart/application/cart.service.js';
+import {CustomerService} from '../customer/application/customer.service.js';
 import {
-  Body, Controller, Get, Headers, Injectable, CanActivate, ExecutionContext,
-  ForbiddenException, Inject, ServiceUnavailableException, Param, ParseUUIDPipe, Patch, Post, UseGuards
+  Body, Controller, Get, Query, Headers, Injectable, CanActivate, ExecutionContext,
+  ForbiddenException, Optional, Inject, ServiceUnavailableException, Param, ParseUUIDPipe, Patch, Post, UseGuards
 } from "@nestjs/common";
+import { MerchantService } from "../merchant/application/merchant.service.js";
+import { IdentityService } from "../identity/application/identity.service.js";
 import { COMMERCE_REPOSITORY } from "../application/commerce.port.js";
 import type { CommerceRepository } from "../application/commerce.port.js";
 import { CommerceService } from "../application/commerce.service.js";
-import { CreateProductDto, CreateStoreDto, StockAdjustmentDto, UpdateProductDto } from "./commerce.dto.js";
+import { CreateProductDto, CreateStoreDto, StockAdjustmentDto, UpdateProductDto, PublicProductQueryDto, PublicCollectionQueryDto } from "./commerce.dto.js";
 
 @Injectable()
 export class LocalDemoAuthGuard implements CanActivate {
@@ -82,17 +92,28 @@ export class AdminCommerceController {
 export class StorefrontCommerceController {
   constructor(private readonly commerce: CommerceService) {}
 
+  @Get(':handle')
+  store(@Param('handle') handle:string){return this.commerce.publicStore(handle);}
+
   @Get(":handle/products")
-  products(@Param("handle") handle: string) { return this.commerce.publicCatalog(handle); }
+  products(@Param("handle") handle: string,@Query() query:PublicProductQueryDto) { return this.commerce.publicCatalog(handle,query); }
+
+  @Get(":handle/products/:productHandle")
+  detail(@Param("handle") handle:string,@Param("productHandle") product:string){return this.commerce.publicProductDetail(handle,product); }
+  @Get(':handle/collections')
+  collections(@Param('handle') handle:string,@Query() query:PublicCollectionQueryDto){return this.commerce.publicCollections(handle,{...query,featured:query.featured===undefined?undefined:query.featured==='true'});}
+  @Get(':handle/collections/:collectionHandle')
+  collection(@Param('handle') handle:string,@Param('collectionHandle') collection:string,@Query() query:PublicProductQueryDto){return this.commerce.publicCollection(handle,collection,query);}
+
 }
 
 @Controller("health")
 export class HealthController {
-  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository) {}
+  constructor(@Inject(COMMERCE_REPOSITORY) private readonly repository: CommerceRepository, @Optional() private readonly identity?: IdentityService, @Optional() private readonly merchant?: MerchantService, @Optional() private readonly customer?:CustomerService, @Optional() private readonly carts?:CartService, @Optional() private readonly checkouts?:CheckoutService, @Optional() private readonly notifications?:NotificationService, @Optional() private readonly maintenance?:MaintenanceService, @Optional() private readonly payments?:PaymentService, @Optional() private readonly refunds?:RefundService, @Optional() private readonly cleanup?:CleanupService) {}
 
   @Get("ready")
   async ready() {
-    try { await this.repository.checkHealth(); return { status: "ready" }; }
+    try { await this.repository.checkHealth(); await this.identity?.checkHealth(); await this.merchant?.checkHealth(); await this.customer?.checkHealth(); await this.carts?.checkHealth(); await this.checkouts?.checkHealth(); await this.notifications?.checkHealth(); await this.maintenance?.checkHealth(); await this.payments?.checkHealth(); await this.refunds?.checkHealth(); await this.cleanup?.checkHealth(); return { status: "ready" }; }
     catch { throw new ServiceUnavailableException("Repository is unavailable."); }
   }
   @Get()

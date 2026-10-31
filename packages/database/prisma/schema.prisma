@@ -17,9 +17,37 @@ enum StoreStatus {
 enum ProductStatus {
   DRAFT
   ACTIVE
+  ARCHIVED
 }
 
 model Store {
+  refunds Refund[]
+  payments PaymentAttempt[]
+  logoAssetId String? @db.Uuid
+  logo MediaAsset? @relation("StoreLogo",fields:[logoAssetId,id],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  coupons DiscountCoupon[]
+  orders Order[]
+  orderCounter StoreOrderCounter?
+  checkouts Checkout[]
+  pricing StorePricing?
+  carts Cart[]
+  customers Identity[]
+  reservations InventoryReservation[]
+  assets MediaAsset[]
+  collections Collection[]
+  merchantId String @db.Uuid
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  invitations MerchantInvitation[]
+  creation StoreCreation?
+  memberships StoreMembership[]
+  settingsVersion Int @default(0)
+  onboardingState String @default("IN_PROGRESS")
+  timezone String @default("Asia/Kolkata")
+  contactEmail String @default("")
+  brandingName String @default("")
+  suspended Boolean @default(false)
+  archivedAt DateTime?
+  @@unique([id, merchantId])
   id             String      @id @default(uuid()) @db.Uuid
   ownerSubjectId String
   name           String
@@ -36,6 +64,11 @@ model Store {
 }
 
 model Product {
+  wishlists CustomerWishlist[]
+  images ProductMedia[]
+  collectionLinks CollectionProduct[]
+  seoTitle String @default("")
+  seoDescription String @default("")
   version      Int           @default(0)
   id           String        @id @default(uuid()) @db.Uuid
   storeId      String        @db.Uuid
@@ -57,6 +90,14 @@ model Product {
 }
 
 model ProductVariant {
+  orderItems OrderItem[]
+  cartLines CartLine[]
+  reserved Int @default(0)
+  reservationLines InventoryReservationLine[]
+  active Boolean @default(true)
+  priceMinor BigInt?
+  compareMinor BigInt?
+  options Json @default("{}")
   id        String              @id @default(uuid()) @db.Uuid
   storeId   String              @db.Uuid
   productId String              @db.Uuid
@@ -67,6 +108,7 @@ model ProductVariant {
   movements InventoryMovement[]
 
   @@unique([id, storeId])
+  @@unique([id,storeId,productId])
   @@unique([storeId, sku])
   @@unique([productId, name])
   @@index([productId])
@@ -87,4 +129,784 @@ model InventoryMovement {
   createdAt         DateTime       @default(now())
 
   @@index([storeId, createdAt])
+}
+
+model Identity {
+  refunds Refund[]
+  payments PaymentAttempt[]
+  couponRedemptions CouponRedemption[]
+  orders Order[]
+  orderEvents OrderEvent[]
+  checkouts Checkout[]
+  carts Cart[]
+  scopeKey String @default("merchant")
+  customerStoreId String? @db.Uuid
+  customerStore Store? @relation(fields:[customerStoreId],references:[id],onDelete:Restrict)
+  addresses CustomerAddress[]
+  wishlist CustomerWishlist[]
+  @@unique([scopeKey,email])
+  @@unique([id,scopeKey])
+  @@unique([id,customerStoreId])
+  issuedInvitations MerchantInvitation[]
+  creations StoreCreation[]
+  merchantMemberships MerchantMembership[]
+  storeMemberships StoreMembership[]
+  id String @id @default(uuid()) @db.Uuid
+  email String
+  name String
+  passwordHash String
+  verifiedAt DateTime?
+  status String @default("ACTIVE")
+  createdAt DateTime @default(now())
+  audits IdentityAudit[]
+  sessions IdentitySession[]
+  challenges IdentityChallenge[]
+}
+
+model IdentitySession {
+  scopeKey String @default("merchant")
+  id String @id @default(uuid()) @db.Uuid
+  identityId String? @db.Uuid
+  identity Identity? @relation(fields: [identityId,scopeKey], references: [id,scopeKey], onDelete: Restrict)
+  csrfDigest String
+  expiresAt DateTime
+  absoluteExpiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  secrets IdentitySessionSecret[]
+  @@index([identityId])
+  @@index([expiresAt])
+}
+
+model IdentitySessionSecret {
+  csrfDigest String
+  digest String @id
+  sessionId String @db.Uuid
+  session IdentitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  usedAt DateTime?
+}
+
+model IdentityChallenge {
+  digest String @id
+  identityId String @db.Uuid
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  purpose String
+  expiresAt DateTime
+  consumedAt DateTime?
+  @@index([identityId, purpose])
+  @@index([expiresAt])
+}
+
+model IdentityMail {
+  deliveryAttempts NotificationAttempt[]
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  lockedUntil DateTime?
+  leaseToken String? @db.Uuid
+  provider String?
+  providerMessageId String?
+  acceptedAt DateTime?
+  lastErrorCode String?
+  @@unique([id,scopeKey])
+  @@index([status,availableAt])
+  @@index([status,lockedUntil])
+  scopeKey String @default("merchant")
+  id String @id @default(uuid()) @db.Uuid
+  recipient String
+  purpose String
+  encryptedPayload String
+  createdAt DateTime @default(now())
+  deliveredAt DateTime?
+  @@index([createdAt])
+}
+
+model IdentityAudit {
+  identity Identity? @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  id String @id @default(uuid()) @db.Uuid
+  identityId String? @db.Uuid
+  action String
+  createdAt DateTime @default(now())
+  @@index([identityId, createdAt])
+}
+
+model IdentityThrottle {
+  key String @id
+  attempts Int
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
+
+model MerchantAccount {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  status String @default("ACTIVE")
+  legacySubject String? @unique
+  createdAt DateTime @default(now())
+  invitations MerchantInvitation[]
+  creations StoreCreation[]
+  members MerchantMembership[]
+  stores Store[]
+}
+model MerchantMembership {
+  merchantId String @db.Uuid
+  identityId String @db.Uuid
+  role String @default("MEMBER")
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  storeMemberships StoreMembership[]
+  @@id([merchantId, identityId])
+  @@index([identityId])
+}
+model StoreMembership {
+  storeId String @db.Uuid
+  merchantId String @db.Uuid
+  identityId String @db.Uuid
+  role String
+  store Store @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
+  membership MerchantMembership @relation(fields: [merchantId, identityId], references: [merchantId, identityId], onDelete: Restrict)
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  @@id([storeId, identityId])
+  @@index([merchantId, identityId])
+}
+
+model StoreCreation {
+  identityId String @db.Uuid
+  key String
+  merchantId String @db.Uuid
+  storeId String @unique @db.Uuid
+  digest String
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store Store @relation(fields: [storeId,merchantId], references: [id,merchantId], onDelete: Restrict)
+  @@unique([storeId,merchantId])
+  @@id([identityId, key])
+}
+
+model MerchantInvitation {
+  id String @id @default(uuid()) @db.Uuid
+  digest String @unique
+  merchantId String @db.Uuid
+  storeId String? @db.Uuid
+  email String
+  role String
+  inviterId String @db.Uuid
+  inviter Identity @relation(fields: [inviterId], references: [id], onDelete: Restrict)
+  expiresAt DateTime
+  consumedAt DateTime?
+  revokedAt DateTime?
+  merchant MerchantAccount @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store Store? @relation(fields: [storeId,merchantId], references: [id,merchantId], onDelete: Restrict)
+  @@index([merchantId,email])
+}
+
+model Collection {
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  name String
+  handle String
+  description String @default("")
+  featured Boolean @default(false)
+  position Int @default(0)
+  version Int @default(0)
+  status String @default("ACTIVE")
+  products CollectionProduct[]
+  @@unique([storeId,handle])
+  @@unique([id,storeId])
+  @@index([storeId,status,position])
+}
+model CollectionProduct {
+  collectionId String @db.Uuid
+  productId String @db.Uuid
+  storeId String @db.Uuid
+  position Int @default(0)
+  collection Collection @relation(fields:[collectionId,storeId],references:[id,storeId],onDelete:Restrict)
+  product Product @relation(fields:[productId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@id([collectionId,productId])
+  @@index([collectionId,position,productId])
+  @@index([productId,storeId])
+}
+
+model MediaAsset {
+  cleanupAfter DateTime @default(now())
+  cleanupCheckedAt DateTime?
+  cleanupLease String? @db.Uuid
+  @@index([provider,status,cleanupAfter])
+  logoStores Store[] @relation("StoreLogo")
+  id String @id @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  key String @unique
+  provider String
+  contentType String
+  size Int
+  checksum String
+  tokenDigest String
+  status String @default("PENDING")
+  expiresAt DateTime
+  images ProductMedia[]
+  @@unique([id,storeId])
+  @@index([storeId,status])
+  @@index([status,expiresAt])
+}
+model ProductMedia {
+  storeId String @db.Uuid
+  productId String @db.Uuid
+  assetId String @db.Uuid
+  position Int
+  primary Boolean @default(false)
+  altText String @default("")
+  product Product @relation(fields:[productId,storeId],references:[id,storeId],onDelete:Restrict)
+  asset MediaAsset @relation(fields:[assetId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@id([productId,assetId])
+  @@index([assetId,storeId])
+  @@index([productId,position])
+}
+
+model InventoryReservation {
+  payments PaymentAttempt[]
+  checkout Checkout?
+  id String @id @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  key String
+  digest String
+  status String @default("ACTIVE")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lines InventoryReservationLine[]
+  events InventoryReservationEvent[]
+  @@unique([storeId,key])
+  @@unique([id,storeId])
+  @@index([storeId,status,expiresAt])
+  @@index([status,expiresAt])
+}
+model InventoryReservationLine {
+  reservationId String @db.Uuid
+  storeId String @db.Uuid
+  variantId String @db.Uuid
+  quantity Int
+  reservation InventoryReservation @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+  variant ProductVariant @relation(fields:[variantId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@id([reservationId,variantId])
+  @@index([variantId,storeId])
+}
+model InventoryReservationEvent {
+  id String @id @default(uuid()) @db.Uuid
+  reservationId String @db.Uuid
+  storeId String @db.Uuid
+  reservation InventoryReservation @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+  status String
+  actor String
+  createdAt DateTime @default(now())
+  @@unique([reservationId,status])
+}
+
+model CustomerAddress {
+  id String @id @default(uuid()) @db.Uuid
+  customerId String @db.Uuid
+  storeId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  name String
+  line1 String
+  line2 String @default("")
+  city String
+  region String
+  postalCode String
+  countryCode String @db.VarChar(2)
+  phone String
+  isDefault Boolean @default(false)
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([customerId,storeId])
+}
+model CustomerWishlist {
+  customerId String @db.Uuid
+  storeId String @db.Uuid
+  productId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  product Product @relation(fields:[productId,storeId],references:[id,storeId],onDelete:Restrict)
+  createdAt DateTime @default(now())
+  @@id([customerId,productId])
+  @@index([storeId,productId])
+}
+
+model Cart {
+  couponId String? @db.Uuid
+  coupon DiscountCoupon? @relation(fields:[couponId,storeId],references:[id,storeId],onDelete:Restrict)
+  checkouts Checkout[]
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  customerId String? @db.Uuid
+  customer Identity? @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  secretDigest String?
+  status String @default("ACTIVE")
+  version Int @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  mergedIntoId String? @db.Uuid
+  mergedInto Cart? @relation("CartMerge",fields:[mergedIntoId,storeId],references:[id,storeId],onDelete:Restrict)
+  sources Cart[] @relation("CartMerge")
+  lines CartLine[]
+  @@unique([id,storeId])
+  @@unique([id,storeId,customerId])
+  @@index([customerId,storeId,status])
+  @@index([status,expiresAt])
+}
+model CartLine {
+  cartId String @db.Uuid
+  storeId String @db.Uuid
+  variantId String @db.Uuid
+  cart Cart @relation(fields:[cartId,storeId],references:[id,storeId],onDelete:Restrict)
+  variant ProductVariant @relation(fields:[variantId,storeId],references:[id,storeId],onDelete:Restrict)
+  quantity Int
+  priceSeenMinor BigInt
+  @@id([cartId,variantId])
+  @@index([variantId,storeId])
+}
+
+model StorePricing {
+  storeId String @id @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  version Int @default(0)
+  shipping Json
+  tax Json
+  payments Json
+  updatedAt DateTime @updatedAt
+}
+
+model Checkout {
+  billingAddress Json?
+  payment PaymentAttempt?
+  couponHolds CouponHold[]
+  order Order?
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  customerId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  cartId String @db.Uuid
+  cart Cart @relation(fields:[cartId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  cartVersion Int
+  key String
+  digest String
+  status String @default("DRAFT")
+  version Int @default(0)
+  contactEmail String
+  contactName String
+  shippingAddress Json?
+  shippingMethodId String?
+  snapshot Json?
+  reservationId String? @db.Uuid
+  reservation InventoryReservation? @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([reservationId,storeId])
+  @@unique([id,storeId])
+  @@unique([id,storeId,customerId])
+  @@unique([storeId,customerId,key])
+  @@index([cartId,storeId])
+  @@index([status,expiresAt])
+}
+
+model StoreOrderCounter {
+  storeId String @id @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  value BigInt @default(0)
+}
+model Order {
+  billingAddress Json?
+  billingAddressSource String @default("SHIPPING_DEFAULT")
+  refunds Refund[]
+  refundedMinor BigInt @default(0)
+  payment PaymentAttempt?
+  couponRedemption CouponRedemption?
+  commands OrderCommand[]
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  customerId String @db.Uuid
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  checkoutId String @db.Uuid
+  checkout Checkout @relation(fields:[checkoutId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  placementKey String
+  placementDigest String
+  number String
+  version Int @default(0)
+  status String @default("PLACED")
+  paymentMethod String @default("COD")
+  paymentStatus String @default("DUE")
+  fulfillmentStatus String @default("UNFULFILLED")
+  contactEmail String
+  contactName String
+  shippingAddress Json
+  shippingMethodName String
+  taxSnapshot Json
+  currencyCode String @db.VarChar(3)
+  subtotalMinor BigInt
+  discountMinor BigInt
+  shippingMinor BigInt
+  taxMinor BigInt
+  shippingTaxMinor BigInt
+  taxInclusive Boolean
+  totalMinor BigInt
+  amountDueMinor BigInt
+  paidMinor BigInt @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items OrderItem[]
+  events OrderEvent[]
+  notifications OrderNotification[]
+  @@unique([id,storeId])
+  @@unique([id,storeId,customerId])
+  @@unique([checkoutId,storeId,customerId])
+  @@unique([storeId,customerId,placementKey])
+  @@unique([storeId,number])
+  @@index([storeId,createdAt])
+  @@index([customerId,storeId,createdAt])
+}
+model OrderItem {
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @db.Uuid
+  storeId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+  variantId String @db.Uuid
+  variant ProductVariant @relation(fields:[variantId,storeId,productId],references:[id,storeId,productId],onDelete:Restrict)
+  productId String @db.Uuid
+  productName String
+  variantName String
+  sku String
+  quantity Int
+  unitPriceMinor BigInt
+  subtotalMinor BigInt
+  discountMinor BigInt
+  taxMinor BigInt
+  @@unique([orderId,variantId])
+}
+model OrderEvent {
+  data Json @default("{}")
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @db.Uuid
+  storeId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+  kind String
+  actorId String @db.Uuid
+  actor Identity @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  createdAt DateTime @default(now())
+  @@index([orderId,createdAt])
+}
+model OrderNotification {
+  deliveryAttempts NotificationAttempt[]
+  leaseToken String? @db.Uuid
+  provider String?
+  providerMessageId String?
+  acceptedAt DateTime?
+  @@unique([id,storeId])
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @db.Uuid
+  storeId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+  kind String
+  key String @unique
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  lockedUntil DateTime?
+  lastErrorCode String?
+  deliveredAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([status,availableAt])
+  @@index([status,lockedUntil])
+}
+
+model OrderCommand {
+  orderId String @db.Uuid
+  storeId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+  key String
+  digest String
+  createdAt DateTime @default(now())
+  @@id([orderId,key])
+}
+
+model DiscountCoupon {
+  holds CouponHold[]
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  code String
+  kind String
+  value BigInt
+  version Int @default(0)
+  active Boolean @default(true)
+  startsAt DateTime?
+  expiresAt DateTime?
+  maxUses Int?
+  perCustomerLimit Int?
+  restoreOnCancellation Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  carts Cart[]
+  redemptions CouponRedemption[]
+  @@unique([id,storeId])
+  @@unique([storeId,code])
+}
+model CouponRedemption {
+  holdId String @db.Uuid
+  hold CouponHold @relation(fields:[holdId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@unique([holdId,storeId])
+  orderId String @id @db.Uuid
+  storeId String @db.Uuid
+  customerId String @db.Uuid
+  order Order @relation(fields:[orderId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+  couponId String @db.Uuid
+  coupon DiscountCoupon @relation(fields:[couponId,storeId],references:[id,storeId],onDelete:Restrict)
+  couponVersion Int
+  discountMinor BigInt
+  restoreOnCancellation Boolean
+  createdAt DateTime @default(now())
+  release CouponRedemptionRelease?
+  @@unique([orderId,storeId])
+  @@unique([orderId,storeId,customerId])
+  @@index([couponId,customerId])
+}
+model CouponRedemptionRelease {
+  @@unique([orderId,storeId])
+  orderId String @id @db.Uuid
+  storeId String @db.Uuid
+  redemption CouponRedemption @relation(fields:[orderId,storeId],references:[orderId,storeId],onDelete:Restrict)
+  reason String
+  createdAt DateTime @default(now())
+}
+
+model CouponHold {
+  id String @id @default(uuid()) @db.Uuid
+  storeId String @db.Uuid
+  customerId String @db.Uuid
+  checkoutId String @db.Uuid
+  checkoutVersion Int
+  checkout Checkout @relation(fields:[checkoutId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+  couponId String @db.Uuid
+  coupon DiscountCoupon @relation(fields:[couponId,storeId],references:[id,storeId],onDelete:Restrict)
+  couponVersion Int
+  restoreOnCancellation Boolean
+  status String @default("HELD")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  closedAt DateTime?
+  redemption CouponRedemption?
+  @@unique([id,storeId])
+  @@unique([checkoutId,checkoutVersion])
+  @@index([couponId,status,expiresAt])
+}
+
+model NotificationAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  identityMailId String? @db.Uuid
+  identityScopeKey String?
+  identityMail IdentityMail? @relation(fields:[identityMailId,identityScopeKey],references:[id,scopeKey],onDelete:Restrict)
+  orderNotificationId String? @db.Uuid
+  storeId String? @db.Uuid
+  orderNotification OrderNotification? @relation(fields:[orderNotificationId,storeId],references:[id,storeId],onDelete:Restrict)
+  paymentNotificationId String? @db.Uuid
+  paymentNotification PaymentNotification? @relation(fields:[paymentNotificationId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@index([paymentNotificationId,storeId])
+  leaseToken String @unique @db.Uuid
+  provider String
+  attemptNumber Int
+  status String @default("SENDING")
+  providerMessageId String?
+  errorCode String?
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  @@index([identityMailId])
+  @@index([orderNotificationId,storeId])
+}
+
+model PaymentAttempt {
+ notifications PaymentNotification[]
+ refunds Refund[]
+ refundedMinor BigInt @default(0)
+ id String @id @default(uuid()) @db.Uuid
+ storeId String @db.Uuid
+ store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+ customerId String @db.Uuid
+ customer Identity @relation(fields:[customerId,storeId],references:[id,customerStoreId],onDelete:Restrict)
+ checkoutId String @db.Uuid
+ checkout Checkout @relation(fields:[checkoutId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+ checkoutVersion Int
+ reservationId String @db.Uuid
+ reservation InventoryReservation @relation(fields:[reservationId,storeId],references:[id,storeId],onDelete:Restrict)
+ key String
+ digest String
+ method String
+ scenario String
+ delaySeconds Int @default(2)
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ status String @default("INITIATING")
+ providerOrderId String?
+ providerPaymentId String?
+ orderId String? @db.Uuid
+ order Order? @relation(fields:[orderId,storeId,customerId],references:[id,storeId,customerId],onDelete:Restrict)
+ reviewCode String?
+ nextReconcileAt DateTime @default(now())
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ observations PaymentObservation[]
+ simulation SimulatedPayment?
+ @@unique([id,storeId])
+ @@unique([id,storeId,method,amountMinor,currencyCode])
+ @@unique([checkoutId,storeId,customerId])
+ @@unique([orderId,storeId,customerId])
+ @@unique([storeId,customerId,key])
+ @@unique([storeId,method,providerOrderId])
+ @@unique([storeId,method,providerPaymentId])
+ @@index([status,nextReconcileAt])
+}
+model PaymentObservation {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ storeId String @db.Uuid
+ method String
+ expectedAmountMinor BigInt
+ expectedCurrencyCode String @db.VarChar(3)
+ attempt PaymentAttempt @relation(fields:[attemptId,storeId,method,expectedAmountMinor,expectedCurrencyCode],references:[id,storeId,method,amountMinor,currencyCode],onDelete:Restrict)
+ eventId String
+ status String
+ providerOrderId String
+ providerPaymentId String?
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ createdAt DateTime @default(now())
+ @@unique([attemptId,eventId])
+ @@index([storeId,createdAt])
+}
+model SimulatedPayment {
+ attemptId String @id @db.Uuid
+ storeId String @db.Uuid
+ method String @default("SIMULATOR")
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ attempt PaymentAttempt @relation(fields:[attemptId,storeId,method,amountMinor,currencyCode],references:[id,storeId,method,amountMinor,currencyCode],onDelete:Restrict)
+ scenario String
+ version Int @default(0)
+ status String @default("PENDING")
+ dueAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ events SimulatedPaymentEvent[]
+ @@unique([attemptId,storeId])
+ @@unique([attemptId,storeId,method,amountMinor,currencyCode])
+ @@index([status,dueAt])
+}
+model SimulatedPaymentEvent {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ storeId String @db.Uuid
+ payment SimulatedPayment @relation(fields:[attemptId,storeId],references:[attemptId,storeId],onDelete:Restrict)
+ key String
+ kind String
+ sequence Int
+ createdAt DateTime @default(now())
+ @@unique([attemptId,key])
+ @@unique([attemptId,sequence])
+}
+
+model Refund {
+ paymentNotifications PaymentNotification[]
+ @@unique([id,storeId,paymentId])
+ id String @id @default(uuid()) @db.Uuid
+ storeId String @db.Uuid
+ store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+ orderId String? @db.Uuid
+ order Order? @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+ actorId String @db.Uuid
+ actor Identity @relation(fields:[actorId],references:[id],onDelete:Restrict)
+ paymentId String? @db.Uuid
+ payment PaymentAttempt? @relation(fields:[paymentId,storeId],references:[id,storeId],onDelete:Restrict)
+ providerRefundId String?
+ simulationScenario String @default("SUCCESS")
+ reviewCode String?
+ nextReconcileAt DateTime @default(now())
+ updatedAt DateTime @default(now()) @updatedAt
+ observations RefundObservation[]
+ simulation SimulatedRefund?
+ method String
+ status String
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ reference String
+ key String
+ digest String
+ createdAt DateTime @default(now())
+ @@unique([id,storeId])
+ @@unique([id,storeId,method,amountMinor,currencyCode])
+ @@unique([storeId,method,providerRefundId])
+ @@index([status,nextReconcileAt])
+ @@index([paymentId,storeId,status])
+ @@unique([storeId,key])
+ @@index([orderId,storeId,createdAt])
+}
+
+model RefundObservation {
+ id String @id @default(uuid()) @db.Uuid
+ refundId String @db.Uuid
+ storeId String @db.Uuid
+ refund Refund @relation(fields:[refundId,storeId],references:[id,storeId],onDelete:Restrict)
+ eventId String
+ status String
+ providerRefundId String
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ createdAt DateTime @default(now())
+ @@unique([refundId,eventId])
+}
+model SimulatedRefund {
+ refundId String @id @db.Uuid
+ storeId String @db.Uuid
+ method String @default("SIMULATOR")
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ refund Refund @relation(fields:[refundId,storeId,method,amountMinor,currencyCode],references:[id,storeId,method,amountMinor,currencyCode],onDelete:Restrict)
+ status String
+ version Int @default(0)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @default(now()) @updatedAt
+ @@unique([refundId,storeId,method,amountMinor,currencyCode])
+}
+
+model PaymentNotification {
+ id String @id @default(uuid()) @db.Uuid
+ paymentId String @db.Uuid
+ storeId String @db.Uuid
+ payment PaymentAttempt @relation(fields:[paymentId,storeId],references:[id,storeId],onDelete:Restrict)
+ refundId String? @db.Uuid
+ refund Refund? @relation(fields:[refundId,storeId,paymentId],references:[id,storeId,paymentId],onDelete:Restrict)
+ kind String
+ key String @unique
+ status String @default("PENDING")
+ attempts Int @default(0)
+ availableAt DateTime @default(now())
+ lockedUntil DateTime?
+ leaseToken String? @db.Uuid
+ provider String?
+ providerMessageId String?
+ acceptedAt DateTime?
+ deliveredAt DateTime?
+ lastErrorCode String?
+ createdAt DateTime @default(now())
+ deliveryAttempts NotificationAttempt[]
+ @@unique([id,storeId])
+ @@unique([refundId,kind])
+ @@index([status,availableAt])
+ @@index([status,lockedUntil])
 }

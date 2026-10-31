@@ -1,0 +1,14 @@
+import {DomainError} from '../../domain/commerce.js';
+import {minorAmount} from '../../pricing/domain/pricing.js';
+import {paymentKey} from '../../payments/domain/payments.js';
+export interface ManualRefundInput {expectedVersion:number;key:string;amountMinor:string;reference:string;confirmation:'CASH_RETURNED';}
+export interface Refund {id:string;storeId:string;orderId:string|null;paymentId:string|null;providerRefundId:string|null;simulationScenario:string;reviewCode:string|null;nextReconcileAt:Date;updatedAt:Date;actorId:string;method:string;status:string;amountMinor:bigint;currencyCode:string;reference:string;key:string;digest:string;createdAt:Date;}
+export function manualRefundInput(input:ManualRefundInput){paymentKey(input.key);if(!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<0||minorAmount(input.amountMinor)<=0n||input.confirmation!=='CASH_RETURNED'||typeof input.reference!=='string'||!input.reference.trim()||input.reference.trim().length>150||/[\x00-\x1f\x7f]/.test(input.reference))throw new DomainError('INVALID','Exact amount, current version and explicit cash-return confirmation/reference required.');return{...input,amountMinor:minorAmount(input.amountMinor).toString(),reference:input.reference.trim()};}
+export function refundProjection(row:Refund,merchant=true){return{id:row.id,orderId:row.orderId,paymentId:row.paymentId,method:row.method,status:row.status,requiresReview:row.status==='REVIEW_REQUIRED',amountMinor:row.amountMinor.toString(),currencyCode:row.currencyCode,createdAt:row.createdAt,updatedAt:row.updatedAt,...(merchant?{reference:row.reference,actorId:row.actorId}:{})};}
+
+export type RefundScenario='SUCCESS'|'FAILURE'|'TIMEOUT';
+export interface ProviderRefundInput {key:string;amountMinor:string;expectedVersion?:number;simulationScenario?:RefundScenario;reference?:string;}
+export type RefundProviderStatus='PROCESSED'|'FAILED'|'PENDING'|'UNKNOWN';
+export interface RefundObservation {eventId:string;status:RefundProviderStatus;providerRefundId:string;amountMinor:string;currencyCode:string;}
+export interface RefundRequest extends Refund {providerPaymentId:string;}
+export function providerRefundInput(input:ProviderRefundInput){paymentKey(input.key);const amount=minorAmount(input.amountMinor);if(amount<=0n||input.expectedVersion!==undefined&&(!Number.isInteger(input.expectedVersion)||input.expectedVersion<0)||input.simulationScenario!==undefined&&!['SUCCESS','FAILURE','TIMEOUT'].includes(input.simulationScenario)||input.reference!==undefined&&(typeof input.reference!=='string'||input.reference.length>150||/[\x00-\x1f\x7f]/.test(input.reference)))throw new DomainError('INVALID','Invalid provider refund request.');return{...input,amountMinor:amount.toString(),simulationScenario:input.simulationScenario??'SUCCESS',reference:(input.reference??'').trim()};}

@@ -75,7 +75,8 @@ variables take precedence. Never commit real connection URLs or credentials.
 | `NODE_ENV` | Explicit `development` or `test`; unknown/unset values fail. Production always refuses startup pending real authentication. |
 | `DATA_DRIVER` | `memory` (default) or `postgres`; unknown drivers fail. |
 | `DEMO_AUTH_ENABLED` | `true` or `false`; demo headers accepted only with `true` and `NODE_ENV=development`. |
-| `DATABASE_URL` | PostgreSQL URL required in postgres mode and by Prisma CLI. Adapter honors its `schema` parameter. |
+| `DATABASE_URL` | PostgreSQL URL required in postgres mode and by Prisma CLI. Only the public schema is supported; other/empty schema parameters fail startup. |
+| `AUTH_OUTBOX_KEY` | Required in PostgreSQL mode: securely provisioned32byte lowercase hex encryption key. Missing/invalid fails startup; preserve it for queued mail. |
 | `PORT` | Integer 1–65535, default 3000; server binds only to `127.0.0.1`. |
 | `CORS_ORIGINS` | Comma-separated exact HTTP(S) origins, default `http://localhost:5173`; wildcards and paths rejected. |
 
@@ -101,11 +102,37 @@ headers, request bodies, SQL parameters or credential-bearing connection URLs.
 
 A production build is a compilation check, **not deployment authorization**.
 Phase 0 intentionally refuses production startup. Before any production exposure,
-implement and review real merchant authentication/authorization in an approved
-later phase, remove demo access through that reviewed design, configure TLS,
+review the implemented first-party merchant/customer authentication, permissions
+and complete financial/concurrency acceptance, remove demo access, configure TLS,
 network isolation, secret management, database backups/restores, least-privilege
 roles, monitoring and deployment migration procedures. CORS is not authentication.
 A demo subject header can impersonate merchants and must remain local development
-only. No payments, React implementation or additional microservices are included.
+only. COD/development simulation and provider boundaries are implemented; real provider
+acceptance is not verified. No React or additional microservice is included.
 
-Do not merge or begin Phase 1 until Phase 0's PR and verification are reviewed.
+Phase0 is merged. Full backend PR2 remains draft; do not merge/deploy automatically.
+Run the complete demo as documented in LOCAL_DEVELOPMENT.md before acceptance.
+
+## Notification provider prerequisites (not a production release)
+
+Use NOTIFICATION_PROVIDER=ses only with an owned SES account/region, a verified
+SES_FROM_EMAIL, SES_REGION and explicitly configured HTTPS MERCHANT_APP_URL and
+STOREFRONT_APP_URL. SES_CONFIGURATION_SET is optional. Credentials use the AWS SDK
+credential chain; keep them server-side and grant only required sending permissions.
+Invalid/missing provider configuration fails startup; there is no local fallback.
+SDK retries are disabled because SES SendEmail has no application idempotency promise.
+A timeout/uncertain outcome is UNKNOWN, not a retryable failure. Reconcile provider
+history before any operator-authorized replacement intent; this implementation does
+not expose a dangerous automatic requeue endpoint. Provider accepted is not delivered.
+Live SES sandbox recipient verification, sender/domain reputation, bounce/complaint
+handling, privacy/retention and security acceptance remain unverified release gates.
+Production runtime remains disabled. Local adapter contract fakes are not live SES.
+
+Upload cleanup requires the storage provider/bucket/root that owns the recorded keys.
+Use private S3 access, reviewed version/lifecycle and abandoned-upload rules; deletion
+acceptance is not a verified permanent-erasure guarantee. Test actual owned S3 behavior
+before release. The worker preserves complete media and all personal/financial/audit
+history; legal retention/deletion periods need a separately approved policy. Maintain
+sufficient shutdown grace for bounded provider I/O and database work (at least30seconds
+for the current10second provider timeout plus active work); no production deploy is
+being authorized by these prerequisites.

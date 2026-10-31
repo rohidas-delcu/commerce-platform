@@ -16,7 +16,9 @@ test('PostgreSQL constraints enforce tenant references, uniqueness, exact money 
     await client.query('ROLLBACK TO SAVEPOINT invalid');
   }
   try {
-    for (const id of [s, other]) await client.query('INSERT INTO "Store" (id,"ownerSubjectId",name,handle,"updatedAt") VALUES ($1,$2,$3,$4,NOW())', [id, 'schema-test', 'Store', id]);
+    const merchant=randomUUID();
+    await client.query('INSERT INTO "MerchantAccount" (id,name,status) VALUES ($1,$2,$3)',[merchant,'Constraint fixture','QUARANTINED']);
+    for (const id of [s, other]) await client.query('INSERT INTO "Store" (id,"ownerSubjectId",name,handle,"merchantId","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())', [id, 'schema-test', 'Store', id,merchant]);
     await client.query('INSERT INTO "Product" (id,"storeId",name,handle,"priceMinor","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())', [p, s, 'Bag', 'bag', '999999999999999999']);
     assert.equal((await client.query('SELECT version FROM "Product" WHERE id=$1', [p])).rows[0].version, 0);
     await rejected('UPDATE "Product" SET "compareMinor"=1 WHERE id=$1', [p], '23514');
@@ -25,7 +27,14 @@ test('PostgreSQL constraints enforce tenant references, uniqueness, exact money 
     await client.query('INSERT INTO "ProductVariant" (id,"storeId","productId",name,sku,stock) VALUES ($1,$2,$3,$4,$5,10)', [v, s, p, 'Black', 'SCHEMA-1']);
     await rejected('INSERT INTO "ProductVariant" (id,"storeId","productId",name,sku) VALUES ($1,$2,$3,$4,$5)', [randomUUID(), s, p, 'White', 'SCHEMA-1'], '23505');
     await rejected('UPDATE "ProductVariant" SET "storeId"=$1 WHERE id=$2', [other, v], '23503');
+    const collectionId=randomUUID();
+    await client.query('INSERT INTO "Collection" (id,"storeId",name,handle) VALUES ($1,$2,$3,$4)',[collectionId,other,'Foreign collection','foreign-collection']);
+    await rejected('INSERT INTO "CollectionProduct" ("collectionId","productId","storeId") VALUES ($1,$2,$3)',[collectionId,p,s],'23503');
+    await rejected('UPDATE "Collection" SET position=-1 WHERE id=$1',[collectionId],'23514');
     await rejected('UPDATE "ProductVariant" SET stock=-1 WHERE id=$1', [v], '23514');
+    await rejected('UPDATE "ProductVariant" SET "priceMinor"=0 WHERE id=$1',[v],'23514');
+    await rejected('UPDATE "ProductVariant" SET "compareMinor"=100 WHERE id=$1',[v],'23514');
+    await rejected('UPDATE "ProductVariant" SET options=$1::jsonb WHERE id=$2',[JSON.stringify({Color:123}),v],'23514');
     await rejected('UPDATE "Product" SET "priceMinor"=0 WHERE id=$1', [p], '23514');
     await rejected('INSERT INTO "InventoryMovement" (id,"storeId","variantId","before","after",delta,reason,"actorSubjectId") VALUES ($1,$2,$3,10,15,5,$4,$5)', [randomUUID(), other, v, 'RECEIVED', 'schema-test'], '23503');
     await rejected('INSERT INTO "InventoryMovement" (id,"storeId","variantId","before","after",delta,reason,"actorSubjectId") VALUES ($1,$2,$3,10,15,4,$4,$5)', [randomUUID(), s, v, 'RECEIVED', 'schema-test'], '23514');

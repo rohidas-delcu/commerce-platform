@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from "@nestjs/common";
+import { IdentityError } from "../identity/domain/identity.js";
 import { DomainError } from "../domain/commerce.js";
 
 const statusByCode = { INVALID: 400, CONFLICT: 409, NOT_FOUND: 404, FORBIDDEN: 403 };
@@ -11,11 +12,11 @@ const codeByStatus: Record<number, string> = {
 @Catch()
 export class DomainErrorFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
-    const status = error instanceof DomainError ? statusByCode[error.code]
+    const status = error instanceof IdentityError ? error.status : error instanceof DomainError ? statusByCode[error.code]
       : error instanceof HttpException ? error.getStatus() : 500;
     const code = error instanceof DomainError ? error.code : codeByStatus[status] ?? 'INTERNAL';
     let message: string | string[] = 'Internal server error.';
-    if (status < 500 && error instanceof DomainError) message = error.message;
+    if (status < 500 && (error instanceof DomainError || error instanceof IdentityError)) message = error.message;
     else if (error instanceof HttpException && status < 500) {
       const response = error.getResponse();
       message = typeof response === 'string' ? response

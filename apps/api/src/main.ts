@@ -18,11 +18,11 @@ async function bootstrap() {
     app.enableShutdownHooks();
     app.useGlobalFilters(new DomainErrorFilter());
     app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
-    app.enableCors({ origin: config.origins });
+    app.enableCors({ origin: config.origins, credentials:true });
 
     const swagger = new DocumentBuilder().setTitle("Commerce Platform API")
-      .setDescription("Milestone 1 local development API — not for production merchant authentication.")
-      .setVersion("0.1.0").build();
+      .setDescription("Incremental headless commerce backend — development only until all acceptance gates pass.")
+      .setVersion("0.1.0").addCookieAuth("delcu_session", {type:"apiKey",in:"cookie"}, "merchantSession").addCookieAuth('delcu_customer_<storeId>',{type:'apiKey',in:'cookie',description:'Host-only cookie scoped to the resolved store; customer and merchant credentials are separate.'},'customerSession').build();
     SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
 
     const port = config.port;

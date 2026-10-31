@@ -6,7 +6,7 @@ export function readRuntimeConfig() {
     throw new ConfigurationError('NODE_ENV must be development, test or production.');
   }
   if (mode === 'production') {
-    throw new ConfigurationError('Production mode requires real merchant authentication; Phase 0 is development-only.');
+    throw new ConfigurationError('Production mode is disabled until backend acceptance and security review pass.');
   }
   const driver = process.env.DATA_DRIVER ?? 'memory';
   if (driver !== 'memory' && driver !== 'postgres') {
@@ -19,9 +19,11 @@ export function readRuntimeConfig() {
     try {
       const url = new URL(process.env.DATABASE_URL ?? '');
       if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || url.pathname === '/') throw new Error();
+      if(url.searchParams.has('schema')&&url.searchParams.get('schema')!=='public')throw new Error();
     } catch {
-      throw new ConfigurationError('A PostgreSQL DATABASE_URL is required for DATA_DRIVER=postgres.');
+      throw new ConfigurationError('A PostgreSQL DATABASE_URL using the public schema is required for DATA_DRIVER=postgres.');
     }
+    if(!/^[a-f0-9]{64}$/.test(process.env.AUTH_OUTBOX_KEY??''))throw new ConfigurationError('AUTH_OUTBOX_KEY must be a securely provisioned 32-byte hex key for PostgreSQL mode.');
   }
   const rawPort = process.env.PORT ?? '3000';
   const port = Number(rawPort);
