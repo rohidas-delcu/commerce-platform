@@ -1,3 +1,4 @@
+import {CleanupService} from '../operations/application/cleanup.service.js';
 import {RefundModule} from '../refunds/refunds.module.js';
 import {RefundService} from '../refunds/application/refunds.service.js';
 import {PaymentModule} from '../payments/payments.module.js';
@@ -23,19 +24,19 @@ export function notificationTransport(){
 // Runs in the same modular monolith. Disabled by default; no transport call at startup.
 export class NotificationWorker {
   private timer?:ReturnType<typeof setInterval>;private active?:Promise<unknown>;
-  constructor(private service:NotificationService,private maintenance?:MaintenanceService,private payments?:PaymentService,private refunds?:RefundService){}
+  constructor(private service:NotificationService,private maintenance?:MaintenanceService,private payments?:PaymentService,private refunds?:RefundService,private cleanup?:CleanupService){}
   onModuleInit(){
     const enabled=process.env.COMMERCE_WORKER_ENABLED??'false';if(!['true','false'].includes(enabled))throw new Error('COMMERCE_WORKER_ENABLED must be true or false.');
     if(enabled==='true'){
       if(process.env.DATA_DRIVER!=='postgres')throw new Error('Commerce worker requires PostgreSQL.');
-      this.timer=setInterval(()=>{if(!this.active)this.active=(async()=>{await this.maintenance?.runOnce();await this.payments?.runOnce();await this.refunds?.runOnce();return this.service.runOnce();})().catch(()=>Logger.error({event:'commerce_worker_failed'},undefined,'Notifications')).finally(()=>{this.active=undefined;});},1000);this.timer.unref();
+      this.timer=setInterval(()=>{if(!this.active)this.active=(async()=>{await this.maintenance?.runOnce();await this.payments?.runOnce();await this.refunds?.runOnce();const mail=await this.service.runOnce();await this.cleanup?.runOnce();return mail;})().catch(()=>Logger.error({event:'commerce_worker_failed'},undefined,'Notifications')).finally(()=>{this.active=undefined;});},1000);this.timer.unref();
     }
   }
-  async onModuleDestroy(){if(this.timer)clearInterval(this.timer);await this.active;await this.refunds?.close();await this.payments?.close();await this.maintenance?.close();await this.service.close();}
+  async onModuleDestroy(){if(this.timer)clearInterval(this.timer);await this.active;await this.cleanup?.close();await this.refunds?.close();await this.payments?.close();await this.maintenance?.close();await this.service.close();}
 }
 @Module({imports:[OperationsModule,PaymentModule,RefundModule],exports:[NotificationService],providers:[
   {provide:PrismaNotificationRepository,useFactory:()=>new PrismaNotificationRepository()},
   {provide:NotificationService,useFactory:(repository:PrismaNotificationRepository)=>new NotificationService(repository,notificationTransport(),{decrypt:decryptMail,digest},new ConfiguredNotificationLinks()),inject:[PrismaNotificationRepository]},
-  {provide:NotificationWorker,useFactory:(service:NotificationService,maintenance:MaintenanceService,payments:PaymentService,refunds:RefundService)=>new NotificationWorker(service,maintenance,payments,refunds),inject:[NotificationService,MaintenanceService,PaymentService,RefundService]}
+  {provide:NotificationWorker,useFactory:(service:NotificationService,maintenance:MaintenanceService,payments:PaymentService,refunds:RefundService,cleanup:CleanupService)=>new NotificationWorker(service,maintenance,payments,refunds,cleanup),inject:[NotificationService,MaintenanceService,PaymentService,RefundService,CleanupService]}
 ]})
 export class NotificationModule{}

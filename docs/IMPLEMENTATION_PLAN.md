@@ -126,3 +126,9 @@ The Razorpay candidate's scoped transport/signature/payment/refund contracts now
 fake HTTP and PostgreSQL receipt/dedup verification. Runtime gateway selection remains
 disabled pending the documented ownership/adoption/wiring/sandbox/security gates.
 Next: safe expired-upload/tombstone cleanup, executable full backend demo and final audit.
+
+Expired pending uploads/tombstones now have verified bounded/fenced cleanup with
+complete/ref protection and no personal/financial history purge. Contract audit found
+billing-address support missing from the approved backend requirements: implement its
+resumable validation/default provenance/immutable snapshots before the complete demo
+and final acceptance report. Real provider/retention policy gates remain explicit.

@@ -161,3 +161,10 @@ documented refund endpoints, no POST retry and no secret/error-body disclosure.
 A PostgreSQL/HTTP fixture verifies disabled gateway selection, immutable/deduplicated
 capture/refund receipts and exact financial balances with no phantom order/stock
 commitment. These are not actual provider sandbox/network/settlement tests.
+
+Cleanup tests use real HTTP uploads and local bytes with PostgreSQL fenced metadata:
+expired pending reclamation, complete/referenced/grace preservation, closed-store work,
+competing workers, provider failure backoff, stale acknowledgement rejection and no
+public re-upload after tombstoning. Unit races verify a late local PUT cannot recreate
+deleted bytes and a valid concurrent completion is preserved. S3 deletion remains a
+non-live SDK boundary check; versioned-object erasure is not claimed.

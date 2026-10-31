@@ -13,7 +13,7 @@ export class MediaService {
     if(!asset||asset.provider!=='local'||asset.status!=='PENDING'||asset.expiresAt<=new Date()||!/^[A-Za-z0-9_-]{43}$/.test(token)||!timingSafeEqual(hashed,Buffer.from(asset.tokenDigest,'hex')))throw new DomainError('FORBIDDEN','Invalid or expired upload capability.');
     return asset;
   }
-  async put(asset:MediaAsset,bytes:Uint8Array){await this.storage.put(asset,bytes);}
+  async put(asset:MediaAsset,bytes:Uint8Array){await this.storage.put(asset,bytes);const current=await this.repo.media.asset(asset.id);if(!current||current.status==='DELETED'||current.status==='PENDING'&&current.expiresAt<=new Date()){await this.storage.remove(asset,AbortSignal.timeout(10000));throw new DomainError('CONFLICT','Upload reservation expired or was deleted.');}}
   async publicRead(id:string){
     const asset=await this.repo.media.asset(id);if(!asset||asset.status!=='COMPLETE')throw new DomainError('NOT_FOUND','Image not found.');
     const store=await this.repo.findStoreById(asset.storeId);if(!store)throw new DomainError('NOT_FOUND','Image not found.');

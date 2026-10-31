@@ -1,3 +1,4 @@
+import {mediaAsset} from './media.mapper.js';
 import type {PrismaClient,Prisma} from '../../generated/prisma/client.js';
 import {DomainError} from '../../domain/commerce.js';
 import type {MediaAsset,ProductImage} from '../domain/media.js';
@@ -5,17 +6,17 @@ import type {MediaRepositoryPort} from '../application/media.port.js';
 export class PrismaMediaRepository implements MediaRepositoryPort {
   constructor(private db:PrismaClient|Prisma.TransactionClient){}
   private transaction<T>(work:(tx:Prisma.TransactionClient)=>Promise<T>){return '$transaction'in this.db?this.db.$transaction(work):work(this.db);}
-  async reserve(asset:MediaAsset){const row=await this.db.mediaAsset.create({data:asset});return{...row,status:row.status as MediaAsset['status']};}
-  async asset(id:string){const row=await this.db.mediaAsset.findUnique({where:{id}});return row?{...row,status:row.status as MediaAsset['status']}:null;}
+  async reserve(asset:MediaAsset){const row=await this.db.mediaAsset.create({data:asset});return mediaAsset(row);}
+  async asset(id:string){const row=await this.db.mediaAsset.findUnique({where:{id}});return row?mediaAsset(row):null;}
   async complete(storeId:string,id:string){
     await this.db.mediaAsset.updateMany({where:{id,storeId,status:'PENDING',expiresAt:{gt:new Date()}},data:{status:'COMPLETE'}});
-    const row=await this.db.mediaAsset.findFirst({where:{id,storeId,status:'COMPLETE'}});if(!row)throw new DomainError('CONFLICT','Upload is expired, missing or deleted.');return{...row,status:row.status as MediaAsset['status']};
+    const row=await this.db.mediaAsset.findFirst({where:{id,storeId,status:'COMPLETE'}});if(!row)throw new DomainError('CONFLICT','Upload is expired, missing or deleted.');return mediaAsset(row);
   }
   async remove(storeId:string,id:string){return this.transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "MediaAsset" WHERE id=${id}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;
     const row=await tx.mediaAsset.findFirst({where:{id,storeId}});if(!row)throw new DomainError('NOT_FOUND','Asset not found.');
     if(await tx.productMedia.count({where:{assetId:id,storeId}})||await tx.store.count({where:{id:storeId,logoAssetId:id}}))throw new DomainError('CONFLICT','Detach referenced images or store logo before deleting an asset.');
-    const saved=await tx.mediaAsset.update({where:{id},data:{status:'DELETED'}});return{...saved,status:saved.status as MediaAsset['status']};
+    const saved=await tx.mediaAsset.update({where:{id},data:{status:'DELETED'}});return mediaAsset(saved);
   });}
   async setImages(storeId:string,productId:string,images:ProductImage[],version:number){await this.transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${productId}::uuid AND "storeId"=${storeId}::uuid FOR UPDATE`;

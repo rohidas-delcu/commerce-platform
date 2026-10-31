@@ -177,3 +177,10 @@ scoped test-only transport/signature boundary. They are deliberately not selecte
 AppModule or HTTP checkout. Deterministic HTTP fakes and PostgreSQL persistence fixtures
 verify reference/amount/authenticity and durable financial observation contracts while
 unverified gateway order placement remains rejected. See PAYMENT_PROVIDER_BOUNDARY.md.
+
+CleanupService runs bounded expired-upload/tombstone reconciliation through a repository
+port and the existing ObjectStoragePort. It shares media removal/ref checks, adds fenced
+metadata retry/acknowledgement and keeps provider I/O outside database locks. The worker
+runs cleanup after financially important reconciliation/mail. Media domain mapping
+excludes internal cleanup leases from API responses. No account/financial/audit purge
+or automatic deletion of complete unlinked library assets is implemented.

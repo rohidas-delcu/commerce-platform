@@ -306,3 +306,18 @@ This is a candidate, not production-provider approval or verified sandbox settle
 Owned account configuration, encrypted registry/rotation, ingress/creation-claim wiring,
 sandbox checks and security acceptance are activation gates. The default API stays
 COD/SIMULATOR. See PAYMENT_PROVIDER_BOUNDARY.md for source, tradeoffs and exact limits.
+
+## Expired upload and tombstone cleanup (implementation, 2026-10-31)
+
+Reclaim only PENDING uploads at least10minutes past their capability deadline and
+already-DELETED objects in the selected provider. Complete media remains retained,
+including unlinked library assets; references are checked again under account/store/
+asset locks through the existing media deletion contract. No financial, identity or
+security history is purged and no legal personal-data retention period is adopted.
+
+Commit a tombstone and five-minute fenced retry lease before bounded provider I/O.
+Only the current lease can acknowledge accepted deletion; failures stay private and
+back off. Recheck accepted tombstones daily for late direct uploads. A local PUT that
+finishes after deletion removes its bytes; a concurrent valid completion is preserved.
+S3 acceptance does not prove permanent version erasure: private-bucket/lifecycle/version
+policies and real provider checks remain deployment prerequisites.

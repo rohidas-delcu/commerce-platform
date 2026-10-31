@@ -124,3 +124,12 @@ not expose a dangerous automatic requeue endpoint. Provider accepted is not deli
 Live SES sandbox recipient verification, sender/domain reputation, bounce/complaint
 handling, privacy/retention and security acceptance remain unverified release gates.
 Production runtime remains disabled. Local adapter contract fakes are not live SES.
+
+Upload cleanup requires the storage provider/bucket/root that owns the recorded keys.
+Use private S3 access, reviewed version/lifecycle and abandoned-upload rules; deletion
+acceptance is not a verified permanent-erasure guarantee. Test actual owned S3 behavior
+before release. The worker preserves complete media and all personal/financial/audit
+history; legal retention/deletion periods need a separately approved policy. Maintain
+sufficient shutdown grace for bounded provider I/O and database work (at least30seconds
+for the current10second provider timeout plus active work); no production deploy is
+being authorized by these prerequisites.

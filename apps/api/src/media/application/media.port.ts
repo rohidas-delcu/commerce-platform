@@ -14,6 +14,6 @@ export interface ObjectStoragePort {
   uploadPlan(asset:MediaAsset,token:string):Promise<UploadPlan>;
   put(asset:MediaAsset,bytes:Uint8Array):Promise<void>;
   read(asset:MediaAsset):Promise<Uint8Array>;
-  remove(asset:MediaAsset):Promise<void>;
+  remove(asset:MediaAsset,signal?:AbortSignal):Promise<void>;
 }
 export const OBJECT_STORAGE=Symbol('OBJECT_STORAGE');

@@ -143,14 +143,20 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   Gateway HTTP selection/ingress remain disabled. See PAYMENT_PROVIDER_BOUNDARY.md
   for adoption/registry/creation-claim/sandbox/security gates; not production approval.
 
+- Cleanup: bounded expired pending/tombstoned object reconciliation with private
+  metadata, shared reference guards, retry leases/backoff, stale-worker fencing and
+  daily rechecks. Complete/unlinked library assets and all financial/security history
+  stay retained. Local upload/delete races are covered; live S3/lifecycle erasure is
+  not verified. No legal data-retention policy has been silently adopted.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 60 passed, 0 failed/skipped.
+- `pnpm test`: 62 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 30 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 31 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not30 independent purchase flows.
+  and SQL checks; these totals include shared suites, not31 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -165,7 +171,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   the locked dependency tree. This does not replace security review.
 - Frozen dependency install passed using `/workspace/.pnpm-store`; `pnpm audit --prod`
   reported no known vulnerabilities with the SES SDK dependency included.
-- Prisma validation/generation, deployment/repeat/status/drift passed with25 migrations.
+- Prisma validation/generation, deployment/repeat/status/drift passed with26 migrations.
 - Targeted notification HTTP/PostgreSQL suite passed, including forced acknowledgement
   rollback after file acceptance, concurrent claims, unknown/late receipts, capped retries,
   exact receipt money, private note exclusion, dispatch references and tenant attempt FKs.
@@ -180,7 +186,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   scoped reads, price tampering, cart/checkout locks, exact paid order/delivery,
   failure, timeout, delayed worker success, expired-hold late capture, mismatched
   observations, forced order-insert rollback after capture and safe retry.
-- Full regression on current code:60 unit,4 memory HTTP and30 PostgreSQL tests passed;
+- Full regression on current code:62 unit,4 memory HTTP and31 PostgreSQL tests passed;
   typecheck and production build passed; no skipped or failed tests in these runs.
   An earlier ad-hoc parallel PostgreSQL invocation hit shared loopback rate limits;
   corrected sequential targeted/full executions passed. Do not weaken those limits.
@@ -215,24 +221,28 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   capture/refund history and keep unverified HTTP gateway checkout disabled. These are
   adapter contracts, not live provider or sandbox acceptance. Schema remains the
   verified25-migration schema; no dependency/lockfile change in this slice.
-- Latest pushed implementation before this candidate-boundary checkpoint:
-  `e63a420fd2ee70879d0d041729a2f6ad891c2dde` (payment notices), Actions SUCCESS:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41169866692
-  Candidate-boundary local evidence above is current; inspect its CI after push.
+- Cleanup full checks passed:62 unit/4 memory HTTP/31 PostgreSQL, typecheck/build,
+  Prisma generation/validation,26 migrations, populated upgrade/repeat/status/drift,
+  and empty cleanup CLI. Real HTTP/local-file tests preserve referenced/complete/grace
+  assets, reclaim expired/tombstoned keys, fence retries and keep deletion private.
+- Latest pushed implementation before this cleanup checkpoint:
+  `859e80181a09faed04ebf6871eaba17199869f51` (Razorpay candidate), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41171236840
+  Cleanup local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit/push the verified candidate boundary and inspect remote CI.
-2. Exact next implementation task: safe bounded cleanup of expired upload reservations
-   and already-tombstoned bytes, through existing media/storage contracts; preserve
-   referenced/complete media and all financial/security history. Do not invent a legal
-   personal-data deletion policy. Document production retention/lifecycle prerequisites.
-3. Deterministic seed and executable complete simulated-payment/fulfillment backend
-   demo, CI demo execution, remaining contract audit and final acceptance/report.
-4. Real S3/SES/Razorpay acceptance needs owned configuration/credentials. Razorpay
-   adoption/registry/ingress/non-idempotent creation-claim wiring and sandbox/security
-   remain explicit activation gates; see PAYMENT_PROVIDER_BOUNDARY.md. No React,
-   automatic merge or production deployment.
+1. Commit/push verified cleanup and inspect remote CI.
+2. Exact next implementation task: fix the confirmed billing-address requirement
+   gap (BACKEND_REQUIREMENTS.md section10). Add validated resumable checkout billing,
+   explicit shipping-default vs customer-provided provenance and immutable order
+   snapshots. Preserve existing order IDs/money and label historical shipping defaults;
+   verify migration/backfill and COD/SIMULATOR receipts, privacy and concurrency guards.
+3. Deterministic seed/executable complete backend demo and CI demo execution, then
+   remaining contract/environment audit and final acceptance/report.
+4. Owned S3/SES/Razorpay configuration and provider adoption/activation/sandbox/security
+   gates remain external limits. Legal personal/financial retention needs policy review;
+   no automatic purge is implemented. No React, merge or production deployment.
 
 ## Explicit limits and release gates
 
@@ -252,7 +262,8 @@ remain unavailable. Merchant business mutations remain subject to store/account 
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261031103000_payment_notifications` (scoped failure/review/refund notices and exclusive-source attempts),
+Migration history now includes `20261031104000_media_cleanup` (private cleanup leases/check timestamps),
+`20261031103000_payment_notifications` (scoped failure/review/refund notices and exclusive-source attempts),
 `20261031102000_provider_refunds` (pending budgets, observed receipts and exact provider/order balances),
 `20261031101000_manual_cod_refunds` (immutable cash-return ledger and gross/refunded balance constraints),
 `20261031100000_development_payments` (durable intents, simulator/event history and matching-paid-order constraints),

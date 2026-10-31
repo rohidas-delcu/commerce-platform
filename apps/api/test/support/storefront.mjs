@@ -33,5 +33,5 @@ export async function storefrontFixture(t){
   }
   async function cart(browser,store,quantity=1){const created=await request(browser,store.root+'/cart','POST');assert.equal(created.status,201);const result=await request(browser,store.root+'/cart/items/'+store.variantId,'PUT',{expectedVersion:created.body.version,quantity});assert.equal(result.status,200);return result.body;}
   async function checkout(browser,store){const current=await request(browser,store.root+'/cart'),started=await request(browser,store.root+'/customer/checkouts','POST',{cartId:current.body.id,expectedCartVersion:current.body.version},{'idempotency-key':randomUUID()});assert.equal(started.status,201,JSON.stringify(started.body));const path=store.root+'/customer/checkouts/'+started.body.id;const configured=await request(browser,path,'PATCH',{expectedVersion:0,shippingAddress:fixtureAddress,shippingMethodId:'standard'});assert.equal(configured.status,200);return{path,id:started.body.id,version:configured.body.version};}
-  return{db,request,register,store,cart,checkout,base,logs:()=>logs};
+  return{db,mediaDir,request,register,store,cart,checkout,base,logs:()=>logs};
 }

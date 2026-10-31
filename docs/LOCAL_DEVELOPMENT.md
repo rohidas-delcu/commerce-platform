@@ -100,3 +100,13 @@ blocked, and suspended accounts do not regain authority through this scope.
 To target one payment notice after build: `pnpm worker:once payment <PaymentNotification UUID>`.
 Failure/review/no-order-refund mail uses the same private mailbox and safe delivery
 semantics; it never exposes merchant references or treats a client callback as proof.
+
+## Upload cleanup
+
+After generation/migration/build, `DATA_DRIVER=postgres pnpm worker:once cleanup [store UUID]`
+processes up to5 due objects in the selected storage provider. Opt-in background work
+also runs it after expiry/payment/refund/mail. Expired pending uploads have a10minute
+grace; failed deletes back off5minutes. Accepted tombstones are rechecked daily for
+late writes, without making them public. Referenced and complete objects remain;
+complete unlinked assets require explicit merchant deletion. Accepted means the
+selected provider accepted removal, not erasure of versioned S3 backups.

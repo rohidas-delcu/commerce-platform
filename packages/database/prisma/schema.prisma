@@ -330,6 +330,10 @@ model CollectionProduct {
 }
 
 model MediaAsset {
+  cleanupAfter DateTime @default(now())
+  cleanupCheckedAt DateTime?
+  cleanupLease String? @db.Uuid
+  @@index([provider,status,cleanupAfter])
   logoStores Store[] @relation("StoreLogo")
   id String @id @db.Uuid
   storeId String @db.Uuid

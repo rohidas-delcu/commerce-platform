@@ -15,12 +15,12 @@ export class S3ObjectStorage implements ObjectStoragePort {
   }
   async put(_asset:MediaAsset,_bytes:Uint8Array):Promise<void>{throw new Error('S3 uploads must use the signed upload plan.');}
   async read(asset:MediaAsset){
-    const result=await this.client.send(new GetObjectCommand({Bucket:this.bucket,Key:this.key(asset),ChecksumMode:'ENABLED'}));
+    const result=await this.client.send(new GetObjectCommand({Bucket:this.bucket,Key:this.key(asset),ChecksumMode:'ENABLED'}),{abortSignal:AbortSignal.timeout(10000)});
     if(!result.Body)throw new DomainError('NOT_FOUND','Object unavailable.');
     const parts:Uint8Array[]=[];let size=0;
     for await(const chunk of result.Body as AsyncIterable<Uint8Array>){size+=chunk.length;if(size>MAX_IMAGE_BYTES)throw new DomainError('INVALID','Object exceeds size limit.');parts.push(chunk);}
     const bytes=Buffer.concat(parts);imageBytes(bytes,asset);await verifyRaster(bytes,asset.contentType,asset.checksum);
     if(result.ContentType!==asset.contentType||result.ChecksumSHA256!==Buffer.from(asset.checksum,'hex').toString('base64'))throw new DomainError('INVALID','Object metadata or verified S3 checksum does not match.');return bytes;
   }
-  async remove(asset:MediaAsset){await this.client.send(new DeleteObjectCommand({Bucket:this.bucket,Key:this.key(asset)}));}
+  async remove(asset:MediaAsset,signal?:AbortSignal){await this.client.send(new DeleteObjectCommand({Bucket:this.bucket,Key:this.key(asset)}),{abortSignal:signal??AbortSignal.timeout(10000)});}
 }
