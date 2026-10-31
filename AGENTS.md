@@ -1,5 +1,7 @@
 # Agent handoff — Commerce Platform
 
+> **Newest user-directed change (2026-10-31):** Before further commerce features, improve frontend maintainability. Use Prettier/ESLint with CI gates, separate merchant/storefront feature modules, and TanStack Router (no `react-router-dom`). The work is isolated on `feature/commerce-code-quality`, stacked on Phase 4 browser PR #5. Read `docs/CODE_QUALITY.md`; do not merge/deploy without the full verification and review. The historical branch rules below describe earlier phases.
+
 ## Read first
 
 1. `docs/IMPLEMENTATION_STATUS.md` — evidence, blockers and exact next task.

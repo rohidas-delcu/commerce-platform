@@ -19,6 +19,9 @@
     "test:storefront": "pnpm --filter @commerce/storefront test",
     "test:browser": "playwright test",
     "typecheck:browser": "tsc --project tests/browser/tsconfig.json",
+    "format": "prettier --write 'apps/{admin,storefront}/src/**/*.{ts,tsx,css}'",
+    "format:check": "prettier --check 'apps/{admin,storefront}/src/**/*.{ts,tsx,css}'",
+    "lint": "eslint apps/admin/src apps/storefront/src",
     "build": "pnpm --filter @commerce/api build",
     "typecheck": "pnpm --filter @commerce/database typecheck && pnpm --filter @commerce/api typecheck",
     "test": "tsx --tsconfig apps/api/tsconfig.json --test apps/api/test/*.test.mjs",
@@ -37,12 +40,17 @@
     "demo:backend": "pnpm dev:setup && pnpm db:generate && pnpm build && node apps/api/scripts/demo-backend.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
     "@types/node": "^24.19.2",
     "dotenv": "^17.0.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.10",
     "prisma": "^7.0.0",
     "tsx": "^4.23.15",
     "turbo": "^2.5.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.1"
   }
 }
