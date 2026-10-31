@@ -1,3 +1,4 @@
+import {MaintenanceService} from './operations/application/maintenance.service.js';
 import 'reflect-metadata';
 import 'dotenv/config';
 import {NestFactory} from '@nestjs/core';
@@ -9,8 +10,10 @@ import type {NotificationSelector} from './notifications/application/notificatio
 async function main(){
   readRuntimeConfig();process.env.COMMERCE_WORKER_ENABLED='false';
   const args=process.argv.slice(2);let only:NotificationSelector|undefined;
-  if(args.length){if(args.length!==2||!['identity','order'].includes(args[0])||!/^[a-f0-9-]{36}$/i.test(args[1]))throw new Error('Expected optional source and notification UUID.');only={source:args[0] as NotificationSelector['source'],id:args[1]};}
+  const maintenance=args[0]==='maintenance';
+  if(maintenance){if(args.length>2)throw new Error('Expected optional store UUID.');}
+  else if(args.length){if(args.length!==2||!['identity','order'].includes(args[0])||!/^[a-f0-9-]{36}$/i.test(args[1]))throw new Error('Expected optional source and notification UUID.');only={source:args[0] as NotificationSelector['source'],id:args[1]};}
   const app=await NestFactory.createApplicationContext(AppModule,{logger:false,abortOnError:false});
-  try{console.log(JSON.stringify({event:'notification_batch',...await app.get(NotificationService).runOnce(20,only)}));}finally{await app.close();}
+  try{const result=maintenance?await app.get(MaintenanceService).runOnce(50,args[1]):await app.get(NotificationService).runOnce(20,only);console.log(JSON.stringify({event:maintenance?'commerce_expiry_batch':'notification_batch',...result}));if(result.failed>0||('finalizeFailed'in result&&result.finalizeFailed>0)||('unknown'in result&&result.unknown>0))process.exitCode=1;}finally{await app.close();}
 }
 main().catch(()=>{console.error(JSON.stringify({event:'notification_worker_failed'}));process.exitCode=1;});

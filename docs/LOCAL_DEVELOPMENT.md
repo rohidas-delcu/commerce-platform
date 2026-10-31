@@ -60,3 +60,15 @@ reset screens receive a token query parameter; a future client must exchange it
 through the existing CSRF-protected POST, never mutate accounts on a GET/prefetch.
 Order links use `/stores/:handle/account/orders/:id`. These are client contracts;
 no React screens are implemented or claimed operational.
+
+## Commerce expiry
+
+After build/migration, run `DATA_DRIVER=postgres pnpm worker:once maintenance` to
+process up to50 due resources per queue (checkouts, standalone reservations, carts).
+Append a store UUID to restrict a trusted diagnostic/fixture batch. This is not an
+HTTP endpoint or a substitute for tenant authorization. Counts only are printed;
+failed/unknown notification or failed expiry batches return a nonzero CLI status.
+COMMERCE_WORKER_ENABLED=true now runs expiry and mail sequentially once per tick,
+without overlapping batches. Keep it false in deterministic tests. Closed stores
+still release abandoned reservations/quota. Expiry preserves history and on-hand
+stock; it does not implement legal data retention or delete orphaned upload bytes.

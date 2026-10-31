@@ -1,3 +1,4 @@
+import {expireCart} from './cart-lifecycle.js';
 import {PrismaPricingRepository} from '../../pricing/infrastructure/prisma-pricing.repository.js';
 import {discountAmount} from '../../pricing/domain/pricing.js';
 import {PrismaClient,type Prisma} from '../../generated/prisma/client.js';
@@ -23,12 +24,12 @@ export class PrismaCartRepository implements CartRepositoryPort {
   private async guest(tx:Prisma.TransactionClient,c:CartContext){if(!c.capability)return null;const row=await tx.cart.findFirst({where:{id:c.capability.id,storeId:c.storeId,customerId:null,secretDigest:c.capability.digest},include});return row;}
   private async load(tx:Prisma.TransactionClient,c:CartContext,customerId:string|null){
     const row=await this.owned(tx,c,customerId)??await this.guest(tx,c);if(!row||!['ACTIVE','EXPIRED'].includes(row.status))throw new DomainError('NOT_FOUND','Cart not found.');
-    if(row.status==='ACTIVE'&&row.expiresAt<=new Date())return tx.cart.update({where:{id:row.id},data:{status:'EXPIRED',version:{increment:1}},include});return row;
+    if(await expireCart(tx,row.id,new Date()))return tx.cart.findUniqueOrThrow({where:{id:row.id},include});return row;
   }
   create(c:CartContext,guest:{id:string;digest:string}){return this.scope(c,async(tx,customerId)=>{
     const previous=await this.owned(tx,c,customerId)??(!customerId?await this.guest(tx,c):null);
     if(previous?.status==='ACTIVE'&&previous.expiresAt>new Date())return{cart:domain(previous),createdGuest:false};
-    if(previous?.status==='ACTIVE')await tx.cart.update({where:{id:previous.id},data:{status:'EXPIRED',version:{increment:1}}});
+    if(previous?.status==='ACTIVE')await expireCart(tx,previous.id,new Date());
     const row=await tx.cart.create({data:{id:guest.id,storeId:c.storeId,customerId,secretDigest:customerId?null:guest.digest,expiresAt:expires()},include});return{cart:domain(row),createdGuest:!customerId};
   });}
   current(c:CartContext){return this.scope(c,async(tx,customerId)=>domain(await this.load(tx,c,customerId)));}
@@ -65,7 +66,7 @@ export class PrismaCartRepository implements CartRepositoryPort {
       if(prior&&prior.expiresAt>new Date())return domain(prior);throw new DomainError('CONFLICT','Merged cart is no longer active.');
     }
     cartVersion(domain(source),guestVersion);
-    if(target&&target.expiresAt<=new Date()){await tx.cart.update({where:{id:target.id},data:{status:'EXPIRED',version:{increment:1}}});target=null;}
+    if(target&&target.expiresAt<=new Date()){await expireCart(tx,target.id,new Date());target=null;}
     if(!target){if(version!==0)throw new DomainError('CONFLICT','Cart changed.');target=await tx.cart.create({data:{storeId:c.storeId,customerId,expiresAt:expires()},include});}
     cartVersion(domain(target),version);
     const combined=new Map(target.lines.map(line=>[line.variantId,{quantity:line.quantity,priceSeenMinor:line.priceSeenMinor}]));

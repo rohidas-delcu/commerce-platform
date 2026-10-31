@@ -98,14 +98,20 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   projections. Optional in-process delivery and trusted one-shot CLI share the service;
   shutdown waits for active sends before closing its transport/database. No public preview.
 
+- Trusted expiry: bounded account/store-locked jobs expire abandoned DRAFT/READY
+  checkouts through shared release rules, reclaim standalone inventory holds and expire
+  carts. Closed stores/accounts remain eligible without customer impersonation. Stock,
+  quota, versions and audit history remain atomic; busy locks are skipped and failures
+  preserve state for retry. Optional monolith worker runs expiry before notification.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 45 passed, 0 failed/skipped.
+- `pnpm test`: 46 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 19 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 20 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not19 independent purchase flows.
+  and SQL checks; these totals include shared suites, not20 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -120,29 +126,34 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   the locked dependency tree. This does not replace security review.
 - Frozen dependency install passed using `/workspace/.pnpm-store`; `pnpm audit --prod`
   reported no known vulnerabilities with the SES SDK dependency included.
-- Prisma validation/generation, deployment/repeat/status/drift passed with20 migrations.
+- Prisma validation/generation, deployment/repeat/status/drift passed with21 migrations.
 - Targeted notification HTTP/PostgreSQL suite passed, including forced acknowledgement
   rollback after file acceptance, concurrent claims, unknown/late receipts, capped retries,
   exact receipt money, private note exclusion, dispatch references and tenant attempt FKs.
 - `pnpm worker:once identity 00000000-0000-0000-0000-000000000000` executed and closed
   successfully with zero processed jobs (deliberate nonexistent fixture selector).
-- Latest pushed implementation before this notification checkpoint:
-  `4f6b493db7173abad8f49da8694d3ba6998c8d9f` (branding), Actions SUCCESS:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41089295576
-  Notification local evidence above is current; inspect its CI after push.
+- Expiry HTTP/PostgreSQL tests passed for closed/archived/suspended stores/accounts,
+  abandoned quota/stock/cart recovery, competing workers, busy-lock skipping,
+  tenant selectors, standalone release races and forced history failure rollback.
+- `pnpm worker:once maintenance 00000000-0000-0000-0000-000000000000` executed,
+  reported zero due fixture jobs and shut down successfully.
+- Latest pushed implementation before this expiry checkpoint:
+  `a1b0adfa5cf8fc85188af77fbe7afba5b8ae3b65` (notifications), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41092373937
+  Expiry local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit/push notification checkpoint and inspect remote CI, then implement trusted
-   expiry processing for checkouts, inventory holds/quota and carts, including closed
-   stores, using existing transition rules rather than duplicated business logic.
-2. Complete PaymentPort, development simulator and durable payment/reconciliation
-   lifecycle; add/test Razorpay test-only adapter boundary. Never infer capture from
-   browser callbacks or blindly retry unknown provider outcomes.
-3. Supported refunds/late payment recovery, final publication prerequisites and
-   retention/orphan cleanup. Refunds never imply physical inventory returns.
-4. Deterministic seed and executable full simulated-payment/fulfillment demo, all
-   E2E flows A–J, remaining response/cursor contracts and final CI/security acceptance.
+1. Commit/push the verified expiry checkpoint and inspect remote CI.
+2. Exact next implementation task: PaymentPort and durable development payment
+   simulator, using one shared checkout placement implementation; persist verified
+   provider observations before order finalization, protect late/unknown outcomes,
+   test success/failure/timeout/delay/duplicate/out-of-order events with PostgreSQL.
+3. Razorpay test-only adapter/signature/reconciliation boundary and supported refunds;
+   never infer capture from browser callbacks or blindly retry unknown provider outcomes.
+4. Retention/orphan cleanup, deterministic seed and executable full simulated-payment/
+   fulfillment demo, remaining response/cursor contracts, all E2E flows A–J and final
+   CI/security acceptance. Refunds never imply physical inventory returns.
 
 ## Explicit limits and release gates
 
@@ -153,8 +164,8 @@ mode serves the isolated catalog/inventory demo, without simulated secure identi
 Email delivery is now implemented as private local files or explicit SES provider
 acceptance; live SES delivery is not verified. Live S3/SES/Razorpay require
 owned provider configuration and executed sandbox checks. No real payment claim.
-Expired holds conservatively reduce availability until explicit expiry processing;
-scheduled expiry and orphan cleanup remain pending. Tombstoned media stays private
+Overdue holds remain conservative until a trusted expiry batch runs; automatic
+expiry is opt-in via COMMERCE_WORKER_ENABLED. Retention/orphan cleanup remains pending. Tombstoned media stays private
 on delete failure. Cross-account legal ownership transfer stays disabled; frozen
 ownerless accounts need audited operator recovery. No automatic ownership mapping.
 Existing customer account/receipt access survives closure; shopping and new signup
@@ -162,7 +173,8 @@ remain unavailable. Merchant business mutations remain subject to store/account 
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261030161000_notification_delivery` (leases and scoped attempt ledger),
+Migration history now includes `20261030162000_worker_scan_indexes` (bounded due/lease scans),
+`20261030161000_notification_delivery` (leases and scoped attempt ledger),
 `20261030160000_store_branding` (nullable tenant-scoped logo reference),
 `20261030155000_coupon_redemption` (coupon quota leases/immutable usage ledgers)
 and `20261030155100_zero_amount_orders` (NOT_REQUIRED, preserving amounts/IDs),

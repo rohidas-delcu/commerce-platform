@@ -119,3 +119,13 @@ availability, so a notification outage cannot undo an order. An optional in-proc
 worker drains bounded batches with up to five concurrent sends and awaits active
 work during shutdown. Trusted CLI `pnpm worker:once` runs the same service without
 exposing an HTTP delivery endpoint. Global production startup refusal still applies.
+
+## Trusted maintenance
+
+OperationsModule exposes MaintenanceService through a repository port. The optional
+in-process worker runs bounded expiry before mail; one-shot CLI supports `maintenance`
+and an optional store UUID. Request and worker paths share checkout/cart lifecycle
+helpers and the inventory transition implementation. Work acquires account/store
+locks and rechecks due resources, without acquiring or impersonating an identity
+session. Closed stores remain eligible. Each job is atomic; other jobs survive a
+failure. New scan indexes cover global reservation deadlines and expired mail leases.

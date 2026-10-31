@@ -107,3 +107,10 @@ worker delivery and verification, consumed-link suppression, PostgreSQL claim ra
 retry deadlines, unknown outcomes, local crash deduplication, forced acknowledgement
 rollback, late original receipts and a real COD transaction followed by safe receipt
 mail. Assertions never print challenge links, recipients or provider credentials.
+
+Maintenance coverage uses a real HTTP-created merchant/store/customer/cart/checkout,
+then backdates only fixture deadlines to exercise recovery without waiting15minutes.
+Immutable expired quota is inserted as a separate labeled persistence fixture. Tests
+verify closed/archived/suspended tenant reclamation, competing workers, busy-lock
+skipping, tenant selectors, standalone release/expiry races and forced event-insert
+rollback. Exact on-hand/reserved values and one expiry audit/event are asserted.

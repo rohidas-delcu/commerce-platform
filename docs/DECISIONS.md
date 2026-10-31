@@ -196,3 +196,15 @@ mailbox/token preview API. SES uses the official SDK with automatic retries disa
 explicit sender/region/HTTPS application links and no development fallback. Secrets,
 recipients and body/token contents stay out of operational logs. SES acceptance,
 bounce/complaint processing, retention and live sandbox checks remain distinct gates.
+
+## Trusted commerce expiry (implementation, 2026-10-31)
+
+Run expiry in the same monolith through MaintenanceService and a trusted internal
+repository, never an impersonated merchant/customer or public administrative endpoint.
+Account → store → resource locks align with request mutations; SKIP LOCKED avoids
+waiting on busy stores. Re-read deadlines under locks using the database clock.
+Share checkout release/expiry and cart transitions with request paths, and use the
+existing inventory transition adapter. Expire one resource transaction at a time;
+failure rolls back stock, quota/state/history and stays due for retry. Closure or
+suspension cannot prevent resource reclamation. Keep inventory on-hand unchanged.
+No record deletion/retention policy is inferred from expiry; financial history stays.

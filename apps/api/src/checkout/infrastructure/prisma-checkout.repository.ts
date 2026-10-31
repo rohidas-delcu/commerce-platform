@@ -1,3 +1,4 @@
+import {releaseCheckout,expireCheckout} from './checkout-lifecycle.js';
 import {isDeepStrictEqual} from 'node:util';
 import {allocateMinor,type OrderQuery} from '../../orders/domain/orders.js';
 import {orderDomain,orderInclude} from '../../orders/infrastructure/prisma-orders.repository.js';
@@ -26,12 +27,8 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
     await tx.$queryRaw`SELECT id FROM "Checkout" WHERE id=${id}::uuid AND "storeId"=${c.storeId}::uuid AND "customerId"=${customerId}::uuid FOR UPDATE`;
     const row=await tx.checkout.findFirst({where:{id,storeId:c.storeId,customerId}});if(!row)throw new DomainError('NOT_FOUND','Checkout not found.');return row;
   }
-  private async release(tx:Prisma.TransactionClient,row:Row,actor:string){if(row.reservationId)await new InventoryService(new PrismaCommerceRepository(tx).inventory).transition(row.storeId,row.reservationId,'release',actor);await tx.couponHold.updateMany({where:{checkoutId:row.id,storeId:row.storeId,checkoutVersion:row.version,status:'HELD'},data:{status:row.expiresAt<=new Date()?'EXPIRED':'RELEASED',closedAt:new Date()}});}
-  private async expire(tx:Prisma.TransactionClient,row:Row,actor:string){
-    if(['DRAFT','READY'].includes(row.status)&&row.expiresAt<=new Date()){
-      await this.release(tx,row,actor);await this.audit(tx,actor,'CHECKOUT_EXPIRED',row.id);return tx.checkout.update({where:{id:row.id},data:{status:'EXPIRED',version:{increment:1},reservationId:null}});
-    }return row;
-  }
+  private release(tx:Prisma.TransactionClient,row:Row,actor:string){return releaseCheckout(tx,row,actor);}
+  private expire(tx:Prisma.TransactionClient,row:Row,actor:string){return expireCheckout(tx,row,actor);}
   private async audit(tx:Prisma.TransactionClient,actor:string,action:string,id:string){await tx.identityAudit.create({data:{identityId:actor,action:action+':'+id}});}
   start(c:CheckoutContext,cartId:string,cartVersion:number,key:string){return this.scope(c,async(tx,customerId)=>{
     const digest=createHash('sha256').update(JSON.stringify({cartId,cartVersion})).digest('hex');

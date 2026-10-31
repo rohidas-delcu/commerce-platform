@@ -206,6 +206,7 @@ model IdentityMail {
   lastErrorCode String?
   @@unique([id,scopeKey])
   @@index([status,availableAt])
+  @@index([status,lockedUntil])
   scopeKey String @default("merchant")
   id String @id @default(uuid()) @db.Uuid
   recipient String
@@ -372,6 +373,7 @@ model InventoryReservation {
   @@unique([storeId,key])
   @@unique([id,storeId])
   @@index([storeId,status,expiresAt])
+  @@index([status,expiresAt])
 }
 model InventoryReservationLine {
   reservationId String @db.Uuid
@@ -605,6 +607,7 @@ model OrderNotification {
   deliveredAt DateTime?
   createdAt DateTime @default(now())
   @@index([status,availableAt])
+  @@index([status,lockedUntil])
 }
 
 model OrderCommand {

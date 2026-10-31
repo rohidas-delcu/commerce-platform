@@ -91,3 +91,8 @@ safety and worker lifecycle have executed unit and PostgreSQL/HTTP verification.
 Full backend remains in progress. Next: trusted commerce expiry, payment simulator/
 provider reconciliation/refunds, full executable demo and final security acceptance.
 Live S3/SES/Razorpay activation still needs owned configuration and sandbox evidence.
+
+Trusted checkout/inventory/cart expiry now has executed PostgreSQL/HTTP verification;
+request/worker transitions are shared, and opt-in scheduling survives store closure.
+Next implementation task is the durable development payment flow and provider port,
+followed by Razorpay boundary/refunds and the complete executable backend demo.
