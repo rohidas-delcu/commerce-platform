@@ -153,3 +153,11 @@ It verifies scoped recipients, stale failure/review cancellation, one receipt un
 competing workers, exact per-refund/cumulative money, no merchant reference disclosure,
 delivery after closure and tenant attempt/source FKs. Shared SES fake tests remain
 contract tests, not real inbox/provider-sandbox verification.
+
+Razorpay contract tests inject fake HTTP responses; they verify no production/live-key
+activation, pinned scope, exact safe amounts/currency, coherent authoritative capture,
+signed-browser-result insufficiency, raw-byte HMAC, out-of-order/ambiguous attempts,
+documented refund endpoints, no POST retry and no secret/error-body disclosure.
+A PostgreSQL/HTTP fixture verifies disabled gateway selection, immutable/deduplicated
+capture/refund receipts and exact financial balances with no phantom order/stock
+commitment. These are not actual provider sandbox/network/settlement tests.

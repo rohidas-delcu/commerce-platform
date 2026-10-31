@@ -291,3 +291,18 @@ not an arbitrary recipient or private merchant reference. No-order refunds keep
 per-refund notification identity and exact amounts, even after store closure.
 Every simulated message explicitly labels the development payment method. Provider
 acceptance remains distinct from inbox delivery; live SES is still unverified.
+
+## Razorpay test-only candidate boundary (implementation, 2026-10-31)
+
+Implement payment/refund ports using a fixed HTTPS Node fetch transport and standard
+Node HMAC verification against official SDK-documented paths. No automatic POST retry,
+live keys, implicit credentials or runtime provider selection. Store/account-bound
+server configuration stays private. Restrict to tested safe-integer INR contracts;
+require coherent authoritative captured payment/paid-order state and exact refs/totals.
+Browser signatures or webhook status text alone cannot establish capture. Failed
+individual attempts do not terminate a still-payable provider order.
+
+This is a candidate, not production-provider approval or verified sandbox settlement.
+Owned account configuration, encrypted registry/rotation, ingress/creation-claim wiring,
+sandbox checks and security acceptance are activation gates. The default API stays
+COD/SIMULATOR. See PAYMENT_PROVIDER_BOUNDARY.md for source, tradeoffs and exact limits.

@@ -136,14 +136,21 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   references stay excluded and simulated methods stay explicit. Closure does not
   block financial receipts. No public message preview or real SES delivery claim.
 
+- Razorpay candidate: scoped private test credentials, fixed/bounded HTTPS transport,
+  standard byte-exact HMAC, authoritative payment/refund reads, safe amount/currency/
+  reference checks and explicit non-idempotent POST contracts. Unit/fake HTTP and
+  PostgreSQL receipt/dedup tests execute; no real bank/provider was contacted.
+  Gateway HTTP selection/ingress remain disabled. See PAYMENT_PROVIDER_BOUNDARY.md
+  for adoption/registry/creation-claim/sandbox/security gates; not production approval.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 54 passed, 0 failed/skipped.
+- `pnpm test`: 60 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 29 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 30 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not29 independent purchase flows.
+  and SQL checks; these totals include shared suites, not30 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -173,7 +180,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   scoped reads, price tampering, cart/checkout locks, exact paid order/delivery,
   failure, timeout, delayed worker success, expired-hold late capture, mismatched
   observations, forced order-insert rollback after capture and safe retry.
-- Full regression on current code:54 unit,4 memory HTTP and29 PostgreSQL tests passed;
+- Full regression on current code:60 unit,4 memory HTTP and30 PostgreSQL tests passed;
   typecheck and production build passed; no skipped or failed tests in these runs.
   An earlier ad-hoc parallel PostgreSQL invocation hit shared loopback rate limits;
   corrected sequential targeted/full executions passed. Do not weaken those limits.
@@ -190,7 +197,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   late-capture repayment without orders and safe cart unlock. Provider TIMEOUT state
   rollback was found and fixed; the uncertainty is now reported after provider commit.
 - `pnpm worker:once refunds 00000000-0000-0000-0000-000000000000` passed as an empty
-  fixture batch. Current full checks:54 unit/4 memory/29 PostgreSQL, typecheck/build,
+  fixture batch. Current full checks:60 unit/4 memory/30 PostgreSQL, typecheck/build,
   Prisma validation/generation,24 migrations, populated upgrade/repeat/status/drift.
 - Closed-store finance HTTP/PostgreSQL suite passed for simulated repayment/cancel,
   previously dispatched COD delivery/collection/cash return, editor/foreign denial,
@@ -202,24 +209,30 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   private-field exclusion, tenant FKs and closed-store delivery. Current full checks:
   54 unit/4 memory HTTP/29 PostgreSQL, typecheck/build, Prisma generation/validation,
   25 migrations, populated upgrade/repeat/status/drift. Empty payment-notice CLI ran.
-- Latest pushed implementation before this notice checkpoint:
-  `68e115d8067e21b88dbf87e2c7021fa7140c9282` (financial continuity), Actions SUCCESS:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41168944996
-  Payment-notice local evidence above is current; inspect its CI after push.
+- Razorpay candidate local checks passed:60 unit/4 memory HTTP/30 PostgreSQL,
+  typecheck/build. Fake HTTP verifies exact/authoritative state, raw HMAC, no retry or
+  private credential/error exposure. PostgreSQL fixtures preserve scoped deduplicated
+  capture/refund history and keep unverified HTTP gateway checkout disabled. These are
+  adapter contracts, not live provider or sandbox acceptance. Schema remains the
+  verified25-migration schema; no dependency/lockfile change in this slice.
+- Latest pushed implementation before this candidate-boundary checkpoint:
+  `e63a420fd2ee70879d0d041729a2f6ad891c2dde` (payment notices), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41169866692
+  Candidate-boundary local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit/push verified payment notices and inspect remote CI.
-2. Exact next implementation task: Razorpay test-only adapter boundary for scoped
-   merchant-owned credentials, authoritative payment/refund reads, raw signatures,
-   safe unknown outcomes and deterministic contract fakes. Keep activation disabled
-   without provider/account/sandbox/security acceptance; no invented idempotency.
-   Official SDK docs/source were read from GitHub commit
-   b9e8527225a7322ba2671a3bc0b848fd019d2d8c; direct provider docs returned HTTP403.
-3. Retention/orphan cleanup and deterministic seed/executable complete backend demo,
-   then remaining response contracts/E2E flows A–J and final CI/security acceptance.
-4. Live S3/SES/Razorpay checks need owned configuration/credentials. No React, merge
-   or production deployment; do not claim fake provider tests are live integration.
+1. Commit/push the verified candidate boundary and inspect remote CI.
+2. Exact next implementation task: safe bounded cleanup of expired upload reservations
+   and already-tombstoned bytes, through existing media/storage contracts; preserve
+   referenced/complete media and all financial/security history. Do not invent a legal
+   personal-data deletion policy. Document production retention/lifecycle prerequisites.
+3. Deterministic seed and executable complete simulated-payment/fulfillment backend
+   demo, CI demo execution, remaining contract audit and final acceptance/report.
+4. Real S3/SES/Razorpay acceptance needs owned configuration/credentials. Razorpay
+   adoption/registry/ingress/non-idempotent creation-claim wiring and sandbox/security
+   remain explicit activation gates; see PAYMENT_PROVIDER_BOUNDARY.md. No React,
+   automatic merge or production deployment.
 
 ## Explicit limits and release gates
 

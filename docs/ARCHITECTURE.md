@@ -171,3 +171,9 @@ not a second delivery implementation. Its payment/refund compound FKs and the
 attempt ledger's exclusive-source constraint prevent tenant/source mixing. Payment
 failure/review and no-order refund intents commit with their source transitions;
 rendering suppresses stale failure/review states and selects only customer-safe fields.
+
+RazorpayTestPaymentAdapter/RefundAdapter implement the existing ports through a shared,
+scoped test-only transport/signature boundary. They are deliberately not selected by
+AppModule or HTTP checkout. Deterministic HTTP fakes and PostgreSQL persistence fixtures
+verify reference/amount/authenticity and durable financial observation contracts while
+unverified gateway order placement remains rejected. See PAYMENT_PROVIDER_BOUNDARY.md.

@@ -121,3 +121,8 @@ Next: remaining payment notices, candidate Razorpay boundary, cleanup and execut
 Payment failure/review and no-order refund messages now share verified durable delivery,
 with stale-outcome suppression and customer-safe fields. Next: test-only Razorpay
 candidate boundary, cleanup/retention, executable demo and final acceptance/review.
+
+The Razorpay candidate's scoped transport/signature/payment/refund contracts now pass
+fake HTTP and PostgreSQL receipt/dedup verification. Runtime gateway selection remains
+disabled pending the documented ownership/adoption/wiring/sandbox/security gates.
+Next: safe expired-upload/tombstone cleanup, executable full backend demo and final audit.

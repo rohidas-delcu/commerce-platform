@@ -443,3 +443,9 @@ There is no public delivery/preview endpoint. Messages link to the future client
 customer API remains the authenticated payment-status endpoint. Failure wording does
 not promise that a bank charged or did not charge. Recovered failure/review messages
 are suppressed; private merchant refund references/actors remain excluded.
+
+Razorpay remains an unselected test-only adapter boundary. The HTTP checkout DTO still
+rejects RAZORPAY; no public gateway webhook ingress/account registry is enabled. Do not
+advertise gateway capture or production readiness based on the deterministic adapter
+fakes. [Provider boundary](PAYMENT_PROVIDER_BOUNDARY.md) records owned-account and
+activation prerequisites; normal executable purchase flows use COD/SIMULATOR.
