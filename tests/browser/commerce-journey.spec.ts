@@ -91,20 +91,33 @@ test('public guest cart, verified customer signup, COD checkout, merchant delive
 
   await test.step('Customer creates a verified account and the guest bag is merged', async () => {
     await page.getByRole('link', { name: 'Create an account' }).click();
+    await expect(page).toHaveURL(/\/account\/signup\?next=checkout$/);
     await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
     await page.getByLabel('Full name').fill('Browser Customer');
     await page.getByLabel('Email address').fill(email);
     await page.getByLabel('New password').fill(password);
     await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page).toHaveURL(/\/account\/verify\?.*next=checkout/);
     await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible();
     await page.getByLabel('Email token').fill(await mailToken(email));
     await page.getByRole('button', { name: 'Verify email' }).click();
     await expect(page.getByText('Email verified. You can now sign in.')).toBeVisible();
     await page.getByRole('link', { name: 'Sign in after verification' }).click();
+    await expect(page).toHaveURL(/\/account\/login\?next=checkout$/);
     await page.getByLabel('Email address').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Delivery details' })).toBeVisible();
+    try {
+      await expect(page.getByRole('heading', { name: 'Delivery details' })).toBeVisible();
+    } catch (error) {
+      // Safe CI diagnostic: the path and view headings contain no email tokens,
+      // cookies, credentials, or shipping/contact values.
+      const path = new URL(page.url()).pathname;
+      const headings = (await page.locator('h1, h2').allTextContents()).join(' | ');
+      throw new Error(`Authenticated checkout did not open. Path: ${path}. Headings: ${headings}`, {
+        cause: error,
+      });
+    }
     await expect(page.getByText('Everyday Trail Backpack')).toBeVisible();
   });
 
