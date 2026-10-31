@@ -117,3 +117,7 @@ provider sandbox/security gates remain separate from local development acceptanc
 Closed-store financial/existing-order continuity is verified without relaxing active
 account/session/membership authority. New fulfillment/catalog remain unavailable.
 Next: remaining payment notices, candidate Razorpay boundary, cleanup and executable demo.
+
+Payment failure/review and no-order refund messages now share verified durable delivery,
+with stale-outcome suppression and customer-safe fields. Next: test-only Razorpay
+candidate boundary, cleanup/retention, executable demo and final acceptance/review.

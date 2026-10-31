@@ -14,6 +14,12 @@ export class NotificationService {
       const purpose=context.purpose==='VERIFY'?'Verify your email':context.purpose==='RESET'?'Reset your password':'Accept your merchant invitation';
       return{id:job.messageId,to:job.recipient,subject:purpose+' — Delcu',text:`Hello ${safeLine(context.name)||'there'},\n\n${purpose}:\n${this.links.identity(context,token)}\n\nThis link expires at ${context.expiresAt.toISOString()}. If you did not request it, you can ignore this message.\n\nDelcu`};
     }
+    if(job.source==='payment'){
+      const context=await this.repository.paymentContext(job);if(!context)return null;
+      const title=job.purpose==='PAYMENT_FAILED'?'Payment not completed':job.purpose==='PAYMENT_REVIEW'?'Payment needs review':job.purpose==='REFUND_RECORDED'?'Refund recorded':null;if(!title)throw new Error('Unsupported payment notice.');
+      const detail=job.purpose==='REFUND_RECORDED'?`Refund recorded: ${moneyText(context.amountMinor,context.currencyCode)}`:`Payment attempt: ${moneyText(context.amountMinor,context.currencyCode)}\n${job.purpose==='PAYMENT_FAILED'?"We couldn't confirm this payment attempt. Check its latest status before trying again.":'This payment needs review. Avoid starting another payment until its status is resolved.'}`;
+      return{id:job.messageId,to:context.recipient,subject:title+' — Delcu',text:`Hello ${safeLine(context.name)||'there'},\n\n${detail}\nPayment method: ${context.method==='SIMULATOR'?'Development simulation':'Online payment'}\nRefunds recorded total: ${moneyText(context.refundedMinor,context.currencyCode)}\n\nView payment status:\n${this.links.payment(context)}\n\nDelcu`};
+    }
     const order=await this.repository.orderContext(job);if(!order)return null;
     const subjects:Record<string,string>={ORDER_CONFIRMATION:'Order confirmed',ORDER_DISPATCHED:'Order dispatched',ORDER_DELIVERED:'Order delivered',ORDER_CANCELLED:'Order cancelled',PAYMENT_CONFIRMATION:'Payment recorded',REFUND_RECORDED:'Refund recorded'};
     const title=subjects[job.purpose];if(!title)throw new Error('Unsupported notification.');

@@ -96,3 +96,7 @@ blindly. A refund does not restock goods. Use an eligible explicit cancellation 
 fully repaid, undispatched orders. Financial/existing-order access now survives store archive/suspension for current
 owner/admin sessions in an active account. New fulfillment/catalog operations remain
 blocked, and suspended accounts do not regain authority through this scope.
+
+To target one payment notice after build: `pnpm worker:once payment <PaymentNotification UUID>`.
+Failure/review/no-order-refund mail uses the same private mailbox and safe delivery
+semantics; it never exposes merchant references or treats a client callback as proof.

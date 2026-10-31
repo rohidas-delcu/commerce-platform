@@ -146,3 +146,10 @@ record existing delivery/cash return and explicitly cancel a repaid undelivered 
 Catalog/new fulfillment remain blocked. Editors/foreign merchants remain denied;
 suspending the merchant account blocks financial reads/new refunds until an authorized
 resume. Customer receipts remain private and inventory is restored only by cancellation.
+
+Payment-notice HTTP/PostgreSQL coverage executes failed attempts, late capture review
+and successful no-order refunds, then delivers through the private local mailbox.
+It verifies scoped recipients, stale failure/review cancellation, one receipt under
+competing workers, exact per-refund/cumulative money, no merchant reference disclosure,
+delivery after closure and tenant attempt/source FKs. Shared SES fake tests remain
+contract tests, not real inbox/provider-sandbox verification.

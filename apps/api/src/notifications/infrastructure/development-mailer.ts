@@ -8,7 +8,7 @@ export class DevelopmentMailer implements NotificationTransportPort {
   readonly provider='development';readonly idempotent=true;
   constructor(private root=process.env.DEV_MAIL_DIR??fileURLToPath(new URL('../../../../../.data/mail/',import.meta.url))){if(process.env.NODE_ENV==='production')throw new Error('Development mailbox is forbidden in production.');}
   async send(message:MailMessage):Promise<DeliveryOutcome>{
-    if(!/^(identity|order)_[a-f0-9-]{36}$/.test(message.id))return{kind:'rejected',code:'INVALID_MESSAGE_ID'};
+    if(!/^(identity|order|payment)_[a-f0-9-]{36}$/.test(message.id))return{kind:'rejected',code:'INVALID_MESSAGE_ID'};
     const path=join(this.root,message.id+'.json');let temp:string|undefined;
     try{
       await mkdir(this.root,{recursive:true,mode:0o700});temp=join(this.root,'.mail-'+randomUUID());await writeFile(temp,JSON.stringify(message,null,2)+'\n',{mode:0o600,flag:'wx'});

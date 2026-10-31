@@ -436,3 +436,10 @@ Refunds, eligible cancellation, private notes and recording existing delivery/CO
 collection use that scope. New READY/DISPATCH, catalog and store settings retain their
 normal availability rules. Account/identity/session suspension and membership revocation
 still deny authority. These access intents are internal use-case policy, not client flags.
+
+Payment failure/review and refunds without orders now create internal durable notices.
+There is no public delivery/preview endpoint. Messages link to the future client
+`/stores/:handle/account/payments/:id` contract with no bearer token; the current
+customer API remains the authenticated payment-status endpoint. Failure wording does
+not promise that a bank charged or did not charge. Recovered failure/review messages
+are suppressed; private merchant refund references/actors remain excluded.

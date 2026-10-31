@@ -165,3 +165,9 @@ authority. Financial intent permits closed-store existing-order/finance work whi
 retaining every account/session/tenant check. A central domain whitelist selects
 terminal order commands; normal commerce defaults remain operational. No caller can
 select financial availability through a request body or identity header.
+
+PaymentNotification adds a third scoped source to the shared notification worker,
+not a second delivery implementation. Its payment/refund compound FKs and the
+attempt ledger's exclusive-source constraint prevent tenant/source mixing. Payment
+failure/review and no-order refund intents commit with their source transitions;
+rendering suppresses stale failure/review states and selects only customer-safe fields.

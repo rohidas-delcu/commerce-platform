@@ -280,3 +280,14 @@ suspension/archive. Starting READY/DISPATCH still requires operational availabil
 All paths recheck active verified identity/session, active account, live membership,
 role and tenant under the same locks. Suspended accounts gain no exception. Closure
 cannot erase receipts or prevent authorized repayment/completion of existing orders.
+
+## Payment-specific transactional notices (implementation, 2026-10-31)
+
+Use a tenant-bound PaymentNotification source for failed/reviewed payment attempts
+and refunds without orders; keep the same delivery service, transport and attempt
+ledger as identity/order mail. Failure/review notices are cancelled when recovery
+makes them stale. Financial messages go to the verified store-customer identity,
+not an arbitrary recipient or private merchant reference. No-order refunds keep
+per-refund notification identity and exact amounts, even after store closure.
+Every simulated message explicitly labels the development payment method. Provider
+acceptance remains distinct from inbox delivery; live SES is still unverified.

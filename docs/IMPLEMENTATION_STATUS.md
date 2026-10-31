@@ -130,14 +130,20 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   identity/session/role/account/tenant checks. Catalog and new fulfillment stay blocked;
   account suspension denies financial access too. No production or demo auth fallback.
 
+- Payment notices: transactional failure/review and no-order refund messages share
+  the existing delivery ports/worker/attempt ledger. Stale outcomes are cancelled
+  after recovery; recipients come from the verified scoped customer. Private merchant
+  references stay excluded and simulated methods stay explicit. Closure does not
+  block financial receipts. No public message preview or real SES delivery claim.
+
 ## Actual checkpoint evidence
 
-- `pnpm test`: 53 passed, 0 failed/skipped.
+- `pnpm test`: 54 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 28 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 29 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not28 independent purchase flows.
+  and SQL checks; these totals include shared suites, not29 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -152,7 +158,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   the locked dependency tree. This does not replace security review.
 - Frozen dependency install passed using `/workspace/.pnpm-store`; `pnpm audit --prod`
   reported no known vulnerabilities with the SES SDK dependency included.
-- Prisma validation/generation, deployment/repeat/status/drift passed with24 migrations.
+- Prisma validation/generation, deployment/repeat/status/drift passed with25 migrations.
 - Targeted notification HTTP/PostgreSQL suite passed, including forced acknowledgement
   rollback after file acceptance, concurrent claims, unknown/late receipts, capped retries,
   exact receipt money, private note exclusion, dispatch references and tenant attempt FKs.
@@ -167,7 +173,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   scoped reads, price tampering, cart/checkout locks, exact paid order/delivery,
   failure, timeout, delayed worker success, expired-hold late capture, mismatched
   observations, forced order-insert rollback after capture and safe retry.
-- Full regression on current code:53 unit,4 memory HTTP and28 PostgreSQL tests passed;
+- Full regression on current code:54 unit,4 memory HTTP and29 PostgreSQL tests passed;
   typecheck and production build passed; no skipped or failed tests in these runs.
   An earlier ad-hoc parallel PostgreSQL invocation hit shared loopback rate limits;
   corrected sequential targeted/full executions passed. Do not weaken those limits.
@@ -184,31 +190,36 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   late-capture repayment without orders and safe cart unlock. Provider TIMEOUT state
   rollback was found and fixed; the uncertainty is now reported after provider commit.
 - `pnpm worker:once refunds 00000000-0000-0000-0000-000000000000` passed as an empty
-  fixture batch. Current full checks:53 unit/4 memory/28 PostgreSQL, typecheck/build,
+  fixture batch. Current full checks:54 unit/4 memory/29 PostgreSQL, typecheck/build,
   Prisma validation/generation,24 migrations, populated upgrade/repeat/status/drift.
 - Closed-store finance HTTP/PostgreSQL suite passed for simulated repayment/cancel,
   previously dispatched COD delivery/collection/cash return, editor/foreign denial,
   account suspension/resume and blocked catalog/new fulfillment. Full regression on
   this source:53 unit,4 memory HTTP,28 PostgreSQL; typecheck/build passed. Schema is
   unchanged from the verified24-migration payment/refund checkpoint.
-- Latest pushed implementation before this continuity checkpoint:
-  `33ceacd94000287d93578c768547300d0c88135b` (simulated refunds), Actions SUCCESS:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41168153093
-  Financial-continuity local evidence above is current; inspect its CI after push.
+- Payment-notice PostgreSQL/HTTP suite passed for scoped recipients, stale failure/
+  review suppression, no-order refund receipts, concurrent delivery deduplication,
+  private-field exclusion, tenant FKs and closed-store delivery. Current full checks:
+  54 unit/4 memory HTTP/29 PostgreSQL, typecheck/build, Prisma generation/validation,
+  25 migrations, populated upgrade/repeat/status/drift. Empty payment-notice CLI ran.
+- Latest pushed implementation before this notice checkpoint:
+  `68e115d8067e21b88dbf87e2c7021fa7140c9282` (financial continuity), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41168944996
+  Payment-notice local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit/push verified financial continuity and inspect remote CI.
-2. Exact next implementation task: payment failure/review/refund-without-order
-   notification intents through the existing durable mail worker, with stale failure/
-   review suppression after recovery and no private merchant references in messages.
-3. Razorpay test-only adapter/signature/reconciliation/refund boundary, scoped to
-   merchant-owned credentials; no blind retries or automatic live activation. Official
-   SDK docs/source were read from GitHub (commit b9e8527225a7322ba2671a3bc0b848fd019d2d8c);
-   direct provider docs returned HTTP403. Sandbox needs owned test credentials/webhooks.
-4. Retention/orphan cleanup, deterministic seed and executable full simulated-payment/
-   fulfillment demo, remaining response contracts, all E2E flows A–J and final
-   CI/security acceptance. No React, merge or production deployment.
+1. Commit/push verified payment notices and inspect remote CI.
+2. Exact next implementation task: Razorpay test-only adapter boundary for scoped
+   merchant-owned credentials, authoritative payment/refund reads, raw signatures,
+   safe unknown outcomes and deterministic contract fakes. Keep activation disabled
+   without provider/account/sandbox/security acceptance; no invented idempotency.
+   Official SDK docs/source were read from GitHub commit
+   b9e8527225a7322ba2671a3bc0b848fd019d2d8c; direct provider docs returned HTTP403.
+3. Retention/orphan cleanup and deterministic seed/executable complete backend demo,
+   then remaining response contracts/E2E flows A–J and final CI/security acceptance.
+4. Live S3/SES/Razorpay checks need owned configuration/credentials. No React, merge
+   or production deployment; do not claim fake provider tests are live integration.
 
 ## Explicit limits and release gates
 
@@ -228,7 +239,8 @@ remain unavailable. Merchant business mutations remain subject to store/account 
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261031102000_provider_refunds` (pending budgets, observed receipts and exact provider/order balances),
+Migration history now includes `20261031103000_payment_notifications` (scoped failure/review/refund notices and exclusive-source attempts),
+`20261031102000_provider_refunds` (pending budgets, observed receipts and exact provider/order balances),
 `20261031101000_manual_cod_refunds` (immutable cash-return ledger and gross/refunded balance constraints),
 `20261031100000_development_payments` (durable intents, simulator/event history and matching-paid-order constraints),
 `20261030162000_worker_scan_indexes` (bounded due/lease scans),

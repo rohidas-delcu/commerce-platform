@@ -709,6 +709,9 @@ model NotificationAttempt {
   orderNotificationId String? @db.Uuid
   storeId String? @db.Uuid
   orderNotification OrderNotification? @relation(fields:[orderNotificationId,storeId],references:[id,storeId],onDelete:Restrict)
+  paymentNotificationId String? @db.Uuid
+  paymentNotification PaymentNotification? @relation(fields:[paymentNotificationId,storeId],references:[id,storeId],onDelete:Restrict)
+  @@index([paymentNotificationId,storeId])
   leaseToken String @unique @db.Uuid
   provider String
   attemptNumber Int
@@ -722,6 +725,7 @@ model NotificationAttempt {
 }
 
 model PaymentAttempt {
+ notifications PaymentNotification[]
  refunds Refund[]
  refundedMinor BigInt @default(0)
  id String @id @default(uuid()) @db.Uuid
@@ -811,6 +815,8 @@ model SimulatedPaymentEvent {
 }
 
 model Refund {
+ paymentNotifications PaymentNotification[]
+ @@unique([id,storeId,paymentId])
  id String @id @default(uuid()) @db.Uuid
  storeId String @db.Uuid
  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
@@ -869,4 +875,31 @@ model SimulatedRefund {
  createdAt DateTime @default(now())
  updatedAt DateTime @default(now()) @updatedAt
  @@unique([refundId,storeId,method,amountMinor,currencyCode])
+}
+
+model PaymentNotification {
+ id String @id @default(uuid()) @db.Uuid
+ paymentId String @db.Uuid
+ storeId String @db.Uuid
+ payment PaymentAttempt @relation(fields:[paymentId,storeId],references:[id,storeId],onDelete:Restrict)
+ refundId String? @db.Uuid
+ refund Refund? @relation(fields:[refundId,storeId,paymentId],references:[id,storeId,paymentId],onDelete:Restrict)
+ kind String
+ key String @unique
+ status String @default("PENDING")
+ attempts Int @default(0)
+ availableAt DateTime @default(now())
+ lockedUntil DateTime?
+ leaseToken String? @db.Uuid
+ provider String?
+ providerMessageId String?
+ acceptedAt DateTime?
+ deliveredAt DateTime?
+ lastErrorCode String?
+ createdAt DateTime @default(now())
+ deliveryAttempts NotificationAttempt[]
+ @@unique([id,storeId])
+ @@unique([refundId,kind])
+ @@index([status,availableAt])
+ @@index([status,lockedUntil])
 }
