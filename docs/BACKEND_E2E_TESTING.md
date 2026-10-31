@@ -139,3 +139,10 @@ one-time retry. Late captured money without an order is repaid and unlocks the c
 without creating/restocking an order. The TIMEOUT scenario now persists provider state
 before reporting uncertainty; an earlier rollback defect was exposed and fixed.
 These are real PostgreSQL/HTTP tests of the development provider, not live gateway tests.
+
+Closed-store finance tests create paid simulated and dispatched COD orders, then
+unpublish/suspend/archive the store. Current owners can read financial history, repay,
+record existing delivery/cash return and explicitly cancel a repaid undelivered order.
+Catalog/new fulfillment remain blocked. Editors/foreign merchants remain denied;
+suspending the merchant account blocks financial reads/new refunds until an authorized
+resume. Customer receipts remain private and inventory is restored only by cancellation.

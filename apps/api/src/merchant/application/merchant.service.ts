@@ -1,3 +1,4 @@
+import type {CommerceRepository} from '../../application/commerce.port.js';
 import {paymentProjection} from '../../payments/domain/payments.js';
 import {RefundService} from '../../refunds/application/refunds.service.js';
 import {providerRefundInput,type ProviderRefundInput,type RefundProviderStatus} from '../../refunds/domain/refunds.js';
@@ -10,7 +11,7 @@ import {CommerceService} from '../../application/commerce.service.js';
 import {normalizeHandle} from '../../domain/commerce.js';
 import type {IdentitySecretsPort} from "../../identity/application/identity.port.js";
 import {IdentityError, emailAddress} from '../../identity/domain/identity.js';
-import {locale, type Permission} from '../domain/access.js';
+import {locale,closedStoreOrderAction,type StoreAvailability, type Permission} from '../domain/access.js';
 import type {MerchantRepositoryPort, MerchantPrincipal, StoreSettings} from './merchant.port.js';
 export class MerchantService {
   constructor(private repository:MerchantRepositoryPort, private secrets:IdentitySecretsPort,private storage:ObjectStoragePort,private refundProcessor?:RefundService){}
@@ -53,10 +54,10 @@ export class MerchantService {
     if(role!==null && !['STORE_ADMIN','STORE_EDITOR','STORE_VIEWER'].includes(role))throw new IdentityError(400,'Invalid store role.');
     return this.repository.storeMember(p,storeId,identityId,role);
   }
-  private commerce<T>(p:MerchantPrincipal,id:string,permission:Permission,work:(service:CommerceService)=>Promise<T>){
+  private commerce<T>(p:MerchantPrincipal,id:string,permission:Permission,work:(service:CommerceService)=>Promise<T>,availability:StoreAvailability='operational'){
     return this.repository.withStore(p,id,permission,repo=>work(new CommerceService(repo,{assertStoreAccess:async(store,subject)=>{
       if(store.id!==id || subject!==p.identityId)throw new IdentityError(404,'Store not found.');
-    }})));
+    }})),availability);
   }
   products(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['queryProducts']>[2]={}){return this.commerce(p,id,'store.read',service=>service.queryProducts(p.identityId!,id,input));}
   productDetail(p:MerchantPrincipal,id:string,productId:string){return this.commerce(p,id,'store.read',service=>service.productDetail(p.identityId!,id,productId));}
@@ -116,23 +117,24 @@ export class MerchantService {
   pricing(p:MerchantPrincipal,id:string){return this.commerce(p,id,'store.read',s=>s.pricing(p.identityId!,id));}
   savePricing(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['savePricing']>[2]){return this.commerce(p,id,'store.settings',s=>s.savePricing(p.identityId!,id,input));}
 
-  orders(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['orders']>[2]){return this.commerce(p,id,'orders.read',s=>s.orders(p.identityId!,id,input));}
-  order(p:MerchantPrincipal,id:string,order:string){return this.commerce(p,id,'orders.read',s=>s.order(p.identityId!,id,order));}
+  orders(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['orders']>[2]){return this.commerce(p,id,'orders.read',s=>s.orders(p.identityId!,id,input),'financial');}
+  order(p:MerchantPrincipal,id:string,order:string){return this.commerce(p,id,'orders.read',s=>s.order(p.identityId!,id,order),'financial');}
 
-  orderCommand(p:MerchantPrincipal,id:string,order:string,input:Parameters<CommerceService['orderCommand']>[3]){return this.commerce(p,id,'orders.manage',s=>s.orderCommand(p.identityId!,id,order,input));}
+  orderCommand(p:MerchantPrincipal,id:string,order:string,input:Parameters<CommerceService['orderCommand']>[3]){return this.commerce(p,id,'orders.manage',s=>s.orderCommand(p.identityId!,id,order,input),closedStoreOrderAction(input.action.kind)?'financial':'operational');}
 
   coupons(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['coupons']>[2]){return this.commerce(p,id,'discounts.manage',s=>s.coupons(p.identityId!,id,input));}
   coupon(p:MerchantPrincipal,id:string,coupon:string){return this.commerce(p,id,'discounts.manage',s=>s.coupon(p.identityId!,id,coupon));}
   createCoupon(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['createCoupon']>[2]){return this.commerce(p,id,'discounts.manage',s=>s.createCoupon(p.identityId!,id,input));}
   updateCoupon(p:MerchantPrincipal,id:string,coupon:string,input:Parameters<CommerceService['updateCoupon']>[3]){return this.commerce(p,id,'discounts.manage',s=>s.updateCoupon(p.identityId!,id,coupon,input));}
-  async manualRefund(p:MerchantPrincipal,id:string,orderId:string,input:ManualRefundInput){const normalized=manualRefundInput(input);return refundProjection(await this.repository.withStore(p,id,'orders.manage',repo=>repo.refunds.manual(id,orderId,p.identityId!,normalized)));}
-  async refunds(p:MerchantPrincipal,id:string,orderId:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid refund page.');const rows=await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.list(id,orderId,limit,offset));return{items:rows.slice(0,limit).map(row=>refundProjection(row)),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+  private financial<T>(p:MerchantPrincipal,id:string,permission:'orders.read'|'orders.manage',work:(repo:CommerceRepository)=>Promise<T>){return this.repository.withStore(p,id,permission,work,'financial');}
+  async manualRefund(p:MerchantPrincipal,id:string,orderId:string,input:ManualRefundInput){const normalized=manualRefundInput(input);return refundProjection(await this.financial(p,id,'orders.manage',repo=>repo.refunds.manual(id,orderId,p.identityId!,normalized)));}
+  async refunds(p:MerchantPrincipal,id:string,orderId:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid refund page.');const rows=await this.financial(p,id,'orders.read',repo=>repo.refunds.list(id,orderId,limit,offset));return{items:rows.slice(0,limit).map(row=>refundProjection(row)),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
 
-  async providerRefund(p:MerchantPrincipal,id:string,target:'ORDER'|'PAYMENT',targetId:string,input:ProviderRefundInput){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');const normalized=providerRefundInput(input),intent=await this.repository.withStore(p,id,'orders.manage',repo=>repo.refunds.provider(id,target,targetId,p.identityId!,normalized));await this.refundProcessor.process(intent.id);return refundProjection(await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.get(id,intent.id)));}
-  async refund(p:MerchantPrincipal,id:string,refundId:string){return refundProjection(await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.get(id,refundId)));}
-  async reconcileRefund(p:MerchantPrincipal,id:string,refundId:string,event?:RefundProviderStatus){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');await this.repository.withStore(p,id,'orders.manage',repo=>repo.refunds.get(id,refundId));if(event)await this.refundProcessor.simulate(refundId,event);else await this.refundProcessor.process(refundId);return this.refund(p,id,refundId);}
+  async providerRefund(p:MerchantPrincipal,id:string,target:'ORDER'|'PAYMENT',targetId:string,input:ProviderRefundInput){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');const normalized=providerRefundInput(input),intent=await this.financial(p,id,'orders.manage',repo=>repo.refunds.provider(id,target,targetId,p.identityId!,normalized));await this.refundProcessor.process(intent.id);return refundProjection(await this.financial(p,id,'orders.read',repo=>repo.refunds.get(id,intent.id)));}
+  async refund(p:MerchantPrincipal,id:string,refundId:string){return refundProjection(await this.financial(p,id,'orders.read',repo=>repo.refunds.get(id,refundId)));}
+  async reconcileRefund(p:MerchantPrincipal,id:string,refundId:string,event?:RefundProviderStatus){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');await this.financial(p,id,'orders.manage',repo=>repo.refunds.get(id,refundId));if(event)await this.refundProcessor.simulate(refundId,event);else await this.refundProcessor.process(refundId);return this.refund(p,id,refundId);}
 
-  async payments(p:MerchantPrincipal,id:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid payment page.');const rows=await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.payments(id,limit,offset));return{items:rows.slice(0,limit).map(paymentProjection),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
-  async payment(p:MerchantPrincipal,id:string,paymentId:string){return paymentProjection(await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.payment(id,paymentId)));}
+  async payments(p:MerchantPrincipal,id:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid payment page.');const rows=await this.financial(p,id,'orders.read',repo=>repo.refunds.payments(id,limit,offset));return{items:rows.slice(0,limit).map(paymentProjection),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+  async payment(p:MerchantPrincipal,id:string,paymentId:string){return paymentProjection(await this.financial(p,id,'orders.read',repo=>repo.refunds.payment(id,paymentId)));}
 
 }

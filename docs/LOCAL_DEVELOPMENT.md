@@ -93,6 +93,6 @@ payments, refunds and mail. Manual COD records remain explicit CASH_RETURNED ass
 simulated provider refunds use SUCCESS/FAILURE/TIMEOUT and durable provider state.
 Uncertain receipts hold budget until resolved; never create replacement refunds
 blindly. A refund does not restock goods. Use an eligible explicit cancellation for
-fully repaid, undispatched orders. Refunds after archive/suspension still inherit
-operational merchant availability at this checkpoint; financial-access policy is the
-next lifecycle review, and suspended accounts must not regain authority through it.
+fully repaid, undispatched orders. Financial/existing-order access now survives store archive/suspension for current
+owner/admin sessions in an active account. New fulfillment/catalog operations remain
+blocked, and suspended accounts do not regain authority through this scope.

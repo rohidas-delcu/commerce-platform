@@ -3,7 +3,7 @@ import {PrismaClient, type Prisma} from '../../generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {PrismaCommerceRepository} from '../../infrastructure/prisma-commerce.repository.js';
 import {IdentityError} from '../../identity/domain/identity.js';
-import {assertOwner, assertPermission, assertRemainingOwner, locale, type Permission} from '../domain/access.js';
+import {assertOwner, assertPermission,closedStoreFinance, assertRemainingOwner, locale, type Permission,type StoreAvailability} from '../domain/access.js';
 import type {MerchantRepositoryPort, MerchantPrincipal, StoreSettings, StoreView} from '../application/merchant.port.js';
 
 const storeSelect = {logoAssetId:true,id:true,merchantId:true,name:true,handle:true,status:true,settingsVersion:true,onboardingState:true,countryCode:true,currencyCode:true,timezone:true,contactEmail:true,brandingName:true,suspended:true,archivedAt:true} as const;
@@ -41,7 +41,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     if(member.merchant.status!=='ACTIVE') throw new IdentityError(403,'Merchant account is unavailable.');
     return member;
   }
-  private async scoped<T>(p:MerchantPrincipal,storeId:string,permission:Permission,work:(tx:Prisma.TransactionClient,store:StoreView)=>Promise<T>, allowSuspended=false){
+  private async scoped<T>(p:MerchantPrincipal,storeId:string,permission:Permission,work:(tx:Prisma.TransactionClient,store:StoreView)=>Promise<T>, allowSuspended=false,financial=false){
     return this.transaction(async tx=>{
       await this.principal(tx,p);
       const preliminary=await tx.store.findUnique({where:{id:storeId},select:{merchantId:true}});
@@ -51,7 +51,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
       const store=await tx.store.findUniqueOrThrow({where:{id:storeId},select:storeSelect});
       const membership=await tx.storeMembership.findUnique({where:{storeId_identityId:{storeId,identityId:p.identityId!}}});
       assertPermission(account.role==='ACCOUNT_OWNER'?'ACCOUNT_OWNER':membership?.role??null,permission);
-      if(store.archivedAt || (store.suspended && !allowSuspended)) throw new IdentityError(403,'Store is unavailable.');
+      if(!financial&&(store.archivedAt || (store.suspended && !allowSuspended))) throw new IdentityError(403,'Store is unavailable.');
       return work(tx,store);
     });
   }
@@ -89,7 +89,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     await this.principal(tx,p);
     return tx.store.findMany({where:{archivedAt:null,merchant:{status:'ACTIVE',members:{some:{identityId:p.identityId!}}},OR:[{merchant:{members:{some:{identityId:p.identityId!,role:'ACCOUNT_OWNER'}}}},{memberships:{some:{identityId:p.identityId!}}}]},select:storeSelect,take:100,orderBy:{createdAt:'asc'}});
   });}
-  withStore<T>(p:MerchantPrincipal,storeId:string,permission:Permission,work:(repo:PrismaCommerceRepository,store:StoreView)=>Promise<T>){return this.scoped(p,storeId,permission,(tx,store)=>work(new PrismaCommerceRepository(tx),store));}
+  withStore<T>(p:MerchantPrincipal,storeId:string,permission:Permission,work:(repo:PrismaCommerceRepository,store:StoreView)=>Promise<T>,availability:StoreAvailability='operational'){return this.scoped(p,storeId,permission,(tx,store)=>work(new PrismaCommerceRepository(tx),store),false,closedStoreFinance(permission,availability));}
   settings(p:MerchantPrincipal,storeId:string,input:StoreSettings){return this.scoped(p,storeId,'store.settings',async(tx,store)=>{
     if(input.expectedVersion!==store.settingsVersion)throw new IdentityError(409,'Settings changed. Reload before saving.');
     const {expectedVersion,...changes}=input;

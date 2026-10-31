@@ -269,3 +269,14 @@ Fully refunded orders cannot start fulfillment. An explicit cancellation may res
 stock only while undispatched and fully repaid, preserving paid/refunded history and
 snapshotted coupon cancellation policy. Already-dispatched delivery can still be
 recorded; money repayment alone never claims a physical return.
+
+## Financial and existing-order continuity after store closure (implementation, 2026-10-31)
+
+Centralize an operational vs financial store-availability intent inside MerchantAccess.
+Financial intent is limited to orders.read/orders.manage; it does not grant catalog,
+inventory, settings or publication authority. Existing order/financial reads, refunds,
+cancellation, private notes, recording delivery and COD collection can survive store
+suspension/archive. Starting READY/DISPATCH still requires operational availability.
+All paths recheck active verified identity/session, active account, live membership,
+role and tenant under the same locks. Suspended accounts gain no exception. Closure
+cannot erase receipts or prevent authorized repayment/completion of existing orders.

@@ -159,3 +159,9 @@ provider observation is separate from final financial commitment; its failure ca
 erase already-observed money movement. The existing ledger supports manual and
 simulated refunds, with tenant FKs, immutable source fields and deferred balance/receipt
 checks. The worker now runs expiry, payment/refund reconciliation and mail sequentially.
+
+MerchantAccess now distinguishes store availability intent from identity/account/role
+authority. Financial intent permits closed-store existing-order/finance work while
+retaining every account/session/tenant check. A central domain whitelist selects
+terminal order commands; normal commerce defaults remain operational. No caller can
+select financial availability through a request body or identity header.

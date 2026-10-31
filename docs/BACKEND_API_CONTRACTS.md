@@ -429,3 +429,10 @@ Customer GET `/v1/storefront/:handle/customer/orders/:id/refunds` returns a pagi
 own-order projection, excluding merchant reference, actor, key and digest. Payment
 receipts now include refundedMinor; a fully repaid capture becomes REFUNDED even when
 no order could be created. Original amount/paid and order totals remain intact.
+
+Merchant finance and existing-order reads remain available after store suspension or
+archive to current authorized owner/admin sessions in an ACTIVE merchant account.
+Refunds, eligible cancellation, private notes and recording existing delivery/COD
+collection use that scope. New READY/DISPATCH, catalog and store settings retain their
+normal availability rules. Account/identity/session suspension and membership revocation
+still deny authority. These access intents are internal use-case policy, not client flags.

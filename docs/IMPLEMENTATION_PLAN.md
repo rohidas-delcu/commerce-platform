@@ -113,3 +113,7 @@ receipt/finalization recovery, late-capture repayment and explicit physical canc
 Next: closed-store financial access review, remaining payment notices, Razorpay candidate
 boundary, retention/orphan cleanup and executable complete backend demo. External
 provider sandbox/security gates remain separate from local development acceptance.
+
+Closed-store financial/existing-order continuity is verified without relaxing active
+account/session/membership authority. New fulfillment/catalog remain unavailable.
+Next: remaining payment notices, candidate Razorpay boundary, cleanup and executable demo.

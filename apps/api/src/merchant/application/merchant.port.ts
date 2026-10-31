@@ -19,7 +19,7 @@ export interface MerchantRepositoryPort {
   accounts(principal: MerchantPrincipal): Promise<AccountView[]>;
   createStore(principal: MerchantPrincipal, merchantId: string, input: {name:string;handle:string;countryCode:string;currencyCode:string}, key: string, digest: string): Promise<StoreView>;
   stores(principal: MerchantPrincipal): Promise<StoreView[]>;
-  withStore<T>(principal: MerchantPrincipal, storeId: string, permission: Permission, work: (repo: CommerceRepository, store: StoreView) => Promise<T>): Promise<T>;
+  withStore<T>(principal: MerchantPrincipal, storeId: string, permission: Permission, work: (repo: CommerceRepository, store: StoreView) => Promise<T>, availability?:import('../domain/access.js').StoreAvailability): Promise<T>;
   settings(principal: MerchantPrincipal, storeId: string, input: StoreSettings): Promise<StoreView>;
   complete(principal: MerchantPrincipal, storeId: string, version: number): Promise<StoreView>;
   publication(principal: MerchantPrincipal, storeId: string, published: boolean): Promise<StoreView>;

@@ -22,3 +22,7 @@ export function locale(country: string, currency: string) {
   const allowed: Record<string, readonly string[]> = {IN:['INR'], US:['USD'], GB:['GBP'], CA:['CAD'], AU:['AUD']};
   if (!allowed[country]?.includes(currency)) throw new IdentityError(400, 'Unsupported country/currency pair.');
 }
+
+export type StoreAvailability='operational'|'financial';
+export function closedStoreFinance(permission:Permission,availability:StoreAvailability){if(!['operational','financial'].includes(availability)||availability==='financial'&&!['orders.read','orders.manage'].includes(permission))throw new IdentityError(403,'Invalid store access intent.');return availability==='financial';}
+export function closedStoreOrderAction(kind:string){return ['CANCEL','NOTE','COLLECT_COD','DELIVER'].includes(kind);}
