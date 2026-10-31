@@ -1,3 +1,4 @@
+import {pageWindow,pageResult,nextPageOffset,type PageWindow} from '../../application/pagination.js';
 import type {CommerceRepository} from '../../application/commerce.port.js';
 import {paymentProjection} from '../../payments/domain/payments.js';
 import {RefundService} from '../../refunds/application/refunds.service.js';
@@ -19,7 +20,7 @@ export class MerchantService {
   accountStatus(p:MerchantPrincipal,id:string,suspended:boolean){return this.repository.accountStatus(p,id,suspended);}
   storeStatus(p:MerchantPrincipal,id:string,operation:"suspend"|"resume"|"archive"){return this.repository.storeStatus(p,id,operation);}
   createAccount(p:MerchantPrincipal,name:string){if(!name.trim())throw new IdentityError(400,'Name required.');return this.repository.createAccount(p,name.trim());}
-  accounts(p:MerchantPrincipal){return this.repository.accounts(p);}
+  async accounts(p:MerchantPrincipal,input:Partial<PageWindow>={}){const page=pageWindow(input);return pageResult(await this.repository.accounts(p,page),page);}
   createStore(p:MerchantPrincipal,merchantId:string,input:{name:string;handle:string;countryCode?:string;currencyCode?:string},key:string){
     if(!key || !/^[A-Za-z0-9_-]{8,100}$/.test(key))throw new IdentityError(400,'Idempotency-Key of 8–100 safe characters required.');
     const data={name:input.name.trim(),handle:normalizeHandle(input.handle),countryCode:(input.countryCode??'IN').toUpperCase(),currencyCode:(input.currencyCode??'INR').toUpperCase()};
@@ -27,7 +28,7 @@ export class MerchantService {
     const digest=createHash('sha256').update(JSON.stringify({merchantId,...data})).digest('hex');
     return this.repository.createStore(p,merchantId,data,key,digest);
   }
-  stores(p:MerchantPrincipal){return this.repository.stores(p);}
+  async stores(p:MerchantPrincipal,input:Partial<PageWindow>={}){const page=pageWindow(input);return pageResult(await this.repository.stores(p,page),page);}
   store(p:MerchantPrincipal,id:string){return this.repository.withStore(p,id,'store.read',async(_repo,store)=>store);}
   settings(p:MerchantPrincipal,id:string,input:StoreSettings){
     const changes={...input};
@@ -37,7 +38,7 @@ export class MerchantService {
   }
   complete(p:MerchantPrincipal,id:string,version:number){return this.repository.complete(p,id,version);}
   publish(p:MerchantPrincipal,id:string,published:boolean){return this.repository.publication(p,id,published);}
-  members(p:MerchantPrincipal,id:string){return this.repository.members(p,id);}
+  async members(p:MerchantPrincipal,id:string,input:Partial<PageWindow>={}){const page=pageWindow(input);return pageResult(await this.repository.members(p,id,page),page);}
   membership(p:MerchantPrincipal,id:string,identityId:string,role:'ACCOUNT_OWNER'|'MEMBER'|null){return this.repository.membership(p,id,identityId,role);}
 
   invite(p:MerchantPrincipal,merchantId:string,input:{storeId?:string;email:string;role:string}) {
@@ -48,7 +49,7 @@ export class MerchantService {
     return this.repository.invite(p,merchantId,input.storeId??null,email,input.role,this.secrets.digest(token),this.secrets.encryptMail({token}));
   }
   accept(p:MerchantPrincipal,token:string){return this.repository.accept(p,this.secrets.digest(token));}
-  invitations(p:MerchantPrincipal,id:string){return this.repository.invitations(p,id);}
+  async invitations(p:MerchantPrincipal,id:string,input:Partial<PageWindow>={}){const page=pageWindow(input);return pageResult(await this.repository.invitations(p,id,page),page);}
   revokeInvitation(p:MerchantPrincipal,merchantId:string,id:string){return this.repository.revokeInvitation(p,merchantId,id);}
   storeMember(p:MerchantPrincipal,storeId:string,identityId:string,role:string|null){
     if(role!==null && !['STORE_ADMIN','STORE_EDITOR','STORE_VIEWER'].includes(role))throw new IdentityError(400,'Invalid store role.');
@@ -128,13 +129,13 @@ export class MerchantService {
   updateCoupon(p:MerchantPrincipal,id:string,coupon:string,input:Parameters<CommerceService['updateCoupon']>[3]){return this.commerce(p,id,'discounts.manage',s=>s.updateCoupon(p.identityId!,id,coupon,input));}
   private financial<T>(p:MerchantPrincipal,id:string,permission:'orders.read'|'orders.manage',work:(repo:CommerceRepository)=>Promise<T>){return this.repository.withStore(p,id,permission,work,'financial');}
   async manualRefund(p:MerchantPrincipal,id:string,orderId:string,input:ManualRefundInput){const normalized=manualRefundInput(input);return refundProjection(await this.financial(p,id,'orders.manage',repo=>repo.refunds.manual(id,orderId,p.identityId!,normalized)));}
-  async refunds(p:MerchantPrincipal,id:string,orderId:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid refund page.');const rows=await this.financial(p,id,'orders.read',repo=>repo.refunds.list(id,orderId,limit,offset));return{items:rows.slice(0,limit).map(row=>refundProjection(row)),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+  async refunds(p:MerchantPrincipal,id:string,orderId:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid refund page.');const rows=await this.financial(p,id,'orders.read',repo=>repo.refunds.list(id,orderId,limit,offset));return{items:rows.slice(0,limit).map(row=>refundProjection(row)),limit,offset,nextOffset:nextPageOffset(rows.length,limit,offset)};}
 
   async providerRefund(p:MerchantPrincipal,id:string,target:'ORDER'|'PAYMENT',targetId:string,input:ProviderRefundInput){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');const normalized=providerRefundInput(input),intent=await this.financial(p,id,'orders.manage',repo=>repo.refunds.provider(id,target,targetId,p.identityId!,normalized));await this.refundProcessor.process(intent.id);return refundProjection(await this.financial(p,id,'orders.read',repo=>repo.refunds.get(id,intent.id)));}
   async refund(p:MerchantPrincipal,id:string,refundId:string){return refundProjection(await this.financial(p,id,'orders.read',repo=>repo.refunds.get(id,refundId)));}
   async reconcileRefund(p:MerchantPrincipal,id:string,refundId:string,event?:RefundProviderStatus){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');await this.financial(p,id,'orders.manage',repo=>repo.refunds.get(id,refundId));if(event)await this.refundProcessor.simulate(refundId,event);else await this.refundProcessor.process(refundId);return this.refund(p,id,refundId);}
 
-  async payments(p:MerchantPrincipal,id:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid payment page.');const rows=await this.financial(p,id,'orders.read',repo=>repo.refunds.payments(id,limit,offset));return{items:rows.slice(0,limit).map(paymentProjection),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+  async payments(p:MerchantPrincipal,id:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid payment page.');const rows=await this.financial(p,id,'orders.read',repo=>repo.refunds.payments(id,limit,offset));return{items:rows.slice(0,limit).map(paymentProjection),limit,offset,nextOffset:nextPageOffset(rows.length,limit,offset)};}
   async payment(p:MerchantPrincipal,id:string,paymentId:string){return paymentProjection(await this.financial(p,id,'orders.read',repo=>repo.refunds.payment(id,paymentId)));}
 
 }

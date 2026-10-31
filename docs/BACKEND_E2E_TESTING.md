@@ -1,170 +1,79 @@
-# End-to-end testing
+# Backend verification
 
-`pnpm test`: domain, application and security unit tests.
-`pnpm typecheck`, `pnpm build`: workspace compilation.
-`pnpm test:integration`: legacy memory HTTP and lifecycle coverage.
-`DATABASE_URL=<disposable> pnpm test:postgres`: legacy PostgreSQL suites plus the
-new real HTTP identity lifecycle. Identity fixtures provision a deterministic
-non-production encryption key inside the harness; no production secrets needed.
+Use Node24, pnpm11.25.0 and the committed lockfile. Current actual outcomes and
+commit/CI provenance live in IMPLEMENTATION_STATUS.md. These commands were executed;
+counts are test-runner cases, not a claim of exhaustive or independent user journeys.
 
-Identity test covers signup, unverified denial, one-time verification, CSRF,
-profile projection, password hashing, session rotation/replay, logout-all, device
-revocation, status suspension/reactivation, recovery/change, logs and throttling.
-It decrypts mail in-process as a trusted local test delivery adapter; this is not
-SES delivery. PostgreSQL counters are shared across instances; the harness cleans
-only its loopback rate-counter fixtures. Each test run needs a disposable database.
+```sh
+pnpm install --frozen-lockfile
+pnpm db:validate
+pnpm db:generate
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm test:integration
+# Set DATABASE_URL to a disposable PostgreSQL17 database, with public schema.
+pnpm db:deploy
+pnpm db:deploy
+pnpm db:status
+pnpm db:drift
+NODE_ENV=test pnpm test:migrations
+pnpm test:postgres
+pnpm demo:backend --verify-and-exit
+pnpm audit --prod --audit-level high
+```
 
-Required later: full merchant onboarding/catalog/media journey, customer/cart,
-COD, payment simulator success/failure/timeout/late/out-of-order callbacks,
-reservations/last-unit concurrency, order/fulfillment and notification retries,
-provider sandbox checks, populated migration/rollback rehearsal and complete demo.
-Never report these as passed until implemented and executed. Browser cookie/CSRF
-acceptance beyond the HTTP harness also remains a production release gate.
+Read-only HOME cloud install: add `--store-dir /workspace/.pnpm-store`.
+Run build-producing suites sequentially: they share apps/api/dist. PostgreSQL
+files use concurrency1 to isolate loopback throttle fixtures; never weaken limits.
+Fixtures force development mail/local storage, isolate secrets and disable workers
+unless that worker is explicitly being tested. No production credentials required.
 
-`pnpm test:migrations` (NODE_ENV=test, disposable server with CREATE DATABASE)
-rehearses a populated Phase 0 upgrade, repeatability/drift and unclaimed owner
-quarantine. It removes only the fixture DB created by that process. CI runs it.
+## Executed coverage
 
-MerchantAccess HTTP suite tests sessions → account/store/onboarding → catalog/
-inventory → publication, invitation and role lifecycle, cross-tenant access,
-last-owner races, and a blocked write observing revocation after an account lock.
-PostgreSQL test files run sequentially to isolate loopback rate-counter fixtures.
+| Area | Evidence |
+| --- | --- |
+| Merchant | Real HTTP signup/Argon2/one-time verification/login, recovery, CSRF/Origin, rotation/replay, logout/device revocation, suspension, enumeration-safe errors/throttling. |
+| Ownership | Account/store role/invitation lifecycle, last-owner races, privilege escalation and revocation-vs-write locks; tenant FKs; historical quarantine without auto-claim. |
+| Catalog | Versioned product/variant metadata, exact prices, handles/SKUs, search, collections/order, private/public projections, archive/publication. |
+| Media | Real PNG/JPEG raster validation, checksum/length/type guards, HTTP local immutable uploads, tenant linking/branding, public use checks, delete races and fenced cleanup. S3 SDK fakes only. |
+| Customers/carts | Independent merchant/two-store namespaces, renamed-cookie attacks, scoped addresses/default races/wishlist, guest capability, merge/retry, no cart reservation, changed prices/availability. |
+| Pricing | Exact exclusive/inclusive rounding/allocation, configured shipping/tax, coupons/global/per-customer lease limits, validity/cancellation policy, last-use races and zero-total NOT_REQUIRED. |
+| Checkout/orders | Real last-unit reservation race, expiry-after-lock, key/version rejection, server revalidation, immutable COD/SIM snapshots including billing, one order/stock/outbox on retries, safe customer/merchant receipt access. |
+| Payments | Durable receipt before finalization, forced order-insert rollback/retry, success/failure/timeout/delayed/out-of-order/duplicate observations, late/mismatched capture review, no oversell. Simulation only. |
+| Fulfillment/refunds | Ready/dispatch/delivery/separate COD collection, invalid transitions, exact manual/simulated refunds, unresolved budgets, forced ledger/history rollback, no implied physical return, explicit cancellation restoration. |
+| Closure | Existing customer receipts and authorized merchant finance survive store closure; new commerce blocked; editor/foreign/revoked/account-suspended authority denied. |
+| Notifications/jobs | Local worker transport, concurrent SKIP LOCKED claims, retries/unknown/late acknowledgements, forced ack rollback, stale challenges/payment notices, private projections, expiry/cleanup races and graceful shutdown. SES SDK fakes only. |
+| Gateway boundary | Official-path fake HTTP contracts, private scoped test credentials, raw byte HMAC, authoritative amount/currency/reference checks, no false POST idempotency, PG receipt/dedup and disabled HTTP activation. No Razorpay sandbox/network call. |
+| Pagination | 101 account/store/invitation and102 membership records with tied timestamps, complete pages beyond100, tenant privacy/validation and valid bounded continuation. |
+| Runtime | Production/demo refusal, invalid key/schema/port/driver and unavailable DB startup, safe error/log output, readiness/shutdown, generated request DTO/OpenAPI paths/query/billing fields. |
 
-Customer HTTP coverage now executes same-email independent merchant/two-store signup,
-one-time and cross-store challenge checks, unverified login, cookie renaming attacks,
-CSRF, actual Argon2 login, scoped addresses and concurrent default selection, SQL
-scope/FK guards, safe wishlist/archive filtering, session replay revocation, password
-recovery, suspension/logout and brute-force throttling. These are customer account
-journeys; purchase/order flows B–I remain pending. Migration rehearsal additionally
-preserves issued merchant credential/session values across namespace migration.
+Forced failure tests intentionally emit sanitized error events, then assert rollback.
+They are not unexplained runtime failures. No cases were skipped in the current runs.
 
-Cart coverage is part of the real customer PostgreSQL HTTP journey: guest creation,
-CSRF/capability scope, owned cart, variant/tenant boundaries, ignored-price prevention
-through DTO rejection, current exact subtotals, no stock reservation, login merge and
-retry, concurrent stale edits, price refresh, stock/catalog changes, clearing and
-expired replacement. Purchase/payment/fulfillment flows still remain pending.
+## Migration rehearsal
 
-Pricing coverage executes optimistic concurrent merchant policy writes, prerequisite
-checks, missing-policy failure, real cart estimates with exact tax arithmetic,
-unsupported destination rejection and amount-tampering rejection. Unit vectors cover
-exclusive/inclusive tax, half-up rounding, discounted free-shipping thresholds and
-coupon eligibility arithmetic. Coupon persistence/usage, checkout and orders are not
-implemented; these vectors do not verify those future lifecycles.
+`test:migrations` requires NODE_ENV=test and CREATE DATABASE privileges. It creates
+its own random DB, seeds original Phase0 commerce, stages original committed SQL
+and issued identity/session fixtures, upgrades and compares original values. It also
+stages the exact26 pre-billing migrations and real financial orders before migration27,
+then proves every original order column preserved and billing honestly uncollected.
+It verifies repeated deployment/status/drift, quarantine, and exact zero-total
+correction DML twice with preserved money/IDs and one audit. Only its owned DB drops.
+The complete demo separately proves all27 migrations on a fresh DB and repeatability.
+Never reset/db-push an existing database or edit the merged foundation migration.
 
-Checkout HTTP/PostgreSQL coverage creates two real verified customers and owned carts
-for the last available unit, starts/configures durable checkouts and competes for a
-reservation. Exactly one succeeds. Retry does not duplicate allocation; input changes,
-cancel/retry and expiry release correctly, with on-hand unchanged and no sale movement.
-Tests cover start-key mismatch, active-checkout uniqueness, stale versions, private SKU
-exclusion, cross-customer reads and a direct SQL source-cart/customer FK violation.
-These checks still do not place an order or verify a payment.
+## Demonstration and unverified limits
 
-COD HTTP/PostgreSQL coverage now places one real order through concurrent retries,
-checks exact DUE/paid0 amounts, order/counter/outbox uniqueness and one stock deduction.
-A controlled BEFORE INSERT order failure proves stock, reservation, checkout, cart,
-counter and notification rollback before successful retry. Price/policy changes require
-re-quote. Order history remains unchanged after catalog price edits. Customer/merchant
-projections, editor permission denial, SQL tenant/item references and immutable financial/
-event history are tested. No real cash collection, email delivery, gateway or fulfillment
-is implied by these placement checks.
+`demo:backend --verify-and-exit` drives the complete journey using real HTTP,
+worker-delivered private verification mail, local image bytes and a durable simulator.
+It asserts one paid order despite retry, stock11 from12, delivery/history and four
+order/payment notices; shuts down and removes only owned random data. Both an existing
+PostgreSQL connection and Docker provisioning on an isolated loopback port were run.
+CI executes the same demo after all regression suites.
 
-The COD PostgreSQL journey now also executes owner/admin ready/dispatch/delivery,
-separate collection, duplicate commands and private-note visibility. A second order
-is cancelled with a controlled restoration-insert failure, proving rollback, followed
-by concurrent retry proving exactly one stock restoration and cancellation notice.
-Invalid backward transitions, premature/wrong-amount collection, late cancellation
-and editor writes are rejected. Customer COMPLETED/CANCELLED filters and safe carrier
-history are verified. This does not verify refunds, online payments or email delivery.
-
-Two coupon suites use real HTTP merchant signup/account/onboarding/catalog/publication,
-customer signup/cart and COD checkout. They execute scoped uniqueness/IDOR, guest merge
-preference, per-customer restrictions, last-use lease competition, retry/redemption,
-opt-in quota restoration, snapshot policy immutability, actual time expiry and zero-total
-NOT_REQUIRED delivery. A forced quota-release insert failure verifies rollback of order,
-stock and quota before retry. Migration rehearsal runs the exact zero-total correction
-DML twice against delivered-zero, positive-due and cancelled-zero fixtures; IDs/financial
-values and non-target states stay unchanged, with one audit entry. No provider/payment
-capture or actual email delivery is implied by these deterministic backend checks.
-
-Closed-store account checks unpublish and archive a real merchant-created store,
-log the customer out/in, retain receipt/address access and reject shopping/signup/
-public catalog/wishlist content. An unused second closed namespace stays404. Store
-suspension no longer prevents own account access; identity suspension still revokes
-and rejects the customer session. No tenant or cookie-audience checks are relaxed.
-
-Branding coverage uploads/decodes a real PNG, rejects pending and same-owner/foreign-store
-assignment, executes the SQL tenant FK, checks optimistic settings versions, private
-asset visibility, exact public metadata and referenced deletion protection. Unpublish
-hides profile/logo; clearing the reference allows deletion. Memory metadata/reference
-behavior is covered separately. Shared HTTP fixtures force local storage in their own
-private temporary directories, preventing unintended live S3 calls or user-file cleanup.
-
-Notification coverage: `apps/api/test/notifications.test.mjs` exercises exact money,
-application links, private file permissions/deduplication, production mailbox refusal,
-application failure isolation and non-live SES command/error classification.
-`apps/api/test/postgres/notifications.test.mjs` executes real HTTP signup, trusted
-worker delivery and verification, consumed-link suppression, PostgreSQL claim races,
-retry deadlines, unknown outcomes, local crash deduplication, forced acknowledgement
-rollback, late original receipts and a real COD transaction followed by safe receipt
-mail. Assertions never print challenge links, recipients or provider credentials.
-
-Maintenance coverage uses a real HTTP-created merchant/store/customer/cart/checkout,
-then backdates only fixture deadlines to exercise recovery without waiting15minutes.
-Immutable expired quota is inserted as a separate labeled persistence fixture. Tests
-verify closed/archived/suspended tenant reclamation, competing workers, busy-lock
-skipping, tenant selectors, standalone release/expiry races and forced event-insert
-rollback. Exact on-hand/reserved values and one expiry audit/event are asserted.
-
-Payment tests execute real HTTP customer checkout, durable simulated provider state,
-concurrent identical starts/confirmations, exact paid orders, immutable financial/SQL
-checks, inventory commitment, notification intent uniqueness and merchant delivery.
-Further suites cover failure, timeout, delayed worker reconciliation, expired-hold
-late capture, mismatched provider observations and a forced order-insert failure after
-capture persisted. The receipt survives rollback and retry creates one order/movement.
-These are development provider tests, never a verified live gateway/sandbox claim.
-
-Manual refund tests execute COD placement → delivery → collected cash → partial/full
-cash returns. They cover uncollected rejection, editor/foreign merchant denial,
-customer receipt privacy, concurrent retry/over-refund prevention, immutable ledger,
-pagination, tenant FKs, customer-actor rejection and forced event-insert rollback.
-Gross paid, original totals, fulfillment and stock are asserted unchanged; refund
-notification identities are unique. This does not verify an actual cash handover or
-provider refund; CASH_RETURNED is an explicit audited merchant assertion.
-
-Provider refund suites execute exact partial repayment, pending/unknown budget holds,
-concurrent retry, immutable receipt deduplication, source/tenant/customer privacy,
-full repayment followed by explicit cancellation and one coupon/stock restoration.
-A forced financial-event failure after the provider receipt proves its survival and
-one-time retry. Late captured money without an order is repaid and unlocks the cart
-without creating/restocking an order. The TIMEOUT scenario now persists provider state
-before reporting uncertainty; an earlier rollback defect was exposed and fixed.
-These are real PostgreSQL/HTTP tests of the development provider, not live gateway tests.
-
-Closed-store finance tests create paid simulated and dispatched COD orders, then
-unpublish/suspend/archive the store. Current owners can read financial history, repay,
-record existing delivery/cash return and explicitly cancel a repaid undelivered order.
-Catalog/new fulfillment remain blocked. Editors/foreign merchants remain denied;
-suspending the merchant account blocks financial reads/new refunds until an authorized
-resume. Customer receipts remain private and inventory is restored only by cancellation.
-
-Payment-notice HTTP/PostgreSQL coverage executes failed attempts, late capture review
-and successful no-order refunds, then delivers through the private local mailbox.
-It verifies scoped recipients, stale failure/review cancellation, one receipt under
-competing workers, exact per-refund/cumulative money, no merchant reference disclosure,
-delivery after closure and tenant attempt/source FKs. Shared SES fake tests remain
-contract tests, not real inbox/provider-sandbox verification.
-
-Razorpay contract tests inject fake HTTP responses; they verify no production/live-key
-activation, pinned scope, exact safe amounts/currency, coherent authoritative capture,
-signed-browser-result insufficiency, raw-byte HMAC, out-of-order/ambiguous attempts,
-documented refund endpoints, no POST retry and no secret/error-body disclosure.
-A PostgreSQL/HTTP fixture verifies disabled gateway selection, immutable/deduplicated
-capture/refund receipts and exact financial balances with no phantom order/stock
-commitment. These are not actual provider sandbox/network/settlement tests.
-
-Cleanup tests use real HTTP uploads and local bytes with PostgreSQL fenced metadata:
-expired pending reclamation, complete/referenced/grace preservation, closed-store work,
-competing workers, provider failure backoff, stale acknowledgement rejection and no
-public re-upload after tombstoning. Unit races verify a late local PUT cannot recreate
-deleted bytes and a valid concurrent completion is preserved. S3 deletion remains a
-non-live SDK boundary check; versioned-object erasure is not claimed.
+These are loopback Node HTTP clients, not real-browser UI acceptance. Provider fakes
+are not owned S3/SES/Razorpay sandbox tests. Production startup remains refused; TLS,
+secrets, least-privilege/restore/monitoring, financial/security review, browser/BFF
+acceptance and tax/legal/privacy/retention policy remain release gates. See
+PAYMENT_PROVIDER_BOUNDARY.md and setup-and-deployment.md. No frontend or live settlement.

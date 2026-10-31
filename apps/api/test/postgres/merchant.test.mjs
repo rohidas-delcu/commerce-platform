@@ -161,7 +161,7 @@ test('merchant accounts, resumable onboarding, scoped roles, invitations, revoca
   assert.equal((await request(owner,'/v1/auth/deactivate','POST',{})).status,409,'Last owner cannot deactivate.');
   const archived=await request(owner,root+'/stores','POST',{...input,handle:handle+'-archive'},{'idempotency-key':randomUUID()});
   assert.equal(archived.status,201);assert.equal((await request(owner,`${root}/stores/${archived.body.id}/archive`,'POST',{})).status,201);
-  assert.ok(!(await request(owner,root+'/stores')).body.some(s=>s.id===archived.body.id));
+  assert.ok(!(await request(owner,root+'/stores')).body.items.some(s=>s.id===archived.body.id));
   // Promote the verified invited account member; account-owner permission is inherited.
   assert.equal((await request(owner,`${root}/accounts/${merchantId}/members/${staff.id}`,'PATCH',{role:'ACCOUNT_OWNER'})).status,200);
   const removals=await Promise.all([request(owner,`${root}/accounts/${merchantId}/members/${owner.id}`,'DELETE'),request(staff,`${root}/accounts/${merchantId}/members/${staff.id}`,'DELETE')]);

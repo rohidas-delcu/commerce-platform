@@ -1,3 +1,4 @@
+import type {PageWindow} from '../../application/pagination.js';
 import {assertPricingReady} from '../../pricing/domain/pricing.js';
 import {PrismaClient, type Prisma} from '../../generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
@@ -74,7 +75,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
   async createAccount(p:MerchantPrincipal,name:string){
     return this.transaction(async tx=>{await this.principal(tx,p);return tx.merchantAccount.create({data:{name,members:{create:{identityId:p.identityId!,role:'ACCOUNT_OWNER'}}},select:{id:true,name:true,status:true}});});
   }
-  async accounts(p:MerchantPrincipal){return this.transaction(async tx=>{await this.principal(tx,p);return tx.merchantAccount.findMany({where:{members:{some:{identityId:p.identityId!}}},select:{id:true,name:true,status:true},take:100,orderBy:{createdAt:'asc'}});});}
+  async accounts(p:MerchantPrincipal,page:PageWindow){return this.transaction(async tx=>{await this.principal(tx,p);return tx.merchantAccount.findMany({where:{members:{some:{identityId:p.identityId!}}},select:{id:true,name:true,status:true},take:page.limit+1,skip:page.offset,orderBy:[{createdAt:'asc'},{id:'asc'}]});});}
   async createStore(p:MerchantPrincipal,merchantId:string,input:{name:string;handle:string;countryCode:string;currencyCode:string},key:string,digest:string){
     return this.transaction(async tx=>{
       await this.principal(tx,p);assertOwner((await this.account(tx,p,merchantId)).role);
@@ -85,9 +86,9 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
       return store;
     });
   }
-  async stores(p:MerchantPrincipal){return this.transaction(async tx=>{
+  async stores(p:MerchantPrincipal,page:PageWindow){return this.transaction(async tx=>{
     await this.principal(tx,p);
-    return tx.store.findMany({where:{archivedAt:null,merchant:{status:'ACTIVE',members:{some:{identityId:p.identityId!}}},OR:[{merchant:{members:{some:{identityId:p.identityId!,role:'ACCOUNT_OWNER'}}}},{memberships:{some:{identityId:p.identityId!}}}]},select:storeSelect,take:100,orderBy:{createdAt:'asc'}});
+    return tx.store.findMany({where:{archivedAt:null,merchant:{status:'ACTIVE',members:{some:{identityId:p.identityId!}}},OR:[{merchant:{members:{some:{identityId:p.identityId!,role:'ACCOUNT_OWNER'}}}},{memberships:{some:{identityId:p.identityId!}}}]},select:storeSelect,take:page.limit+1,skip:page.offset,orderBy:[{createdAt:'asc'},{id:'asc'}]});
   });}
   withStore<T>(p:MerchantPrincipal,storeId:string,permission:Permission,work:(repo:PrismaCommerceRepository,store:StoreView)=>Promise<T>,availability:StoreAvailability='operational'){return this.scoped(p,storeId,permission,(tx,store)=>work(new PrismaCommerceRepository(tx),store),false,closedStoreFinance(permission,availability));}
   settings(p:MerchantPrincipal,storeId:string,input:StoreSettings){return this.scoped(p,storeId,'store.settings',async(tx,store)=>{
@@ -116,7 +117,7 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     const updated=await tx.store.update({where:{id:storeId},data:{status:published?'PUBLISHED':'DRAFT'},select:storeSelect});
     await tx.identityAudit.create({data:{identityId:p.identityId!,action:`STORE_${published?'PUBLISHED':'UNPUBLISHED'}:${storeId}`}});return updated;
   });}
-  async members(p:MerchantPrincipal,merchantId:string){return this.transaction(async tx=>{await this.principal(tx,p);assertOwner((await this.account(tx,p,merchantId)).role);return tx.merchantMembership.findMany({where:{merchantId},select:{identityId:true,role:true},take:100});});}
+  async members(p:MerchantPrincipal,merchantId:string,page:PageWindow){return this.transaction(async tx=>{await this.principal(tx,p);assertOwner((await this.account(tx,p,merchantId)).role);return tx.merchantMembership.findMany({where:{merchantId},select:{identityId:true,role:true},take:page.limit+1,skip:page.offset,orderBy:{identityId:'asc'}});});}
   async membership(p:MerchantPrincipal,merchantId:string,identityId:string,role:'ACCOUNT_OWNER'|'MEMBER'|null){return this.transaction(async tx=>{
     await this.principal(tx,p);assertOwner((await this.account(tx,p,merchantId)).role);
     const current=await tx.merchantMembership.findUnique({where:{merchantId_identityId:{merchantId,identityId}},include:{identity:true}});
@@ -136,9 +137,9 @@ export class PrismaMerchantRepository implements MerchantRepositoryPort {
     await tx.identityMail.create({data:{recipient:email,purpose:'INVITE',encryptedPayload:mail}});
     await tx.identityAudit.create({data:{identityId:p.identityId!,action:`INVITED:${invitation.id}`}});return invitation;
   });}
-  async invitations(p:MerchantPrincipal,merchantId:string){return this.transaction(async tx=>{
+  async invitations(p:MerchantPrincipal,merchantId:string,page:PageWindow){return this.transaction(async tx=>{
     await this.principal(tx,p);assertOwner((await this.account(tx,p,merchantId)).role);
-    return tx.merchantInvitation.findMany({where:{merchantId},select:{id:true,email:true,role:true,expiresAt:true,consumedAt:true,revokedAt:true},take:100,orderBy:{expiresAt:'desc'}});
+    return tx.merchantInvitation.findMany({where:{merchantId},select:{id:true,email:true,role:true,expiresAt:true,consumedAt:true,revokedAt:true},take:page.limit+1,skip:page.offset,orderBy:[{expiresAt:'desc'},{id:'asc'}]});
   });}
   async revokeInvitation(p:MerchantPrincipal,merchantId:string,id:string){return this.transaction(async tx=>{
     await this.principal(tx,p);assertOwner((await this.account(tx,p,merchantId)).role);

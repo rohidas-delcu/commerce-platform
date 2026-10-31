@@ -41,12 +41,12 @@ refuse until real authentication is designed and reviewed in an approved scope.
 All Phase 0 verification gates in `IMPLEMENTATION_PLAN.md` must actually run and
 pass; review is required before moving on.
 
-## Exclusions and undecided scope
+## Historical Phase0 exclusions (superseded backend scope below)
 
 No React, separate HTML mockup changes, real payments, new business features or
-unnecessary microservices in Phase 0. Real merchant identity/RBAC, checkout,
-orders, reservations, fulfillment, taxes, subscriptions and other deferred
-capabilities are not implemented or approved for the next phase by this document.
+unnecessary microservices in Phase 0. At the Phase0 checkpoint, merchant identity/RBAC, checkout, orders, reservations,
+fulfillment and taxes were deferred; the later explicit backend authorization below
+now covers them. Subscriptions remain outside this mission.
 Phase 1 scope, authentication provider, production hosting and UI implementation
 require explicit future decisions. Do not infer them from roadmap terminology.
 
@@ -54,8 +54,9 @@ require explicit future decisions. Do not infer them from roadmap terminology.
 
 [Phase 1 design and decision pack](PHASE1_DESIGN.md) records the requested
 identity, membership, onboarding, migration and frontend-contract proposals.
-Design work is authorized; implementation and provider selection are not.
-Phase 0 PR #1 is still open and fetched main remains at `3de3dc1`.
+The design pack was proposal-only; full backend implementation was subsequently
+authorized below. External provider adoption is still not assumed approved.
+Historical design context: PR1 has since merged into main at `6b30e82`.
 All P01–P10 decisions require approval; this link does not adopt them.
 
 ## Superseding backend implementation authorization — 2026-10-30

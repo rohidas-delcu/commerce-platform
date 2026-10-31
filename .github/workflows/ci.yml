@@ -64,3 +64,5 @@ jobs:
         run: pnpm test:integration
       - name: PostgreSQL API, repository and schema integration tests
         run: pnpm test:postgres
+      - name: Complete disposable backend demonstration
+        run: pnpm demo:backend --verify-and-exit

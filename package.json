@@ -23,7 +23,8 @@
     "test:database": "node --test apps/api/test/postgres/schema.test.mjs",
     "dev:setup": "node scripts/init-development.mjs",
     "test:migrations": "node apps/api/test/migrations/upgrades.mjs",
-    "worker:once": "pnpm --filter @commerce/api worker:once"
+    "worker:once": "pnpm --filter @commerce/api worker:once",
+    "demo:backend": "pnpm dev:setup && pnpm db:generate && pnpm build && node apps/api/scripts/demo-backend.mjs"
   },
   "devDependencies": {
     "dotenv": "^17.0.0",

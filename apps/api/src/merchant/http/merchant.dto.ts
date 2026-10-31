@@ -1,3 +1,4 @@
+export {PageDto as MerchantPageDto} from '../../http/pagination.dto.js';
 import {IsString,MinLength,MaxLength,IsInt,Min,IsEmail,IsIn,IsUUID,ValidateIf,Matches,Max,IsArray,ArrayMaxSize,IsOptional,IsObject} from 'class-validator';
 import {CreateStoreDto} from '../../http/commerce.dto.js';
 

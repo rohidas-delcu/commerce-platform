@@ -1,5 +1,4 @@
-import {Type} from 'class-transformer';
-import {IsString,MaxLength,MinLength,IsIn,IsBoolean,ValidateIf,IsInt,Min,Max,Matches} from 'class-validator';
+import {IsString,MaxLength,MinLength,IsIn,IsBoolean,ValidateIf,IsInt,Min,Matches} from 'class-validator';
 export class AddressDto {
   @IsString() @MinLength(1) @MaxLength(100) name!:string;
   @IsString() @MinLength(1) @MaxLength(200) line1!:string;
@@ -14,4 +13,4 @@ export class AddressDto {
 export class UpdateAddressDto extends AddressDto {@IsInt() @Min(0) expectedVersion!:number;}
 export class AddressVersionDto {@IsInt() @Min(0) expectedVersion!:number;}
 
-export class CustomerPageDto {@ValidateIf((_o,v)=>v!==undefined) @Type(()=>Number) @IsInt() @Min(1) @Max(100) limit?:number; @ValidateIf((_o,v)=>v!==undefined) @Type(()=>Number) @IsInt() @Min(0) @Max(10000) offset?:number;}
+export {PageDto as CustomerPageDto} from '../../http/pagination.dto.js';

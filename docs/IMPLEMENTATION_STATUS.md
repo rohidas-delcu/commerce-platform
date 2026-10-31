@@ -1,7 +1,8 @@
 # Current backend implementation status — 2026-10-31
 
-**Full backend mission IN PROGRESS; COD and simulated paid purchase/fulfillment work; full backend remains incomplete.** Continue
-verified slices autonomously under BACKEND_REQUIREMENTS.md. No UI, merge or deploy.
+**Self-contained backend journey verified locally; final remote CI/review pending.**
+COD and simulated paid purchase/fulfillment/refund work; external provider acceptance
+and production release remain blocked. No UI, automatic merge or deployment.
 Branch `feature/commerce-backend-end-to-end`, based on merged main `6b30e82`.
 Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
 
@@ -149,47 +150,57 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   stay retained. Local upload/delete races are covered; live S3/lifecycle erasure is
   not verified. No legal data-retention policy has been silently adopted.
 
-## Current verification — billing checkpoint
+## Current verification — final backend acceptance
 
-- `pnpm test`:63 passed,0 failed/skipped. `pnpm typecheck` passed.
-- `pnpm build`: passed. `pnpm test:integration`:4 passed,0 failed/skipped.
-- `DATABASE_URL=<disposable> pnpm test:postgres`:32 passed,0 failed/skipped.
-  Real HTTP, PostgreSQL, SQL constraints, concurrency and rollback; not32 standalone purchase journeys.
-- `pnpm db:validate`, `pnpm db:generate`: passed, client generated inside apps/api.
+- `pnpm install --frozen-lockfile --store-dir /workspace/.pnpm-store`: passed.
+- `pnpm audit --prod --audit-level high`: no known vulnerabilities reported.
+- `pnpm db:validate`, `pnpm db:generate`: passed, API-local generated client.
 - `pnpm db:deploy` twice, `pnpm db:status`, `pnpm db:drift`: passed with27 migrations.
 - `NODE_ENV=test DATABASE_URL=<disposable> pnpm test:migrations`: passed populated
-  Phase0/identity/session preservation, historical quarantine, exact pre-billing
-  financial/order-column preservation and repeated zero-total correction.
-- Billing HTTP/PG test passed COD/SIMULATOR receipts, resume/reset, hold release,
-  current payment edit guard, immutable snapshots and customer/public privacy.
-- Null/malformed domain addresses now produce INVALID instead of TypeError.
-- Latest preceding pushed implementation: f123d30d70f40294769d23ec780b907667cd713f.
-  Actions SUCCESS: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41172855548.
-  Billing local evidence above is current; inspect its CI after push.
+  Phase0/identity/session/financial preservation, historical quarantine, billing
+  provenance, deployment repetition/status/drift and repeated zero-total correction.
+- `pnpm test`:64 passed,0 failed/skipped. `pnpm typecheck`, `pnpm build`: passed.
+- `pnpm test:integration`:4 passed,0 failed/skipped.
+- `DATABASE_URL=<disposable> pnpm test:postgres`:33 passed,0 failed/skipped.
+  Real HTTP/SQL/constraints/concurrency/rollback; not33 independent purchase journeys.
+- `pnpm demo:backend --verify-and-exit`: passed real HTTP merchant→store→images→
+  publication→guest cart/login merge→customer/address/billing→checkout→simulated
+  payment/retry→one order→delivery→private history/stock/mail→graceful teardown.
+- Demo Docker-provisioning branch also executed on an isolated loopback port15439;
+  owned DB removed and owned test container stopped; existing databases untouched.
+- Additional current OpenAPI HTTP assertions passed query pagination and billing DTO
+  fields. See BACKEND_E2E_TESTING.md for executed coverage and distinctions.
+- Latest pushed implementation before this final demo/config/pagination slice:
+  `725bed4a80d79022c85ee988cbc4c4e0e25cc17d` (billing), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41173722794.
+  Final current-source local results above; inspect its remote run after push.
 
-## Remaining work and exact next task
+## Review and exact next task
 
-1. Finish and execute the isolated complete backend demo, wire its verify-and-exit
-   command into CI, then audit remaining API/configuration contracts.
-2. Final current-source install/audit/schema/migration/unit/type/build/HTTP/PG/demo
-   regression; update concise continuity docs and draft PR evidence; wait for green CI.
-3. Owned S3/SES/Razorpay configuration and provider adoption/activation/sandbox/security
-   gates remain external limits. Legal personal/financial retention needs policy review;
-   no automatic purge is implemented. No React, merge or production deployment.
+1. Commit/push final verified demo/configuration/pagination/docs; inspect latest exact
+   head Actions run, correct failures if any, then record its SHA/URL and draft PR2.
+2. STOP after backend delivery for maintainer/security/financial/migration review.
+   Do not implement merchant/storefront UI or merge/deploy automatically.
+3. External prerequisites: owned S3/SES/Razorpay configuration and the provider
+   adoption/activation/ingress/creation-claim/sandbox/security gates below. No local
+   coding workaround can verify account ownership or real delivery/settlement.
 
 ## Explicit limits and release gates
 
-Production startup remains disabled until full acceptance/security review. Legacy
-`/v1/admin` demo headers require explicit development opt-in and cannot reach real
-merchant stores. Identity and transactional journeys require PostgreSQL; memory mode
-serves the isolated catalog/inventory demo. Local mail acceptance is verified; real
-SES delivery/bounce/complaint handling is not. Simulator capture/refund is explicitly
-development-only. Razorpay scoped adapter/signature/receipt contracts are verified
-with fakes, but activation/ingress/owned sandbox acceptance remain blocked as documented
-in PAYMENT_PROVIDER_BOUNDARY.md. S3 contract fakes are not owned-bucket verification.
-Expiry/cleanup require an opt-in worker or trusted CLI. Media cleanup preserves complete
-assets; financial/PII/security retention policy is not invented. Historical billing is
-honestly null with LEGACY_NOT_COLLECTED; existing money/IDs are preserved. Closed-store
-financial/account receipt access retains live account/session/membership authorization.
-Cross-account legal ownership transfer and ownerless-account recovery remain disabled.
-No tax/legal compliance claim, frontend implementation, merge or deployment.
+Production startup remains disabled until acceptance/security review. Legacy
+`/v1/admin` demo headers require development opt-in and cannot reach real stores.
+Identity/transactional journeys require PostgreSQL; memory is isolated catalog/inventory.
+PostgreSQL mode requires a valid mail key and public schema before readiness.
+Merchant account/store/member/invitation lists now return page envelopes (earlier
+unmerged clients reading arrays must read items); offset search window is0–10000.
+Local mail acceptance is verified; real SES delivery/bounce/complaint handling is not.
+Simulator capture/refund is development-only. Razorpay scoped adapter/signature/receipt
+contracts use deterministic fakes; activation/ingress/owned sandbox acceptance remain
+blocked as documented in PAYMENT_PROVIDER_BOUNDARY.md. S3 fakes are not owned-bucket
+verification or versioned permanent-erasure proof. Expiry/cleanup need opt-in worker
+or trusted CLI. Cleanup preserves complete assets and financial/PII/security history;
+legal retention/purge policy is not invented. Historical billing is honestly null
+with LEGACY_NOT_COLLECTED. Closed-store receipts/finance retain live tenant authority.
+Cross-account legal ownership transfer and ownerless-account operator recovery stay
+disabled. No tax/legal compliance, real-browser UI, live settlement or production
+readiness claim. Architecture remains one DDD-informed modular monolith.

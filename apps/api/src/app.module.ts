@@ -50,7 +50,7 @@ import { AdminCommerceController, HealthController, LocalDemoAuthGuard, Storefro
         const { driver } = readRuntimeConfig();
         if (driver === "memory") return new MemoryCommerceRepository();
         if (driver === "postgres") {
-          // Delay importing the Prisma-generated client so demo mode can run without code generation.
+          // Select persistence here; client generation is a build prerequisite for all modes.
           const { PrismaCommerceRepository } = await import("./infrastructure/prisma-commerce.repository.js");
           return new PrismaCommerceRepository();
         }

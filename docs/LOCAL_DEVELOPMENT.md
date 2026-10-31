@@ -13,12 +13,24 @@ apps/api/.env (do not print/commit it). A maintained AES-GCM implementation encr
 verification/reset delivery payloads. Key must survive process restarts; old mail
 cannot be read if the key is lost. Production still refuses startup.
 
-Development mail is currently a durable encrypted IdentityMail staging table.
-Only trusted test/delivery code imports decryptMail; there is no public token/mail
-preview endpoint. SES delivery/worker retries are pending. A complete merchant →
-customer → payment → fulfillment demo is **not yet implemented**. The executed
-identity HTTP test is a partial developer demonstration, not the requested complete
-demo or a verified live email integration.
+Run `pnpm demo:backend` for the complete isolated HTTP journey; use
+`pnpm demo:backend --verify-and-exit` for automatic verification and teardown.
+The command prepares env without overwriting existing settings, generates/builds,
+connects to a loopback PostgreSQL17 server (or starts the named local Docker container
+with documented development credentials), and creates its own random database.
+It applies/repeats/checks migrations, registers/verifies a merchant through actual
+worker-delivered private mail, seeds two products/three variants/images/collection,
+configures IN/INR shipping/tax-NONE/COD/simulation, publishes, merges a guest cart
+into a verified customer account, saves an address, checks out with billing, simulates
+payment/retry and verifies delivery/history/stock/notifications. No tax compliance claim.
+
+Interactive mode prints the API/docs URLs and private credential-file location,
+then waits for Ctrl+C. That file is0600 in a0700 temporary directory. It never prints
+passwords/session tokens/verification URLs. On exit only the owned random database
+and private demo files are removed; an existing PostgreSQL server/container remains.
+On failure diagnostic files stay private for investigation. Never point the demo at
+production; it refuses production mode and non-loopback database hosts. Disposable
+demo data/credentials are not the separate approved visual design.
 
 Run memory and PostgreSQL build-producing test commands sequentially: they share
 apps/api/dist. Never run against a production database.
@@ -32,8 +44,8 @@ uploads. S3 live roundtrip/CORS/IAM verification has not run. Production remains
 
 Guest carts also require a store customer anonymous session from `auth/csrf`; preserve
 both session and cart cookies in the HTTP client. After login call the cart merge API
-with both current versions. Carts return merchandise subtotals only; checkout/order
-APIs and the complete end-to-end demo are not yet available. Use PostgreSQL for carts.
+with both current versions. Carts return merchandise subtotals; explicit quote/checkout returns shipping/tax/
+discount totals. Checkout/order APIs and the demo use PostgreSQL.
 
 ## Private development mailbox and worker
 
@@ -51,8 +63,7 @@ Reading the file is local development delivery, not real recipient email deliver
 For an API process with automatic delivery set COMMERCE_WORKER_ENABLED=true
 (default false). It requires PostgreSQL. Use a separate disposable database/mailbox
 for tests; test fixtures force the development provider and disable background work.
-The worker handles mail only at this checkpoint; commerce expiry is a separate
-pending task. Commands must follow a successful build, and builds must run sequentially.
+The worker runs expiry, payment/refund reconciliation, mail and cleanup in order. Commands must follow a successful build, and builds must run sequentially.
 
 Application link contracts use MERCHANT_APP_URL and STOREFRONT_APP_URL (development
 default localhost5173). Merchant verify/reset/invitation and store customer verify/

@@ -1,3 +1,4 @@
+import {nextPageOffset} from '../../application/pagination.js';
 import {IdentityService,type IdentityRequest} from '../../identity/application/identity.service.js';
 import type {IdentityRepositoryFactoryPort,IdentitySecretsPort} from '../../identity/application/identity.port.js';
 import {DomainError,normalizeHandle,productQuery,publicProduct} from '../../domain/commerce.js';
@@ -26,7 +27,7 @@ export class CustomerService {
   async wishlist(scope:CustomerScope,p:BrowserSession,input:{limit?:number;offset?:number}){
     const{limit,offset}=productQuery(input),ids=await this.repository.wishlist(scope.storeId,p,limit,offset);
     const items=[];for(const id of ids.slice(0,limit)){const product=await this.commerce.findProduct(scope.storeId,id);if(product?.status==='ACTIVE')items.push(publicProduct(product));}
-    return{items,limit,offset,nextOffset:ids.length>limit?offset+limit:null};
+    return{items,limit,offset,nextOffset:nextPageOffset(ids.length,limit,offset)};
   }
   async favorite(scope:CustomerScope,p:BrowserSession,id:string,add:boolean){await this.repository.favorite(scope.storeId,p,id,add);return{status:add?'saved':'removed'};}
 }

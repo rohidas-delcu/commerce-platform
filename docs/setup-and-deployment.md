@@ -75,7 +75,8 @@ variables take precedence. Never commit real connection URLs or credentials.
 | `NODE_ENV` | Explicit `development` or `test`; unknown/unset values fail. Production always refuses startup pending real authentication. |
 | `DATA_DRIVER` | `memory` (default) or `postgres`; unknown drivers fail. |
 | `DEMO_AUTH_ENABLED` | `true` or `false`; demo headers accepted only with `true` and `NODE_ENV=development`. |
-| `DATABASE_URL` | PostgreSQL URL required in postgres mode and by Prisma CLI. Adapter honors its `schema` parameter. |
+| `DATABASE_URL` | PostgreSQL URL required in postgres mode and by Prisma CLI. Only the public schema is supported; other/empty schema parameters fail startup. |
+| `AUTH_OUTBOX_KEY` | Required in PostgreSQL mode: securely provisioned32byte lowercase hex encryption key. Missing/invalid fails startup; preserve it for queued mail. |
 | `PORT` | Integer 1–65535, default 3000; server binds only to `127.0.0.1`. |
 | `CORS_ORIGINS` | Comma-separated exact HTTP(S) origins, default `http://localhost:5173`; wildcards and paths rejected. |
 
@@ -101,14 +102,16 @@ headers, request bodies, SQL parameters or credential-bearing connection URLs.
 
 A production build is a compilation check, **not deployment authorization**.
 Phase 0 intentionally refuses production startup. Before any production exposure,
-implement and review real merchant authentication/authorization in an approved
-later phase, remove demo access through that reviewed design, configure TLS,
+review the implemented first-party merchant/customer authentication, permissions
+and complete financial/concurrency acceptance, remove demo access, configure TLS,
 network isolation, secret management, database backups/restores, least-privilege
 roles, monitoring and deployment migration procedures. CORS is not authentication.
 A demo subject header can impersonate merchants and must remain local development
-only. No payments, React implementation or additional microservices are included.
+only. COD/development simulation and provider boundaries are implemented; real provider
+acceptance is not verified. No React or additional microservice is included.
 
-Do not merge or begin Phase 1 until Phase 0's PR and verification are reviewed.
+Phase0 is merged. Full backend PR2 remains draft; do not merge/deploy automatically.
+Run the complete demo as documented in LOCAL_DEVELOPMENT.md before acceptance.
 
 ## Notification provider prerequisites (not a production release)
 

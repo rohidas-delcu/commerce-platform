@@ -55,8 +55,9 @@ gate. Production deployment is not authorized.
 
 [Phase 1 design and decision pack](PHASE1_DESIGN.md) records the requested
 identity, membership, onboarding, migration and frontend-contract proposals.
-Design work is authorized; implementation and provider selection are not.
-Phase 0 PR #1 is still open and fetched main remains at `3de3dc1`.
+The design pack was proposal-only; full backend implementation was subsequently
+authorized below. External provider adoption is still not assumed approved.
+Historical design context: PR1 has since merged into main at `6b30e82`.
 All P01–P10 decisions require approval; this link does not adopt them.
 
 ## Superseding backend implementation authorization — 2026-10-30
@@ -184,3 +185,12 @@ metadata retry/acknowledgement and keeps provider I/O outside database locks. Th
 runs cleanup after financially important reconciliation/mail. Media domain mapping
 excludes internal cleanup leases from API responses. No account/financial/audit purge
 or automatic deletion of complete unlinked library assets is implemented.
+
+Checkout billing reuses address validation and the shared COD/captured placement
+path. Immutable order snapshots carry explicit provenance; additive migration27
+marks historical missing billing without rewriting old financial columns/triggers.
+Runtime PostgreSQL configuration requires the mail key and public schema, matching
+the raw SQL lock/query boundary. Shared page-window helpers bound continuations;
+account/store/member/invitation listing now fetches pages with deterministic ties.
+The executable demo provisions only a randomly owned local DB and drives real HTTP,
+worker mail, local media and simulated payments; it is tooling, not a parallel backend.

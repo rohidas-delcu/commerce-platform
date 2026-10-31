@@ -54,3 +54,11 @@ expand them. This handoff must remain usable without prior chat history.
 
 Read `docs/BACKEND_REQUIREMENTS.md` for the current full mission and remaining
 acceptance gates; `PHASE1_DESIGN.md` is historical proposal context, not a scope blocker.
+
+Current backend delivery/review: read docs/BACKEND_DELIVERY_REPORT.md and the latest
+IMPLEMENTATION_STATUS.md first. The complete disposable journey is reproducible with
+`pnpm demo:backend --verify-and-exit`; CI runs it. Never treat local simulation or
+provider contract fakes as live acceptance. After verified backend delivery, stop for
+review; do not automatically continue into frontend work. Database runtime supports
+public schema only, with a provisioned AUTH_OUTBOX_KEY. Account/store/member/invitation
+lists use page envelopes; preserve this documented contract.

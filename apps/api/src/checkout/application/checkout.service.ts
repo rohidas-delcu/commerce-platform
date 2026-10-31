@@ -1,3 +1,4 @@
+import {nextPageOffset} from '../../application/pagination.js';
 import {refundProjection} from '../../refunds/domain/refunds.js';
 import {orderProjection,orderQuery,type OrderQuery} from '../../orders/domain/orders.js';
 import {DomainError} from '../../domain/commerce.js';
@@ -22,7 +23,7 @@ export class CheckoutService {
   async cancel(c:CheckoutContext,id:string,version:number){return checkoutProjection(await this.repository.cancel(c,id,version));}
 
   async placeCod(c:CheckoutContext,id:string,version:number,key:string){if(typeof key!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(key))throw new DomainError('INVALID','Stable Idempotency-Key required.');return orderProjection(await this.repository.placeCod(c,id,version,key));}
-  async refunds(c:CheckoutContext,id:string,input:{limit?:number;offset?:number}){const query=orderQuery(input),rows=await this.repository.refunds(c,id,query.limit,query.offset);return{items:rows.slice(0,query.limit).map(row=>refundProjection(row,false)),limit:query.limit,offset:query.offset,nextOffset:rows.length>query.limit?query.offset+query.limit:null};}
-  async orders(c:CheckoutContext,input:OrderQuery){const query=orderQuery(input),found=await this.repository.orders(c,query);return{items:found.slice(0,query.limit).map(order=>orderProjection(order)),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
+  async refunds(c:CheckoutContext,id:string,input:{limit?:number;offset?:number}){const query=orderQuery(input),rows=await this.repository.refunds(c,id,query.limit,query.offset);return{items:rows.slice(0,query.limit).map(row=>refundProjection(row,false)),limit:query.limit,offset:query.offset,nextOffset:nextPageOffset(rows.length,query.limit,query.offset)};}
+  async orders(c:CheckoutContext,input:OrderQuery){const query=orderQuery(input),found=await this.repository.orders(c,query);return{items:found.slice(0,query.limit).map(order=>orderProjection(order)),limit:query.limit,offset:query.offset,nextOffset:nextPageOffset(found.length,query.limit,query.offset)};}
   async order(c:CheckoutContext,id:string){return orderProjection(await this.repository.order(c,id));}
 }

@@ -85,7 +85,9 @@ Conclusion: **success**; every required verification step passed. Draft PR: http
 GitHub run metadata/PR APIs work. Raw log download from the Actions storage host
 was denied; this did not block local checks or metadata inspection. Verify the
 latest branch run before review. No architecture or business scope changed.
-Human Phase 0 review is still required. Do not merge, deploy or start Phase 1.
+Historical Phase0 review was followed by PR1 merge at `6b30e82`. The later full
+backend authorization supersedes the old Phase1 stop; draft PR2 still requires
+review. Do not merge or deploy automatically.
 See [implementation status](IMPLEMENTATION_STATUS.md) for next task and
 [setup/deployment prerequisites](setup-and-deployment.md) for reproduction.
 
@@ -98,3 +100,15 @@ original financial/order columns remain identical, older billing stays explicitl
 uncollected, deploy repetition/status/drift pass. Real HTTP/PG COD/SIM receipts,
 resume/reset, tenant privacy, payment guards and immutable billing tests passed.
 Current full regression evidence is maintained in IMPLEMENTATION_STATUS.md.
+
+### Final self-contained backend acceptance (2026-10-31)
+
+Phase0 code remains preserved on main. Current backend implementation passed64 units,
+4 memory HTTP and33 real PostgreSQL cases, typecheck/build,27 migrations with
+fresh/repeated/populated-preservation/status/drift, and the executable full demo.
+Frozen install and production dependency audit passed. Configuration now fails fast
+for missing encryption key/custom schemas; merchant page contracts reach beyond100.
+Docker provisioning and existing-DB demo modes both ran; only owned random data drops.
+Current exact implementation/CI/PR and external release limits are in
+IMPLEMENTATION_STATUS.md and BACKEND_DELIVERY_REPORT.md. Live providers and production
+release are not accepted, and no UI/HTML/merge/deployment was performed.

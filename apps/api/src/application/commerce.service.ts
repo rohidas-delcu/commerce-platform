@@ -1,3 +1,4 @@
+import {nextPageOffset} from './pagination.js';
 import {couponMetadata,couponQuery,type CouponInput,type CouponChanges,type CouponQuery} from '../pricing/domain/coupons.js';
 import {orderQuery,orderProjection,type OrderQuery,type OrderAction} from '../orders/domain/orders.js';
 import {pricingPolicy,assertPricingReady,type PricingPolicy} from '../pricing/domain/pricing.js';
@@ -143,7 +144,7 @@ export class CommerceService {
     const page=productQuery({query:input.query,limit:input.limit,offset:input.offset});
     if(input.status&&!['ACTIVE','ARCHIVED'].includes(input.status))throw new DomainError('INVALID','Invalid collection status.');
     const rows=await this.repository.searchCollections(storeId,{...input,query:page.query,status:input.status??'ACTIVE',limit:page.limit,offset:page.offset});
-    return{items:rows.slice(0,page.limit),limit:page.limit,offset:page.offset,nextOffset:rows.length>page.limit?page.offset+page.limit:null};
+    return{items:rows.slice(0,page.limit),limit:page.limit,offset:page.offset,nextOffset:nextPageOffset(rows.length,page.limit,page.offset)};
   }
   async collectionProducts(subjectId:string,storeId:string,id:string,input:ProductQuery={}){await this.collectionDetail(subjectId,storeId,id);return this.page(storeId,productQuery({...input,collectionId:id,collectionPosition:input.sort===undefined}));}
   async collections(subjectId:string,storeId:string,input:CollectionQuery={}){await this.ownedStore(storeId,subjectId);return this.collectionPage(storeId,input);}
@@ -159,7 +160,7 @@ export class CommerceService {
   async completeMedia(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);return this.repository.media.complete(storeId,id);}
   async removeMedia(subjectId:string,storeId:string,id:string){await this.ownedStore(storeId,subjectId);return this.repository.media.remove(storeId,id);}
   async setImages(subjectId:string,storeId:string,productId:string,images:ProductImage[],version:number){await this.ownedStore(storeId,subjectId);await this.repository.media.setImages(storeId,productId,images,version);return this.repository.findProduct(storeId,productId);}
-  private async page(storeId:string,query:ReturnType<typeof productQuery>){const found=await this.repository.searchProducts(storeId,query);return{items:found.slice(0,query.limit),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
+  private async page(storeId:string,query:ReturnType<typeof productQuery>){const found=await this.repository.searchProducts(storeId,query);return{items:found.slice(0,query.limit),limit:query.limit,offset:query.offset,nextOffset:nextPageOffset(found.length,query.limit,query.offset)};}
   private async publishedStore(handle:string){
     const store=await this.repository.findStoreByHandle(normalizeHandle(handle));
     if(!store||store.status!=='PUBLISHED'||store.suspended||store.archivedAt||(store.merchantStatus&&!['ACTIVE','QUARANTINED'].includes(store.merchantStatus)))throw new DomainError('NOT_FOUND','Store not found.');
@@ -183,12 +184,12 @@ export class CommerceService {
   async pricing(subject:string,storeId:string){await this.ownedStore(storeId,subject);return this.repository.pricing.policy(storeId);}
   async savePricing(subject:string,storeId:string,input:PricingPolicy){const store=await this.ownedStore(storeId,subject);const policy=pricingPolicy(input);if(store.status==='PUBLISHED')assertPricingReady(policy);if(policy.payments.simulator&&process.env.NODE_ENV!=='development')throw new DomainError('INVALID','Payment simulator is development-only.');return this.repository.pricing.savePolicy(storeId,policy,subject);}
 
-  async orders(subject:string,storeId:string,input:OrderQuery){await this.ownedStore(storeId,subject);const query=orderQuery(input),found=await this.repository.orders.list(storeId,query);return{items:found.slice(0,query.limit).map(order=>orderProjection(order,true)),limit:query.limit,offset:query.offset,nextOffset:found.length>query.limit?query.offset+query.limit:null};}
+  async orders(subject:string,storeId:string,input:OrderQuery){await this.ownedStore(storeId,subject);const query=orderQuery(input),found=await this.repository.orders.list(storeId,query);return{items:found.slice(0,query.limit).map(order=>orderProjection(order,true)),limit:query.limit,offset:query.offset,nextOffset:nextPageOffset(found.length,query.limit,query.offset)};}
   async order(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);const order=await this.repository.orders.find(storeId,id);if(!order)throw new DomainError('NOT_FOUND','Order not found.');return orderProjection(order,true);}
 
   async orderCommand(subject:string,storeId:string,id:string,input:{expectedVersion:number;key:string;action:OrderAction}){await this.ownedStore(storeId,subject);if(typeof input.key!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(input.key))throw new DomainError('INVALID','Stable command key required.');return orderProjection(await this.repository.orders.command(storeId,id,input,subject),true);}
 
-  async coupons(subject:string,storeId:string,input:Partial<CouponQuery>){await this.ownedStore(storeId,subject);const query=couponQuery(input),rows=await this.repository.pricing.coupons(storeId,query);return{items:rows.slice(0,query.limit),limit:query.limit,offset:query.offset,nextOffset:rows.length>query.limit?query.offset+query.limit:null};}
+  async coupons(subject:string,storeId:string,input:Partial<CouponQuery>){await this.ownedStore(storeId,subject);const query=couponQuery(input),rows=await this.repository.pricing.coupons(storeId,query);return{items:rows.slice(0,query.limit),limit:query.limit,offset:query.offset,nextOffset:nextPageOffset(rows.length,query.limit,query.offset)};}
   async coupon(subject:string,storeId:string,id:string){await this.ownedStore(storeId,subject);const row=await this.repository.pricing.coupon(storeId,id);if(!row)throw new DomainError('NOT_FOUND','Coupon not found.');const rule=await this.repository.pricing.couponRule(storeId,id,null);return{...row,uses:rule?.consumedUses??0,heldUses:rule?.heldUses??0};}
   async createCoupon(subject:string,storeId:string,input:CouponInput){await this.ownedStore(storeId,subject);const meta=couponMetadata({code:input.code,kind:input.kind,value:input.value,active:input.active??true,startsAt:input.startsAt===undefined||input.startsAt===null?null:new Date(input.startsAt),expiresAt:input.expiresAt===undefined||input.expiresAt===null?null:new Date(input.expiresAt),maxUses:input.maxUses??null,perCustomerLimit:input.perCustomerLimit??null,restoreOnCancellation:input.restoreOnCancellation??false});return this.repository.pricing.createCoupon({id:randomUUID(),storeId,version:0,...meta},subject);}
   async updateCoupon(subject:string,storeId:string,id:string,input:CouponChanges){await this.ownedStore(storeId,subject);const prior=await this.repository.pricing.coupon(storeId,id);if(!prior)throw new DomainError('NOT_FOUND','Coupon not found.');if(prior.version!==input.expectedVersion)throw new DomainError('CONFLICT','Coupon changed.');

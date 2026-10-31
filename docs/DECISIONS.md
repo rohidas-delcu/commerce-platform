@@ -27,8 +27,9 @@ does not change the architecture. See the Phase 0 audit for executed evidence.
 
 [Phase 1 design and decision pack](PHASE1_DESIGN.md) records the requested
 identity, membership, onboarding, migration and frontend-contract proposals.
-Design work is authorized; implementation and provider selection are not.
-Phase 0 PR #1 is still open and fetched main remains at `3de3dc1`.
+The design pack was proposal-only; full backend implementation was subsequently
+authorized below. External provider adoption is still not assumed approved.
+Historical design context: PR1 has since merged into main at `6b30e82`.
 All P01–P10 decisions require approval; this link does not adopt them.
 
 ## Superseding backend implementation authorization — 2026-10-30
@@ -333,3 +334,18 @@ tax calculation. Existing orders never collected billing: additive migration27
 preserves all old columns and labels their null address LEGACY_NOT_COLLECTED.
 New inserts cannot claim historical provenance; existing immutable snapshot guards
 protect billing too. No financial-trigger bypass or invented historical billing.
+
+## Final configuration and reproducible demo — implemented, 2026-10-31
+
+PostgreSQL startup requires a valid AUTH_OUTBOX_KEY before readiness. Support only
+the public DB schema: adapters mix typed and unqualified SQL, so accepting a custom
+schema would give inconsistent query/lock behavior. Do not imply unsupported schema
+isolation. Shared bounded offset continuation never advertises an invalid next page.
+Account/store/member/invitation lists use explicit versioned-API page envelopes with
+stable ordering, replacing earlier unmerged arrays that silently stopped at100.
+
+The mandatory executable backend demo uses real HTTP and private worker-delivered
+mail, a random disposable DB and local verified images. It never decrypts DB staging
+as a shortcut, prints secrets, resets existing data or contacts external providers.
+CI runs its verify-and-exit mode. Interactive mode waits for Ctrl+C and removes only
+owned disposable data; an existing/started local PostgreSQL container is preserved.

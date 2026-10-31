@@ -38,8 +38,8 @@ Lost refresh responses may require login again. Challenge verification TTL 24 ho
 reset TTL 30 minutes. High-entropy challenge/session secrets persist as SHA-256
 digests; mail payloads are AES-256-GCM encrypted for delivery.
 
-Not implemented: merchant access, customer auth, checkout/order/payment APIs.
-This contract document must expand with each verified slice.
+Merchant/customer/checkout/order/payment contracts are described below. Gateway
+activation remains disabled; the executable paid journey uses the development simulator.
 
 ## Session-authenticated merchant APIs
 
@@ -67,8 +67,11 @@ write catalog/inventory; STORE_VIEWER can read. Only account owners manage membe
   POST `.../:productId/activate`; POST `/stores/:id/variants/:variantId/stock-adjustments`;
   GET `/stores/:id/inventory-movements`. Existing validated commerce DTOs apply.
 
-Lists currently return bounded arrays (max 100), not a completed cursor-pagination
-contract. No API to claim quarantined legacy ownership or transfer legal tenancy.
+Account/store/member/invitation GET lists accept limit1–100 (default50),
+offset0–10000 and return `{items,limit,offset,nextOffset}` with stable tie ordering.
+Existing clients of earlier unmerged array responses must read items. Other paged
+commerce responses retain their documented envelopes; nextOffset never exceeds10000.
+The bounded search window deliberately stops there; no cursor/export API is claimed. No API to claim quarantined legacy ownership or transfer legal tenancy.
 Supported country/currency pairs: IN/INR, US/USD, GB/GBP, CA/CAD, AU/AUD; these are
 locale validation only, not a claim of supported shipping/tax/payment jurisdictions.
 Verified store logo/branding asset settings, product media and shipping/payment
@@ -248,7 +251,7 @@ Same key/input returns the checkout; changed input409. One active checkout per c
 `GET :id` resumes and processes due expiry (releasing a hold). Only the owning
 customer may read or mutate; cross-customer/store access404. No merchant SKU exposed.
 `PATCH :id` with `{expectedVersion,contactEmail?,contactName?,shippingMethodId?,
-shippingAddress?}` saves progress; at least one setting required. Any READY edit
+shippingAddress?,billingAddress?,billingSameAsShipping?}` saves progress; at least one setting required. Any READY edit
 atomically releases its hold and clears the quote before returning DRAFT.
 `POST :id/reserve` `{expectedVersion}` recalculates authoritative catalog/policy
 amounts, snapshots item/contact context and reserves stock (15-minute default).
@@ -256,7 +259,7 @@ Idempotent retry of the preceding quote version returns the same hold without
 reserving twice. Invalid catalog/configuration or insufficient available stock409.
 `POST :id/cancel` `{expectedVersion}` releases once and closes the checkout.
 DRAFT expires24h after creation; READY expires with its hold. Closed/expired edits
-fail409. On-demand expiry and reservation scans work; scheduled workers are pending.
+fail409. On-demand expiry and the optional trusted worker share release rules.
 READY is not an order, payment or committed sale. The COD placement endpoint below
 revalidates current cart/catalog/policy and commits atomically.
 
@@ -281,8 +284,8 @@ are excluded. Completed checkout GET/start replay includes its orderId.
 `GET /v1/merchant/stores/:storeId/orders` and `/:id` use central `orders.read`,
 initially ACCOUNT_OWNER/STORE_ADMIN only. Merchant detail includes internal SKU and
 actor references. Store editors/viewers do not inherit order/customer PII access.
-Manual cash collection/fulfillment/cancellation are described below; refunds and
-other payment methods remain pending. Transactional order APIs require PostgreSQL; memory mode explicitly refuses.
+Manual cash collection/fulfillment/cancellation, refunds and development payments
+are described below. Live gateway activation remains disabled. Transactional order APIs require PostgreSQL; memory mode explicitly refuses.
 
 
 ## Manual fulfillment, COD collection and cancellation

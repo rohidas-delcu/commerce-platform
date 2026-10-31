@@ -1,120 +1,107 @@
-# Commerce lifecycles — checkpoint
+# Commerce lifecycles
 
-Current commerce: store DRAFT → PUBLISHED; product DRAFT → ACTIVE; stock adjustment
-and movement record committed together. Legacy development ownership remains for quarantined demo records; real merchant
-operations use account/store membership in a transaction.
+## Identity and authority
 
-Identity: unverified ACTIVE → verified ACTIVE. Only verified ACTIVE identities may
-sign in. SUSPENDED/DEACTIVATED rejects sessions; a database trigger revokes sessions
-on transition away from ACTIVE, so reactivation never revives old authority.
-Deactivation API is disabled pending owner safeguards. No platform suspension API
-is exposed without platform authorization.
+Unverified ACTIVE → verified ACTIVE. Only active verified identities sign in.
+SUSPENDED/DEACTIVATED revoke sessions; reactivation does not revive old secrets.
+Deactivation is implemented with last-effective-owner safeguards. Operator suspension
+has no public platform-admin endpoint. Merchant and store-customer namespaces are
+independent even for the same email. Customer identities cannot acquire memberships.
 
-Session: anonymous → revoked on login; new authenticated session → rotated secrets
-→ expiry/revocation. Old secret replay at refresh revokes the whole family.
-Password reset/change and logout-all revoke all sessions. One-time challenge is
-pending → consumed or expired; resending consumes older pending challenges.
+Anonymous session → revoked on login; authenticated session → rotation, expiry or
+revocation. Old-secret refresh replay revokes its family. Password change/reset and
+logout-all revoke every session. Challenges expire/consume once; resend invalidates
+older pending tokens. Origin/CSRF checks protect cookie-authenticated mutations.
 
-Pending: account/store membership and resumable onboarding, inventory reservation,
-customer/cart, authoritative pricing, checkout, COD/simulator/payment reconciliation,
-order/refund/cancellation and manual fulfillment state machines. Do not infer that
-these are implemented from their inclusion in BACKEND_REQUIREMENTS.md.
+Accounts ACTIVE/SUSPENDED; unmapped legacy ownership QUARANTINED. Loss of the last
+active owner through suspension enters RECOVERY_REQUIRED; reactivation does not
+silently reopen the account. Account/store locks serialize revocation with writes.
+Invitations expire/consume/revoke; acceptance needs matching verified email and an
+inviter who is still an authorized owner. Legal cross-account transfer is disabled.
 
-## Merchant lifecycle checkpoint
+## Stores, catalog and media
 
-Accounts are ACTIVE/SUSPENDED; migrated unclaimed owners are QUARANTINED. Losing
-the sole active owner through identity suspension enters RECOVERY_REQUIRED;
-reactivating that identity does not automatically reopen the account. Account
-owner mutation serializes on account rows and prevents the last effective owner
-from leaving. Store roles are scoped; revocation locks serialize with store writes.
+Versioned IN_PROGRESS onboarding → COMPLETED independently of DRAFT/PUBLISHED.
+Publication requires ready contact/brand/shipping/tax/payment configuration and active
+scope. Unpublish → DRAFT. Suspension hides commerce; archive requires unpublished
+state and retains records. Product DRAFT → ACTIVE → DRAFT/ARCHIVED; archive does not
+implicitly reactivate. Public catalog selects only active, tenant-safe fields.
 
-Stores save versioned IN_PROGRESS onboarding → COMPLETED, independently from
-DRAFT/PUBLISHED. Explicit publication requires completion and active scope.
-Unpublish returns to DRAFT; suspended scopes disappear from public catalog.
-Archive is non-destructive and requires DRAFT. Invitations are pending → consumed,
-revoked or expired; resend invalidates prior pending tokens. Acceptance requires
-verified matching email and a still-authorized active inviter.
+Media PENDING → COMPLETE or DELETED. Completion validates exact checksum/type/size
+and decodes actual raster content. Only complete same-store assets may be linked;
+referenced assets cannot be deleted. Public reads require current published use.
+Expired pending/tombstoned cleanup uses grace periods, fenced leases and retry; it
+never purges complete library assets or financial/security history. Provider delete
+acceptance is distinct from permanent erasure of versions/backups.
 
-Inventory holds: ACTIVE → RELEASED | EXPIRED | COMMITTED; terminal states cannot
-be recycled for a new checkout. Same key/input returns the original state even
-when terminal; create a new key for a genuinely new operation. Release and expiry
-subtract only reserved; commitment subtracts both on-hand and reserved plus an
-atomic ORDER_COMMITTED movement per variant. Repeated commitment has no effect.
-Store locks serialize creation keys; variant locks use deterministic ordering.
-Stock adjustment compares both counters; the database forbids reserved>on-hand.
-Reservation history is independent of on-hand movement history. Orders, cancellation
-restoration and scheduled cleanup are pending; no paid-order claims at this stage.
+## Inventory, carts and checkout
 
-Carts: ACTIVE → MERGED | EXPIRED | CHECKED_OUT. Checkout transition is reserved for
-the upcoming checkout slice. A guest cart's capability never grants customer/order
-access. Merge serializes source/destination, combines quantities once and keeps the
-source as terminal history. Owned carts have at most one ACTIVE row per store and
-customer. Guest expiry is seven days from creation (matching capability cookie);
-owned cart expiry is seven idle days. Refresh and mutations use optimistic versions.
-No cart operation reserves or deducts stock. Current quotes warn about changed prices,
-inactive catalog and insufficient availability; final checkout pricing is pending.
+Available = on-hand − reserved; constraints forbid negative counters or reserved
+above on-hand. Holds ACTIVE → RELEASED/EXPIRED/COMMITTED; terminal keys replay the
+same result. Release/expiry only decrement reserved. Commitment decrements both
+counters plus one ORDER_COMMITTED movement. Sorted variant locks, DB-clock expiry
+checks and atomic history protect races/rollback. Cancellation restoration is separate.
 
-Checkout checkpoint: DRAFT → READY → DRAFT (edit/requote) | CANCELLED | EXPIRED.
-COMPLETED is reserved for the next order-placement use case. Start is idempotent per
-store/customer/key and binds the source cart/version. Source-cart FK includes the
-customer ID; one DRAFT/READY checkout per cart. DRAFT expiry24h; a READY quote holds
-inventory for the bounded reservation lifetime. Input changes release the hold and
-clear snapshots in the same transaction; quote failure rolls back release/replacement.
-GET processes due expiry; background scheduling remains pending. READY does not
-commit inventory and cannot by itself create paid/order state. Checkout actions are
-audited without contact/address/token data in operational logs.
+Cart ACTIVE → MERGED/EXPIRED/CHECKED_OUT. Guest capability never grants customer
+identity. Login merge serializes both carts and marks source terminal; at most one
+active owned cart per store/customer. Guest lifetime7days; owned idle lifetime7days.
+Versioned edits use server catalog prices and never reserve stock.
 
-COD placement: READY checkout + ACTIVE owned cart + valid hold → COMPLETED checkout,
-CHECKED_OUT cart and one PLACED order with payment DUE and fulfillment UNFULFILLED.
-Order/items/totals and notification intent commit with stock movement; any failure
-rolls everything back. Retries use durable placement keys and source uniqueness.
-Final placement refuses catalog/cart/policy/currency changes and expired/closed holds.
-Order numbers are per-store transaction counters. Original prices and contact/delivery
-snapshots remain immutable even when the catalog changes. Exact largest-remainder tax
-allocation conserves every minor unit across item/shipping components. COD payment
-collection, fulfillment and cancellation are not implemented at this checkpoint.
+Checkout DRAFT → READY → COMPLETED, with edits returning READY to DRAFT; either
+open state can CANCEL/EXPIRE. Start keys bind source cart/version; one active checkout
+per cart. DRAFT24h, READY bounded stock/quota hold. Configuration releases holds and
+clears snapshots atomically. Billing follows shipping by default or preserves a
+separate validated customer choice; reset is explicit. Payment in flight/review
+blocks edits/replacement. Trusted maintenance and request paths share release rules.
 
-Manual COD fulfillment: UNFULFILLED → READY → DISPATCHED → DELIVERED; payment stays
-DUE throughout. A separate exact cash collection after delivery sets PAID and order
-COMPLETED. Unpaid/undispatched orders may cancel → CANCELLED/VOID, restoring purchased
-stock once with ORDER_CANCELLED movements. No return/refund is inferred from delivery.
-Command keys bind canonical action/version/input; retries replay without extra effects.
-Stock restoration, command/event history, order state and notifications share a
-transaction. Internal notes append immutable private history on any order state.
-Customer event visibility is an explicit allowlist and excludes all private notes.
+Placement revalidates cart, catalog, policy, coupon, currency and live hold, then
+commits order/items/stock/quota/checkout/cart/outbox atomically. One checkout yields
+one logical order and per-store number. Prices/tax/contact/shipping/billing snapshots
+remain immutable. Largest-remainder allocation conserves each minor unit. Historical
+billing remains null with LEGACY_NOT_COLLECTED, never invented from shipping.
 
-Coupon quota: cart application is provisional, with no stock or quota reservation.
-Checkout creates a bounded HELD lease alongside stock. It becomes CONSUMED atomically
-with a redemption/order, or RELEASED/EXPIRED when checkout closes. Terminal leases do
-not reopen. Consumed usage is restored only by a separate cancellation-release record
-when the immutable purchase policy permits it. Both global and per-customer capacity
-include live leases, preventing asynchronous-payment races. Coupon validity and lease
-expiry are rechecked after locks. No discount silently disappears from a placed order.
-For zero total, payment is NOT_REQUIRED and fulfillment delivery completes the order;
-no paid/captured assertion or payment-confirmation notification is created.
+Coupon application is provisional; READY holds quota alongside stock. HELD becomes
+CONSUMED with redemption/order, or RELEASED/EXPIRED on closure. Global/per-customer
+limits include live holds. Cancellation only restores quota if the purchase policy
+explicitly allowed it. Zero totals use NOT_REQUIRED (paid0/due0), not captured money.
 
-Development payment: INITIATING → PENDING/UNKNOWN → CAPTURED → SUCCEEDED. Definitive
-failure releases checkout stock/quota and closes that checkout. A failed provider
-payment can later report capture, but the closed/expired checkout causes review instead
-of a paid order. CAPTURED observations persist independently of failed order inserts;
-reconciliation uses the same placement key and transaction to avoid duplicate orders,
-stock movements, redemptions or confirmation intents. Late/invalid money remains
-REVIEW_REQUIRED for a later supported resolution/refund workflow. Simulated CAPTURED
-state is absorbing even if an older FAILED event arrives. Paid order delivery completes
-the order without any COD cash operation. Refunds never imply physical stock returns.
+## Payments, orders and fulfillment
 
-Collected COD refunds: PAID → PARTIALLY_REFUNDED → REFUNDED, with gross paid preserved
-and an immutable exact ledger. Merchant explicitly records cash already returned.
-The delivered/completed order remains delivered/completed. No refund action changes
-on-hand/reserved stock or creates a return movement. Each successful record adds one
-safe customer timeline event and one independent notification intent; rollback adds
-neither. Provider refund initiation/status and late-capture recovery are separate.
+COD orders start PLACED/DUE/UNFULFILLED. Manual fulfillment UNFULFILLED → READY →
+DISPATCHED → DELIVERED. Exact cash collection is separate after delivery and sets
+PAID/COMPLETED. Zero-total delivery completes without payment. Commands use versions,
+stable keys/digests and immutable events. Private notes never enter customer history.
 
-Provider refund: CREATED → PENDING/UNKNOWN → CONFIRMED → SUCCEEDED, or explicit
-failure/review. Budget includes unresolved intents, so another request cannot spend
-money that may already have been returned. A provider receipt commits before balances;
-a failed finalization keeps CONFIRMED and reconciliation does not repeat the refund.
-A full refund of a late capture without an order resolves the payment as REFUNDED,
-unlocks that cart and never creates/restocks an order. Fully refunded undispatched
-orders require an explicit cancellation to restore committed quantities; pending or
-full refunds block a new dispatch. Already-dispatched delivery remains recordable.
+Development payment INITIATING → PENDING/UNKNOWN → CAPTURED → SUCCEEDED.
+Definite failure closes checkout/releases holds. CAPTURED receipt commits before
+order finalization; retry after insertion failure reuses that proof and placement.
+Late/expired/mismatched capture → REVIEW_REQUIRED, no phantom order or oversell.
+Out-of-order failed events cannot undo verified capture. Paid delivery completes
+without COD collection. Simulation refuses production; gateway runtime remains disabled.
+
+Unpaid/undispatched cancellation → CANCELLED/VOID, restoring stock exactly once.
+An undispatched fully repaid order may explicitly cancel and restore stock; refund
+alone never implies a physical return. Already-dispatched delivery remains recordable.
+
+Manual COD refund is an explicit CASH_RETURNED record, not a bank handover guarantee.
+Provider refund CREATED → PENDING/UNKNOWN → CONFIRMED → SUCCEEDED or failure/review.
+Unresolved intents hold budget. Provider receipt commits before financial finalization;
+a failed ledger transaction keeps proof for retry. Gross paid stays immutable;
+cumulative refunds yield PARTIALLY_REFUNDED/REFUNDED. Full no-order capture repayment
+unlocks the cart without inventing an order/restock. Pending/full refunds block new
+dispatch; eligible explicit cancellation handles physical stock separately.
+
+Current owner/admin sessions in active accounts retain existing financial reads,
+refunds, notes, cancellation, prior dispatch delivery and COD collection after store
+closure. New fulfillment/catalog remain blocked; account suspension denies finance.
+Existing customers retain own account/receipts after closure, never renewed shopping.
+
+## Delivery and maintenance
+
+Transactional notification intents survive provider failures. Bounded SKIP LOCKED
+leases select identity/order/payment sources; every attempt is recorded. Development
+files deduplicate stable identity; SES uncertain outcomes become UNKNOWN instead of
+blind resend. Accepted is not inbox-delivered. Stale challenges/payment notices are
+suppressed. Optional monolith worker runs expiry → payments → refunds → mail → cleanup
+without overlapping batches, and awaits active work before shutdown. Trusted one-shot
+CLI uses the same services. No extra service, public mail preview or implicit purge.

@@ -1,3 +1,4 @@
+import type {PageWindow} from '../../application/pagination.js';
 import type { CommerceRepository } from '../../application/commerce.port.js';
 import type { BrowserSession } from '../../identity/domain/identity.js';
 import type { Permission } from '../domain/access.js';
@@ -9,20 +10,20 @@ export interface MerchantRepositoryPort {
   checkHealth(): Promise<void>;
   invite(p: MerchantPrincipal, merchantId: string, storeId: string | null, email: string, role: string, tokenDigest: string, mail: string): Promise<{id:string;email:string;role:string;expiresAt:Date}>;
   accept(p: MerchantPrincipal, tokenDigest: string): Promise<void>;
-  invitations(p: MerchantPrincipal, merchantId: string): Promise<Array<{id:string;email:string;role:string;expiresAt:Date;consumedAt:Date|null;revokedAt:Date|null}>>;
+  invitations(p: MerchantPrincipal, merchantId: string, page:PageWindow): Promise<Array<{id:string;email:string;role:string;expiresAt:Date;consumedAt:Date|null;revokedAt:Date|null}>>;
   revokeInvitation(p: MerchantPrincipal, merchantId: string, id: string): Promise<void>;
   storeMember(p: MerchantPrincipal, storeId: string, identityId: string, role: string | null): Promise<void>;
 
   accountStatus(p: MerchantPrincipal, merchantId: string, suspended: boolean): Promise<AccountView>;
   storeStatus(p: MerchantPrincipal, storeId: string, operation: "suspend"|"resume"|"archive"): Promise<StoreView>;
   createAccount(principal: MerchantPrincipal, name: string): Promise<AccountView>;
-  accounts(principal: MerchantPrincipal): Promise<AccountView[]>;
+  accounts(principal: MerchantPrincipal,page:PageWindow): Promise<AccountView[]>;
   createStore(principal: MerchantPrincipal, merchantId: string, input: {name:string;handle:string;countryCode:string;currencyCode:string}, key: string, digest: string): Promise<StoreView>;
-  stores(principal: MerchantPrincipal): Promise<StoreView[]>;
+  stores(principal: MerchantPrincipal,page:PageWindow): Promise<StoreView[]>;
   withStore<T>(principal: MerchantPrincipal, storeId: string, permission: Permission, work: (repo: CommerceRepository, store: StoreView) => Promise<T>, availability?:import('../domain/access.js').StoreAvailability): Promise<T>;
   settings(principal: MerchantPrincipal, storeId: string, input: StoreSettings): Promise<StoreView>;
   complete(principal: MerchantPrincipal, storeId: string, version: number): Promise<StoreView>;
   publication(principal: MerchantPrincipal, storeId: string, published: boolean): Promise<StoreView>;
-  members(principal: MerchantPrincipal, merchantId: string): Promise<Array<{identityId: string; role: string}>>;
+  members(principal: MerchantPrincipal, merchantId: string,page:PageWindow): Promise<Array<{identityId: string; role: string}>>;
   membership(principal: MerchantPrincipal, merchantId: string, identityId: string, role: 'ACCOUNT_OWNER' | 'MEMBER' | null): Promise<void>;
 }
