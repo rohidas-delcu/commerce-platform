@@ -1,5 +1,14 @@
 # Current backend implementation status — 2026-10-31
 
+> **Current Phase 4 continuation (2026-10-31):** PR #2, #3 and #4 are now
+> merged into main. The Phase 4 real-browser suite lives on the separate
+> `feature/commerce-playwright-e2e` branch. It covers merchant onboarding,
+> customer signup/verification, guest-cart merge, COD checkout, merchant
+> fulfillment, customer receipts and cross-customer order privacy through the
+> actual React UIs. Its isolated fixture/CI and truthful verification ledger
+> are in `docs/BROWSER_E2E_STATUS.md`. This paragraph supersedes the historical
+> unmerged/frontend-pending statements below, which describe earlier milestones.
+
 > **Frontend continuation:** The separate merchant/admin UI is in draft PR #3,
 > stacked on backend PR #2. Customer storefront work is in
 > `feature/commerce-storefront-ui`; see `ADMIN_UI_STATUS.md` and
