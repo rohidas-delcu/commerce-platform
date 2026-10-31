@@ -60,6 +60,12 @@ jobs:
         run: pnpm typecheck
       - name: Production build
         run: pnpm build
+      - name: Merchant admin TypeScript checks
+        run: pnpm typecheck:admin
+      - name: Merchant admin contract and utility tests
+        run: pnpm test:admin
+      - name: Merchant admin production build
+        run: pnpm build:admin
       - name: Memory API integration tests
         run: pnpm test:integration
       - name: PostgreSQL API, repository and schema integration tests

@@ -32,3 +32,18 @@ These constraints describe the existing API contract, not a new UI specification
 Backend branding now stores brandingName and an optional verified logo asset ID,
 with a safe public metadata API. This defines data contracts only. No HTML mockup,
 React screen, visual palette, layout or approved storefront design was modified.
+
+## Subsequent admin UI branch (2026-10-31)
+
+On `feature/commerce-admin-ui`, the user explicitly authorized continuing into the
+merchant React UI after the backend delivery. The separate Commerce Studio HTML
+prototype is available in the task's scratch workspace and informed the React
+merchant workspace (DM Sans/Manrope, violet emphasis, pale surfaces, rounded
+cards, responsive sidebar, auth hero, data tables, product/order drawers).
+
+The exact approved prototype file identity, asset manifest, responsive screenshot
+baseline and pixel-diff acceptance are **not** persisted in this repo, so visual
+fidelity remains subject to human review. The prototype's fake auth/localStorage
+models were *not* ported: the React UI uses real session/CSRF/PostgreSQL APIs.
+The consumer storefront design and React migration remain separate future work.
+See `docs/ADMIN_UI_STATUS.md` for the current UI checkpoint and tests.
