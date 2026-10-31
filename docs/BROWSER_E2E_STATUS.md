@@ -66,9 +66,23 @@ git and are never uploaded as CI artifacts because they may contain test login
 data or verification tokens. Failing tests show their assertion and source
 location in the Actions log without the credential file contents.
 
-`pnpm typecheck:browser` and `pnpm test:browser --list` passed locally on
-2026-10-31. Actual Chromium/PostgreSQL results and exact run link must be
-recorded after CI runs; passing test discovery is **not** browser acceptance.
+### Verified acceptance — 2026-10-31
+
+- Local `pnpm typecheck:browser`, `pnpm test:browser --list`, admin TypeScript
+  checks and demo-script syntax validation passed.
+- Initial PR workflow #69 exposed a real merchant signup routing bug:
+  `GET /v1/auth/me` returned 401 for a new visitor and redirected a public
+  `/signup` URL to `/login`. The separate customer purchase/fulfillment test
+  nevertheless passed on that run. The merchant app now preserves public
+  login/signup/verification/recovery routes on initial unauthorized checks.
+- [GitHub Actions workflow #70](https://github.com/rohidas-delcu/commerce-platform/actions/runs/41216122912),
+  commit `b845ae2181b2340ad74996c0ab6a1eeb03557cd1`: **SUCCESS** for
+  all backend/PostgreSQL/demo, admin/storefront, browser TypeScript, and real
+  browser steps. Playwright reported **2 passed (20.7 s)**, no failed or
+  skipped tests. The actual UI was exercised; this is more than discovery.
+- [Draft PR #5](https://github.com/rohidas-delcu/commerce-platform/pull/5)
+  remains unmerged, pending human review. These results are not production
+  readiness or broad cross-browser acceptance.
 
 ## Boundaries still requiring review
 
