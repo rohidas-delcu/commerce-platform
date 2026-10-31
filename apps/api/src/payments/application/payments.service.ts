@@ -10,7 +10,7 @@ export class PaymentService {
  private enabled(){if(process.env.DATA_DRIVER!=='postgres')throw new DomainError('CONFLICT','Payments require PostgreSQL.');if(this.provider.method!=='SIMULATOR')throw new DomainError('CONFLICT','Online provider activation is disabled.');assertDevelopmentPayment();}
  private async synchronize(row:PaymentAttempt):Promise<PaymentAttempt>{
   this.enabled();if(row.method!==this.provider.method)throw new DomainError('CONFLICT','Payment provider is unavailable.');
-  if(['SUCCEEDED','REVIEW_REQUIRED'].includes(row.status))return row;
+  if(['SUCCEEDED','REVIEW_REQUIRED','REFUNDED'].includes(row.status))return row;
   if(!row.providerOrderId){
    if(!this.provider.idempotentCreation&&row.status!=='INITIATING')return row;
    try{row=await this.repository.attach(row.id,(await this.provider.create(row)).providerOrderId);}catch{return this.repository.unknown(row.id);}

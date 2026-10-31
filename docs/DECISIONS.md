@@ -246,3 +246,26 @@ locks prevent over-refunds. A deferred SQL invariant ties the balance to the led
 Refund failure rolls back balance/event/notification atomically. Never restore stock
 or change delivered fulfillment merely because cash was refunded. Online/development
 provider refunds and late-payment resolution remain the next distinct slice.
+
+## Simulated provider refunds and unresolved capture recovery (implementation, 2026-10-31)
+
+Extend the same Refund ledger for asynchronous provider intents; do not create a
+second financial ledger. Reserve refund budget across created/pending/unknown/
+confirmed/successful/review rows, with failed intents excluded. Only a matching,
+immutable PROCESSED observation can update refunded balances. Persist the provider
+receipt before a second transaction updates refund/payment/order/history/outbox;
+financial-update failures remain safely retryable without repeating money movement.
+The simulator commits its own provider state before emulating a lost response.
+
+Preserve gross captured/paid and source snapshots. Full repayment becomes REFUNDED;
+matching captured money without an order can be returned without inventing an order
+or inventory movement. An unresolved partial repayment stays in review. Store/customer
+namespaces and actor authority are rechecked when the merchant creates an intent;
+trusted workers process that committed intent without impersonating a session.
+Provider activation remains SIMULATOR only; this is not verified bank settlement.
+
+Pending refunds block new READY/DISPATCH; completed partial refunds may proceed.
+Fully refunded orders cannot start fulfillment. An explicit cancellation may restore
+stock only while undispatched and fully repaid, preserving paid/refunded history and
+snapshotted coupon cancellation policy. Already-dispatched delivery can still be
+recorded; money repayment alone never claims a physical return.

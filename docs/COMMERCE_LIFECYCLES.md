@@ -109,3 +109,12 @@ The delivered/completed order remains delivered/completed. No refund action chan
 on-hand/reserved stock or creates a return movement. Each successful record adds one
 safe customer timeline event and one independent notification intent; rollback adds
 neither. Provider refund initiation/status and late-capture recovery are separate.
+
+Provider refund: CREATED → PENDING/UNKNOWN → CONFIRMED → SUCCEEDED, or explicit
+failure/review. Budget includes unresolved intents, so another request cannot spend
+money that may already have been returned. A provider receipt commits before balances;
+a failed finalization keeps CONFIRMED and reconciliation does not repeat the refund.
+A full refund of a late capture without an order resolves the payment as REFUNDED,
+unlocks that cart and never creates/restocks an order. Fully refunded undispatched
+orders require an explicit cancellation to restore committed quantities; pending or
+full refunds block a new dispatch. Already-dispatched delivery remains recordable.

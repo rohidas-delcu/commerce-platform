@@ -17,7 +17,7 @@ export function orderProjection(order:Order,merchant=false){
     contactEmail:order.contactEmail,contactName:order.contactName,shippingAddress:customerAddress(order.shippingAddress),shippingMethodName:order.shippingMethodName,currencyCode:order.currencyCode,
     discountCode:order.discountCode??null,subtotalMinor:order.subtotalMinor,discountMinor:order.discountMinor,shippingMinor:order.shippingMinor,taxMinor:order.taxMinor,shippingTaxMinor:order.shippingTaxMinor,taxInclusive:order.taxInclusive,totalMinor:order.totalMinor,amountDueMinor:order.amountDueMinor,paidMinor:order.paidMinor,refundedMinor:order.refundedMinor??'0',
     items:order.items.map(item=>({id:item.id,productId:item.productId,variantId:item.variantId,productName:item.productName,variantName:item.variantName,quantity:item.quantity,unitPriceMinor:item.unitPriceMinor,subtotalMinor:item.subtotalMinor,discountMinor:item.discountMinor,taxMinor:item.taxMinor,...(merchant?{sku:item.sku}:{})})),
-    events:order.events.filter(event=>merchant||['PLACED','READY','DISPATCH','DELIVER','COLLECT_COD','CANCEL','REFUND_RECORDED'].includes(event.kind)).map(event=>({id:event.id,kind:event.kind,createdAt:event.createdAt,...(event.kind==='DISPATCH'?{carrier:event.carrier??null,reference:event.reference??null}:{}),...(merchant?{actorId:event.actorId,internalReason:event.internalReason??null,internalNote:event.internalNote??null}:{})}))};
+    events:order.events.filter(event=>merchant||['PLACED','READY','DISPATCH','DELIVER','COLLECT_COD','CANCEL','REFUND_RECORDED','REFUND_REQUESTED'].includes(event.kind)).map(event=>({id:event.id,kind:event.kind,createdAt:event.createdAt,...(event.kind==='DISPATCH'?{carrier:event.carrier??null,reference:event.reference??null}:{}),...(merchant?{actorId:event.actorId,internalReason:event.internalReason??null,internalNote:event.internalNote??null}:{})}))};
 }
 /** Largest remainder allocation; tie order is stable and all integer units are conserved. */
 export function allocateMinor(total:bigint,weights:bigint[]){
@@ -39,14 +39,15 @@ export function normalizeOrderAction(action:OrderAction):OrderAction {
 }
 export function orderTransition(order:Order,action:OrderAction){
   if(order.status!=='PLACED'&&action.kind!=='NOTE')throw new DomainError('CONFLICT','Order is closed.');
+  if(['READY','DISPATCH'].includes(action.kind)&&order.paymentStatus==='REFUNDED')throw new DomainError('CONFLICT','Fully refunded orders cannot start fulfillment.');
   let status=order.status as OrderStatus,paymentStatus=order.paymentStatus,fulfillmentStatus=order.fulfillmentStatus,amountDueMinor=order.amountDueMinor,paidMinor=order.paidMinor,notification:string|null=null,restoreInventory=false;
   switch(action.kind){
     case 'NOTE':break;
     case 'READY':if(fulfillmentStatus!=='UNFULFILLED')throw new DomainError('CONFLICT','Order cannot be marked ready.');fulfillmentStatus='READY';break;
     case 'DISPATCH':if(fulfillmentStatus!=='READY')throw new DomainError('CONFLICT','Mark order ready before dispatch.');fulfillmentStatus='DISPATCHED';notification='ORDER_DISPATCHED';break;
-    case 'DELIVER':if(fulfillmentStatus!=='DISPATCHED')throw new DomainError('CONFLICT','Only dispatched orders can be delivered.');fulfillmentStatus='DELIVERED';if(['NOT_REQUIRED','PAID'].includes(paymentStatus))status='COMPLETED';notification='ORDER_DELIVERED';break;
+    case 'DELIVER':if(fulfillmentStatus!=='DISPATCHED')throw new DomainError('CONFLICT','Only dispatched orders can be delivered.');fulfillmentStatus='DELIVERED';if(['NOT_REQUIRED','PAID','PARTIALLY_REFUNDED','REFUNDED'].includes(paymentStatus))status='COMPLETED';notification='ORDER_DELIVERED';break;
     case 'COLLECT_COD':if(order.paymentMethod!=='COD'||paymentStatus!=='DUE'||fulfillmentStatus!=='DELIVERED'||BigInt(action.amountMinor)!==BigInt(amountDueMinor))throw new DomainError('CONFLICT','Record the exact outstanding COD amount after delivery.');paymentStatus='PAID';paidMinor=order.totalMinor;amountDueMinor='0';status='COMPLETED';notification='PAYMENT_CONFIRMATION';break;
-    case 'CANCEL':if(!['UNFULFILLED','READY'].includes(fulfillmentStatus)||!['DUE','NOT_REQUIRED'].includes(paymentStatus))throw new DomainError('CONFLICT','Only unpaid, undispatched orders can be cancelled.');status='CANCELLED';paymentStatus='VOID';fulfillmentStatus='CANCELLED';amountDueMinor='0';notification='ORDER_CANCELLED';restoreInventory=true;break;
+    case 'CANCEL':if(!['UNFULFILLED','READY'].includes(fulfillmentStatus)||!['DUE','NOT_REQUIRED','REFUNDED'].includes(paymentStatus))throw new DomainError('CONFLICT','Only unpaid, undispatched orders can be cancelled.');status='CANCELLED';paymentStatus=paymentStatus==='REFUNDED'?'REFUNDED':'VOID';fulfillmentStatus='CANCELLED';amountDueMinor='0';notification='ORDER_CANCELLED';restoreInventory=true;break;
   }
   return{status,paymentStatus,fulfillmentStatus,amountDueMinor,paidMinor,notification,restoreInventory};
 }

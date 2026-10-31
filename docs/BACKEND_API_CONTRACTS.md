@@ -405,3 +405,27 @@ retain totalMinor/paidMinor and add refundedMinor, with PARTIALLY_REFUNDED/REFUN
 payment statuses and safe REFUND_RECORDED timeline entries. Delivered fulfillment,
 stock and original financial/contact snapshots stay intact. No return/courier or
 provider refund is implied by recording a manual cash return.
+
+## Simulated provider refunds
+
+Owner/admin finance routes use existing orders.read/orders.manage policy and the
+same verified merchant session/Origin/CSRF rules. Only SIMULATOR is currently enabled.
+
+| Method/path under `/v1/merchant/stores/:storeId` | Contract |
+| --- | --- |
+| GET `payments`; GET `payments/:id` | Scoped safe payment list/detail; bounded limit/offset pages. |
+| POST `orders/:id/refunds/provider` | `{key,expectedVersion,amountMinor,simulationScenario?,reference?}`; requires a matching captured source and current order version. |
+| POST `payments/:id/refunds` | Same request; supports verified late capture without an order. Current order version is required if a source order exists. |
+| GET `refunds/:id` | Scoped financial intent/status; private reference/actor fields are merchant-only. |
+| POST `refunds/:id/reconcile` | Observe provider and retry financial finalization, with no blind non-idempotent creation. |
+| POST `refunds/:id/simulate` | Development/test only `{status:"PROCESSED"|"FAILED"|"PENDING"|"UNKNOWN"}`. |
+
+Simulation scenarios are SUCCESS (default), FAILURE and TIMEOUT. Unknown/pending
+intents consume remaining refund budget. Refund states are CREATED/PENDING/UNKNOWN,
+CONFIRMED (receipt persisted), SUCCEEDED, FAILED and REVIEW_REQUIRED. These are explicitly
+development-provider outcomes, never claims of verified gateway/cash settlement.
+
+Customer GET `/v1/storefront/:handle/customer/orders/:id/refunds` returns a paginated
+own-order projection, excluding merchant reference, actor, key and digest. Payment
+receipts now include refundedMinor; a fully repaid capture becomes REFUNDED even when
+no order could be created. Original amount/paid and order totals remain intact.

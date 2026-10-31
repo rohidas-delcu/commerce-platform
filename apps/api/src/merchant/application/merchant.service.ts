@@ -1,3 +1,6 @@
+import {paymentProjection} from '../../payments/domain/payments.js';
+import {RefundService} from '../../refunds/application/refunds.service.js';
+import {providerRefundInput,type ProviderRefundInput,type RefundProviderStatus} from '../../refunds/domain/refunds.js';
 import {manualRefundInput,refundProjection,type ManualRefundInput} from '../../refunds/domain/refunds.js';
 import type {ObjectStoragePort} from '../../media/application/media.port.js';
 import {imageRequest,imageOrder,type MediaAsset} from '../../media/domain/media.js';
@@ -10,7 +13,7 @@ import {IdentityError, emailAddress} from '../../identity/domain/identity.js';
 import {locale, type Permission} from '../domain/access.js';
 import type {MerchantRepositoryPort, MerchantPrincipal, StoreSettings} from './merchant.port.js';
 export class MerchantService {
-  constructor(private repository:MerchantRepositoryPort, private secrets:IdentitySecretsPort,private storage:ObjectStoragePort){}
+  constructor(private repository:MerchantRepositoryPort, private secrets:IdentitySecretsPort,private storage:ObjectStoragePort,private refundProcessor?:RefundService){}
   async checkHealth(){if(process.env.DATA_DRIVER==='postgres')await this.repository.checkHealth();}
   accountStatus(p:MerchantPrincipal,id:string,suspended:boolean){return this.repository.accountStatus(p,id,suspended);}
   storeStatus(p:MerchantPrincipal,id:string,operation:"suspend"|"resume"|"archive"){return this.repository.storeStatus(p,id,operation);}
@@ -123,6 +126,13 @@ export class MerchantService {
   createCoupon(p:MerchantPrincipal,id:string,input:Parameters<CommerceService['createCoupon']>[2]){return this.commerce(p,id,'discounts.manage',s=>s.createCoupon(p.identityId!,id,input));}
   updateCoupon(p:MerchantPrincipal,id:string,coupon:string,input:Parameters<CommerceService['updateCoupon']>[3]){return this.commerce(p,id,'discounts.manage',s=>s.updateCoupon(p.identityId!,id,coupon,input));}
   async manualRefund(p:MerchantPrincipal,id:string,orderId:string,input:ManualRefundInput){const normalized=manualRefundInput(input);return refundProjection(await this.repository.withStore(p,id,'orders.manage',repo=>repo.refunds.manual(id,orderId,p.identityId!,normalized)));}
-  async refunds(p:MerchantPrincipal,id:string,orderId:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid refund page.');const rows=await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.list(id,orderId,limit,offset));return{items:rows.slice(0,limit).map(refundProjection),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+  async refunds(p:MerchantPrincipal,id:string,orderId:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid refund page.');const rows=await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.list(id,orderId,limit,offset));return{items:rows.slice(0,limit).map(row=>refundProjection(row)),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+
+  async providerRefund(p:MerchantPrincipal,id:string,target:'ORDER'|'PAYMENT',targetId:string,input:ProviderRefundInput){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');const normalized=providerRefundInput(input),intent=await this.repository.withStore(p,id,'orders.manage',repo=>repo.refunds.provider(id,target,targetId,p.identityId!,normalized));await this.refundProcessor.process(intent.id);return refundProjection(await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.get(id,intent.id)));}
+  async refund(p:MerchantPrincipal,id:string,refundId:string){return refundProjection(await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.get(id,refundId)));}
+  async reconcileRefund(p:MerchantPrincipal,id:string,refundId:string,event?:RefundProviderStatus){if(!this.refundProcessor)throw new IdentityError(503,'Refund processing unavailable.');await this.repository.withStore(p,id,'orders.manage',repo=>repo.refunds.get(id,refundId));if(event)await this.refundProcessor.simulate(refundId,event);else await this.refundProcessor.process(refundId);return this.refund(p,id,refundId);}
+
+  async payments(p:MerchantPrincipal,id:string,input:{limit?:number;offset?:number}){const limit=input.limit??50,offset=input.offset??0;if(!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(offset)||offset<0||offset>10000)throw new IdentityError(400,'Invalid payment page.');const rows=await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.payments(id,limit,offset));return{items:rows.slice(0,limit).map(paymentProjection),limit,offset,nextOffset:rows.length>limit?offset+limit:null};}
+  async payment(p:MerchantPrincipal,id:string,paymentId:string){return paymentProjection(await this.repository.withStore(p,id,'orders.read',repo=>repo.refunds.payment(id,paymentId)));}
 
 }

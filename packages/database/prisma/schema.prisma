@@ -722,6 +722,8 @@ model NotificationAttempt {
 }
 
 model PaymentAttempt {
+ refunds Refund[]
+ refundedMinor BigInt @default(0)
  id String @id @default(uuid()) @db.Uuid
  storeId String @db.Uuid
  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
@@ -812,10 +814,19 @@ model Refund {
  id String @id @default(uuid()) @db.Uuid
  storeId String @db.Uuid
  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
- orderId String @db.Uuid
- order Order @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
+ orderId String? @db.Uuid
+ order Order? @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict)
  actorId String @db.Uuid
  actor Identity @relation(fields:[actorId],references:[id],onDelete:Restrict)
+ paymentId String? @db.Uuid
+ payment PaymentAttempt? @relation(fields:[paymentId,storeId],references:[id,storeId],onDelete:Restrict)
+ providerRefundId String?
+ simulationScenario String @default("SUCCESS")
+ reviewCode String?
+ nextReconcileAt DateTime @default(now())
+ updatedAt DateTime @default(now()) @updatedAt
+ observations RefundObservation[]
+ simulation SimulatedRefund?
  method String
  status String
  amountMinor BigInt
@@ -825,6 +836,37 @@ model Refund {
  digest String
  createdAt DateTime @default(now())
  @@unique([id,storeId])
+ @@unique([id,storeId,method,amountMinor,currencyCode])
+ @@unique([storeId,method,providerRefundId])
+ @@index([status,nextReconcileAt])
+ @@index([paymentId,storeId,status])
  @@unique([storeId,key])
  @@index([orderId,storeId,createdAt])
+}
+
+model RefundObservation {
+ id String @id @default(uuid()) @db.Uuid
+ refundId String @db.Uuid
+ storeId String @db.Uuid
+ refund Refund @relation(fields:[refundId,storeId],references:[id,storeId],onDelete:Restrict)
+ eventId String
+ status String
+ providerRefundId String
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ createdAt DateTime @default(now())
+ @@unique([refundId,eventId])
+}
+model SimulatedRefund {
+ refundId String @id @db.Uuid
+ storeId String @db.Uuid
+ method String @default("SIMULATOR")
+ amountMinor BigInt
+ currencyCode String @db.VarChar(3)
+ refund Refund @relation(fields:[refundId,storeId,method,amountMinor,currencyCode],references:[id,storeId,method,amountMinor,currencyCode],onDelete:Restrict)
+ status String
+ version Int @default(0)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @default(now()) @updatedAt
+ @@unique([refundId,storeId,method,amountMinor,currencyCode])
 }

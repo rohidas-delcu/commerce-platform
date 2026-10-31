@@ -1,4 +1,4 @@
-# Current backend implementation status — 2026-10-30
+# Current backend implementation status — 2026-10-31
 
 **Full backend mission IN PROGRESS; COD and simulated paid purchase/fulfillment work; full backend remains incomplete.** Continue
 verified slices autonomously under BACKEND_REQUIREMENTS.md. No UI, merge or deploy.
@@ -115,16 +115,23 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   transaction-bound commerce/authorization port. Immutable ledger and deferred SQL
   balance checks protect exact partial/full refunds and gross paid history. Customer
   receipts include cumulative refunded money without private merchant references.
-  Refund records never restock delivered goods. Simulated/provider refunds are pending.
+  Refund records never restock delivered goods. Simulated provider refunds now extend the same ledger; live provider acceptance remains pending.
+
+- Simulated refunds: durable intents/receipt history and pending budget holds,
+  exact partial/full repayment, order/payment balance constraints and retry after
+  financial-finalization failure. Late captured money without an order can be repaid;
+  no synthetic order or stock return is created. Refund alone never restocks goods;
+  an eligible explicit cancellation restores undispatched quantities once. Pending/
+  full refunds block new dispatch; customer refund history excludes merchant evidence.
 
 ## Actual checkpoint evidence
 
-- `pnpm test`: 50 passed, 0 failed/skipped.
+- `pnpm test`: 52 passed, 0 failed/skipped.
 - `pnpm typecheck`: passed. Production build passed through integration commands.
 - `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 24 passed, 0 failed/skipped. This
+- Disposable PostgreSQL `pnpm test:postgres`: 27 passed, 0 failed/skipped. This
   includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not24 independent purchase flows.
+  and SQL checks; these totals include shared suites, not27 independent purchase flows.
 - `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
   DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
   seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
@@ -139,7 +146,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   the locked dependency tree. This does not replace security review.
 - Frozen dependency install passed using `/workspace/.pnpm-store`; `pnpm audit --prod`
   reported no known vulnerabilities with the SES SDK dependency included.
-- Prisma validation/generation, deployment/repeat/status/drift passed with23 migrations.
+- Prisma validation/generation, deployment/repeat/status/drift passed with24 migrations.
 - Targeted notification HTTP/PostgreSQL suite passed, including forced acknowledgement
   rollback after file acceptance, concurrent claims, unknown/late receipts, capped retries,
   exact receipt money, private note exclusion, dispatch references and tenant attempt FKs.
@@ -154,7 +161,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   scoped reads, price tampering, cart/checkout locks, exact paid order/delivery,
   failure, timeout, delayed worker success, expired-hold late capture, mismatched
   observations, forced order-insert rollback after capture and safe retry.
-- Full regression on current code:50 unit,4 memory HTTP and24 PostgreSQL tests passed;
+- Full regression on current code:52 unit,4 memory HTTP and27 PostgreSQL tests passed;
   typecheck and production build passed; no skipped or failed tests in these runs.
   An earlier ad-hoc parallel PostgreSQL invocation hit shared loopback rate limits;
   corrected sequential targeted/full executions passed. Do not weaken those limits.
@@ -165,25 +172,32 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   concurrent over-refund protection, gross money/stock preservation, editor/foreign
   store denial, customer-actor/tenant SQL constraints, private reference exclusion,
   paginated history, immutable records and forced event failure rollback.
-- Latest pushed implementation before this manual-refund checkpoint:
-  `740abd736787738fc5fd57c31eb86be17d2a209a` (development payments), Actions SUCCESS:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41166273211
-  Manual-refund local evidence above is current; inspect its CI after push.
+- Simulated refund PostgreSQL/HTTP suites passed: pending/unknown budget protection,
+  exact partial/full amounts, duplicate/concurrent confirmation, explicit cancellation/
+  coupon restoration, customer/tenant privacy, durable receipt/finalization rollback,
+  late-capture repayment without orders and safe cart unlock. Provider TIMEOUT state
+  rollback was found and fixed; the uncertainty is now reported after provider commit.
+- `pnpm worker:once refunds 00000000-0000-0000-0000-000000000000` passed as an empty
+  fixture batch. Current full checks:52 unit/4 memory/27 PostgreSQL, typecheck/build,
+  Prisma validation/generation,24 migrations, populated upgrade/repeat/status/drift.
+- Latest pushed implementation before this simulated-refund checkpoint:
+  `9cc70e00cf2d5a5f5b72df0415ed8042b4243165` (manual COD refunds), Actions SUCCESS:
+  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41166834344
+  Simulated-refund local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit/push the verified manual-refund checkpoint and inspect remote CI.
-2. Exact next implementation task: extend the existing Refund ledger with durable
-   idempotent simulated provider refunds and pending/unknown budget holds; support
-   captured payments without an order, preserve gross paid and financial history,
-   and keep refunding separate from explicit eligible cancellation/restocking.
+1. Commit/push verified simulated refunds and inspect remote CI.
+2. Exact next implementation task: review centralized financial access after store
+   closure (retain active-account/session/role checks), then add payment failure/
+   review/refund-without-order notification intents through the existing mail worker.
 3. Razorpay test-only adapter/signature/reconciliation/refund boundary, scoped to
    merchant-owned credentials; no blind retries or automatic live activation. Official
    SDK docs/source were read from GitHub (commit b9e8527225a7322ba2671a3bc0b848fd019d2d8c);
    direct provider docs returned HTTP403. Sandbox needs owned test credentials/webhooks.
-4. Payment failure/refund notices where appropriate, retention/orphan cleanup,
-   deterministic seed and executable full simulated-payment/fulfillment demo,
-   remaining response contracts, all E2E flows A–J and final CI/security acceptance.
+4. Retention/orphan cleanup, deterministic seed and executable full simulated-payment/
+   fulfillment demo, remaining response contracts, all E2E flows A–J and final
+   CI/security acceptance. No React, merge or production deployment.
 
 ## Explicit limits and release gates
 
@@ -203,7 +217,8 @@ remain unavailable. Merchant business mutations remain subject to store/account 
 No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
 policy and full security review remain production gates.
 
-Migration history now includes `20261031101000_manual_cod_refunds` (immutable cash-return ledger and gross/refunded balance constraints),
+Migration history now includes `20261031102000_provider_refunds` (pending budgets, observed receipts and exact provider/order balances),
+`20261031101000_manual_cod_refunds` (immutable cash-return ledger and gross/refunded balance constraints),
 `20261031100000_development_payments` (durable intents, simulator/event history and matching-paid-order constraints),
 `20261030162000_worker_scan_indexes` (bounded due/lease scans),
 `20261030161000_notification_delivery` (leases and scoped attempt ledger),

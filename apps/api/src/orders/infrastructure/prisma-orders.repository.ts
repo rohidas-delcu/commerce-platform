@@ -22,6 +22,7 @@ export class PrismaOrderReadRepository implements OrderRepositoryPort {
     const row=await tx.order.findFirst({where:{id,storeId},include:orderInclude});if(!row)throw new DomainError('NOT_FOUND','Order not found.');
     const previous=await tx.orderCommand.findUnique({where:{orderId_key:{orderId:id,key:input.key}}});if(previous){if(previous.digest!==digest)throw new DomainError('CONFLICT','Command key already used for different input.');return orderDomain(row);}
     if(row.version!==input.expectedVersion)throw new DomainError('CONFLICT','Order changed. Refresh before retrying.');
+    if(['READY','DISPATCH'].includes(action.kind)&&await tx.refund.findFirst({where:{orderId:id,storeId,status:{in:['CREATED','PENDING','UNKNOWN','CONFIRMED','REVIEW_REQUIRED']}}}))throw new DomainError('CONFLICT','Resolve pending refunds before starting fulfillment.');
     const transition=orderTransition(orderDomain(row),action);
     if(transition.restoreInventory){
       for(const item of row.items){

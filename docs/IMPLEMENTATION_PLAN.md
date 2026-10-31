@@ -107,3 +107,9 @@ Manual collected-COD cash-return records now have verified partial/full, idempot
 concurrency, isolation/privacy, immutable financial history and rollback coverage.
 Next extend this same ledger for asynchronous simulated/provider refunds and captured
 payments without orders; no duplicate ledger or automatic physical return semantics.
+
+Simulated provider refunds now use the same ledger, with verified pending budgets,
+receipt/finalization recovery, late-capture repayment and explicit physical cancellation.
+Next: closed-store financial access review, remaining payment notices, Razorpay candidate
+boundary, retention/orphan cleanup and executable complete backend demo. External
+provider sandbox/security gates remain separate from local development acceptance.

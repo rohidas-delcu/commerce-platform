@@ -88,6 +88,7 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
     return domain(await tx.checkout.update({where:{id},data:{status:'CANCELLED',version:{increment:1},reservationId:null}}));
   });}
 
+  refunds(c:CheckoutContext,id:string,limit:number,offset:number){return this.scope(c,async(tx,customerId)=>{if(!await tx.order.findFirst({where:{id,storeId:c.storeId,customerId},select:{id:true}}))throw new DomainError('NOT_FOUND','Order not found.');return tx.refund.findMany({where:{orderId:id,storeId:c.storeId},orderBy:[{createdAt:'desc'},{id:'asc'}],take:limit+1,skip:offset});},'account');}
   orders(c:CheckoutContext,input:OrderQuery&{limit:number;offset:number}){return this.scope(c,async(tx,customerId)=>(await tx.order.findMany({where:{storeId:c.storeId,customerId,...(input.status?{status:input.status}:{}),...(input.query?{number:{contains:input.query,mode:'insensitive'}}:{})},orderBy:[{createdAt:'desc'},{id:'asc'}],take:input.limit+1,skip:input.offset,include:orderInclude})).map(orderDomain),'account');}
   order(c:CheckoutContext,id:string){return this.scope(c,async(tx,customerId)=>{const row=await tx.order.findFirst({where:{id,storeId:c.storeId,customerId},include:orderInclude});if(!row)throw new DomainError('NOT_FOUND','Order not found.');return orderDomain(row);},'account');}
   placeCod(c:CheckoutContext,id:string,version:number,key:string){return this.scope(c,async(tx,customerId)=>{await assertCheckoutPaymentMutable(tx,id);return placeCheckout(tx,c.storeId,customerId,id,version,key);});}

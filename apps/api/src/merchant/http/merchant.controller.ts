@@ -1,4 +1,4 @@
-import {ManualRefundDto,RefundQueryDto} from '../../refunds/http/refunds.dto.js';
+import {ManualRefundDto,RefundQueryDto,ProviderRefundDto,SimulateRefundDto} from '../../refunds/http/refunds.dto.js';
 import {CreateCouponDto,UpdateCouponDto,CouponQueryDto} from '../../pricing/http/coupons.dto.js';
 import {OrderQueryDto,OrderCommandDto,DispatchDto,CollectCodDto,CancelOrderDto,OrderNoteDto} from '../../orders/http/orders.dto.js';
 import {PricingDto} from '../../pricing/http/pricing.dto.js';
@@ -143,5 +143,18 @@ export class MerchantController {
   @Get('stores/:storeId/orders/:orderId/refunds') refunds(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Query() query:RefundQueryDto){return this.service.refunds(r.identitySession!,id,order,query);}
   @Mutation()
   @Post('stores/:storeId/orders/:orderId/refunds/manual-cod') manualRefund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() b:ManualRefundDto){return this.service.manualRefund(r.identitySession!,id,order,b);}
+
+  @Mutation()
+  @Post('stores/:storeId/orders/:orderId/refunds/provider') providerOrderRefund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('orderId',ParseUUIDPipe) order:string,@Body() body:ProviderRefundDto){return this.service.providerRefund(r.identitySession!,id,'ORDER',order,body);}
+  @Mutation()
+  @Post('stores/:storeId/payments/:paymentId/refunds') providerPaymentRefund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('paymentId',ParseUUIDPipe) payment:string,@Body() body:ProviderRefundDto){return this.service.providerRefund(r.identitySession!,id,'PAYMENT',payment,body);}
+  @Get('stores/:storeId/refunds/:refundId') refund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('refundId',ParseUUIDPipe) refund:string){return this.service.refund(r.identitySession!,id,refund);}
+  @Mutation()
+  @Post('stores/:storeId/refunds/:refundId/reconcile') reconcileRefund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('refundId',ParseUUIDPipe) refund:string){return this.service.reconcileRefund(r.identitySession!,id,refund);}
+  @Mutation()
+  @Post('stores/:storeId/refunds/:refundId/simulate') simulateRefund(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('refundId',ParseUUIDPipe) refund:string,@Body() body:SimulateRefundDto){return this.service.reconcileRefund(r.identitySession!,id,refund,body.status);}
+
+  @Get('stores/:storeId/payments') payments(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Query() query:RefundQueryDto){return this.service.payments(r.identitySession!,id,query);}
+  @Get('stores/:storeId/payments/:paymentId') payment(@Req() r:IdentityRequest,@Param('storeId',ParseUUIDPipe) id:string,@Param('paymentId',ParseUUIDPipe) payment:string){return this.service.payment(r.identitySession!,id,payment);}
 
 }

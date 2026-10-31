@@ -84,3 +84,15 @@ batch; COMMERCE_WORKER_ENABLED=true now processes expiry, payments and mail each
 Do not run tests against an interactive demo database. UNKNOWN/REVIEW_REQUIRED money
 is conservative and may block editing/retrying that cart until supported resolution;
 never requeue it blindly. Live gateway capture/refund claims remain disabled.
+
+## Refund processing
+
+`DATA_DRIVER=postgres pnpm worker:once refunds [store UUID]` reconciles a bounded
+provider-refund batch after build. The opt-in commerce worker now processes expiry,
+payments, refunds and mail. Manual COD records remain explicit CASH_RETURNED assertions;
+simulated provider refunds use SUCCESS/FAILURE/TIMEOUT and durable provider state.
+Uncertain receipts hold budget until resolved; never create replacement refunds
+blindly. A refund does not restock goods. Use an eligible explicit cancellation for
+fully repaid, undispatched orders. Refunds after archive/suspension still inherit
+operational merchant availability at this checkpoint; financial-access policy is the
+next lifecycle review, and suspended accounts must not regain authority through it.

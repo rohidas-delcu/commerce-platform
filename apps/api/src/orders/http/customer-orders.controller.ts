@@ -1,3 +1,4 @@
+import {RefundQueryDto} from '../../refunds/http/refunds.dto.js';
 import {Controller,Get,Req,Param,ParseUUIDPipe,Query,UseGuards,SetMetadata} from '@nestjs/common';
 import {ApiTags,ApiCookieAuth} from '@nestjs/swagger';
 import {CustomerGuard} from '../../customer/http/customer.controller.js';
@@ -13,4 +14,6 @@ export class CustomerOrdersController {
   constructor(private service:CheckoutService){}
   @Get() list(@Req() r:CustomerRequest,@Query() q:OrderQueryDto){return this.service.orders({storeId:r.customerScope!.storeId,principal:r.identitySession!},q);}
   @Get(':orderId') get(@Req() r:CustomerRequest,@Param('orderId',ParseUUIDPipe) id:string){return this.service.order({storeId:r.customerScope!.storeId,principal:r.identitySession!},id);}
+  @Get(':orderId/refunds') refunds(@Req() r:CustomerRequest,@Param('orderId',ParseUUIDPipe) id:string,@Query() query:RefundQueryDto){return this.service.refunds({storeId:r.customerScope!.storeId,principal:r.identitySession!},id,query);}
+
 }

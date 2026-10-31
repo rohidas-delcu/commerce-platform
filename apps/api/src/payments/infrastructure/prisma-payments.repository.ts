@@ -50,7 +50,7 @@ export class PrismaPaymentRepository implements PaymentRepositoryPort {
   await tx.paymentObservation.create({data:{attemptId:id,storeId:row.storeId,method:row.method,expectedAmountMinor:row.amountMinor,expectedCurrencyCode:row.currencyCode,eventId:o.eventId,status:o.status,providerOrderId:o.providerOrderId,providerPaymentId:o.providerPaymentId,amountMinor:BigInt(o.amountMinor),currencyCode:o.currencyCode}});
   const nextReconcileAt=new Date((await databaseTime(tx)).getTime()+30000);
   if(!verifiedObservation(row,o))return tx.paymentAttempt.update({where:{id},data:{status:'REVIEW_REQUIRED',reviewCode:'PROVIDER_MISMATCH',nextReconcileAt}});
-  if(['SUCCEEDED','REVIEW_REQUIRED'].includes(row.status))return row;
+  if(['SUCCEEDED','REVIEW_REQUIRED','REFUNDED'].includes(row.status))return row;
   if(o.status==='CAPTURED'){
    if(row.providerPaymentId&&row.providerPaymentId!==o.providerPaymentId)return tx.paymentAttempt.update({where:{id},data:{status:'REVIEW_REQUIRED',reviewCode:'MULTIPLE_CAPTURES',nextReconcileAt}});
    await tx.identityAudit.create({data:{action:'PAYMENT_CAPTURE_OBSERVED:'+id}});return tx.paymentAttempt.update({where:{id},data:{status:'CAPTURED',providerPaymentId:o.providerPaymentId,nextReconcileAt}});

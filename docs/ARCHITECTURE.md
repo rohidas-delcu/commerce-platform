@@ -150,3 +150,12 @@ policy controls mutation/read; controllers do not define independent role logic.
 The immutable ledger, gross cash and refunded balance are separate. Customer receipts
 expose totals/status and an approved refund event, excluding the merchant's private
 cash-return reference. Memory mode explicitly refuses financial records.
+
+RefundService coordinates a RefundProcessingPort and RefundProviderPort, with an
+optional development simulation capability. MerchantAccess creates scoped intents
+through the existing commerce subport. Processing locks the recorded merchant actor,
+account/store, captured payment/order and refund in a consistent order. A durable
+provider observation is separate from final financial commitment; its failure cannot
+erase already-observed money movement. The existing ledger supports manual and
+simulated refunds, with tenant FKs, immutable source fields and deferred balance/receipt
+checks. The worker now runs expiry, payment/refund reconciliation and mail sequentially.

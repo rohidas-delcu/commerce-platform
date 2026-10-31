@@ -130,3 +130,12 @@ pagination, tenant FKs, customer-actor rejection and forced event-insert rollbac
 Gross paid, original totals, fulfillment and stock are asserted unchanged; refund
 notification identities are unique. This does not verify an actual cash handover or
 provider refund; CASH_RETURNED is an explicit audited merchant assertion.
+
+Provider refund suites execute exact partial repayment, pending/unknown budget holds,
+concurrent retry, immutable receipt deduplication, source/tenant/customer privacy,
+full repayment followed by explicit cancellation and one coupon/stock restoration.
+A forced financial-event failure after the provider receipt proves its survival and
+one-time retry. Late captured money without an order is repaid and unlocks the cart
+without creating/restocking an order. The TIMEOUT scenario now persists provider state
+before reporting uncertainty; an earlier rollback defect was exposed and fixed.
+These are real PostgreSQL/HTTP tests of the development provider, not live gateway tests.
