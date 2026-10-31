@@ -13,10 +13,10 @@ import {DomainError} from '../../domain/commerce.js';
 import {IdentityError} from '../../identity/domain/identity.js';
 import {assertPricingReady,calculateQuote,assertCouponEligible} from '../../pricing/domain/pricing.js';
 import {customerAddress,type AddressInput} from '../../customer/domain/customer.js';
-import {checkoutContact,checkoutVersion,type Checkout,type CheckoutChanges,type CheckoutSnapshot,type CheckoutItem} from '../domain/checkout.js';
+import {checkoutContact,checkoutVersion,checkoutBilling,type Checkout,type CheckoutChanges,type CheckoutSnapshot,type CheckoutItem} from '../domain/checkout.js';
 import type {CheckoutRepositoryPort,CheckoutContext} from '../application/checkout.port.js';
 type Row=Prisma.CheckoutGetPayload<object>;
-function domain(row:Row):Checkout{return{id:row.id,cartId:row.cartId,status:row.status as Checkout['status'],version:row.version,expiresAt:row.expiresAt,contactEmail:row.contactEmail,contactName:row.contactName,shippingMethodId:row.shippingMethodId,shippingAddress:row.shippingAddress as AddressInput|null,snapshot:row.snapshot as CheckoutSnapshot|null};}
+function domain(row:Row):Checkout{return{id:row.id,cartId:row.cartId,status:row.status as Checkout['status'],version:row.version,expiresAt:row.expiresAt,contactEmail:row.contactEmail,contactName:row.contactName,shippingMethodId:row.shippingMethodId,shippingAddress:row.shippingAddress as AddressInput|null,billingAddress:row.billingAddress as AddressInput|null,snapshot:row.snapshot as CheckoutSnapshot|null};}
 export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
   private client?:PrismaClient;
   private get db(){if(this.client)return this.client;const connectionString=process.env.DATABASE_URL;if(!connectionString)throw new Error('DATABASE_URL required.');return this.client=new PrismaClient({adapter:new PrismaPg({connectionString,connectionTimeoutMillis:5000,max:10},{schema:new URL(connectionString).searchParams.get('schema')??'public'})});}
@@ -47,10 +47,10 @@ export class PrismaCheckoutRepository implements CheckoutRepositoryPort {
   configure(c:CheckoutContext,id:string,input:CheckoutChanges){return this.scope(c,async(tx,customerId)=>{
     const row=await this.load(tx,c,customerId,id);await assertCheckoutPaymentMutable(tx,id);checkoutVersion(domain(row),input.expectedVersion);
     const contact=checkoutContact(input.contactEmail??row.contactEmail,input.contactName??row.contactName);
-    const address=input.shippingAddress?customerAddress(input.shippingAddress):null;
+    const address=input.shippingAddress?customerAddress(input.shippingAddress):null,billing=checkoutBilling(input);
     await this.release(tx,row,customerId);
     await this.audit(tx,customerId,'CHECKOUT_CONFIGURED',id);
-    return domain(await tx.checkout.update({where:{id},data:{...contact,...(address?{shippingAddress:{...address}}:{}),...(input.shippingMethodId!==undefined?{shippingMethodId:input.shippingMethodId}:{}),status:'DRAFT',version:{increment:1},snapshot:Prisma.DbNull,reservationId:null,expiresAt:new Date(row.createdAt.getTime()+86400000)}}));
+    return domain(await tx.checkout.update({where:{id},data:{...contact,...(address?{shippingAddress:{...address}}:{}),...(billing.changed?{billingAddress:billing.address?{...billing.address}:Prisma.DbNull}:{}),...(input.shippingMethodId!==undefined?{shippingMethodId:input.shippingMethodId}:{}),status:'DRAFT',version:{increment:1},snapshot:Prisma.DbNull,reservationId:null,expiresAt:new Date(row.createdAt.getTime()+86400000)}}));
   });}
   reserve(c:CheckoutContext,id:string,version:number){return this.scope(c,async(tx,customerId)=>{
     const row=await this.load(tx,c,customerId,id),existing=domain(row);

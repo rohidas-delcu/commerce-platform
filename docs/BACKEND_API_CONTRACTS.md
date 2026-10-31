@@ -449,3 +449,14 @@ rejects RAZORPAY; no public gateway webhook ingress/account registry is enabled.
 advertise gateway capture or production readiness based on the deterministic adapter
 fakes. [Provider boundary](PAYMENT_PROVIDER_BOUNDARY.md) records owned-account and
 activation prerequisites; normal executable purchase flows use COD/SIMULATOR.
+
+### Checkout billing
+
+`PATCH /v1/storefront/:handle/customer/checkouts/:id` accepts `billingAddress`
+(same validation as shipping) or `billingSameAsShipping: true`, with expectedVersion.
+Conflicting flags/address and false without an address return400. Omission preserves
+choice. GET resolves defaults against current shipping and returns billingSameAsShipping.
+Changes release quotes/holds and remain forbidden while payment is in flight.
+Private order projections include immutable billingAddress and billingAddressSource:
+SHIPPING_DEFAULT, CUSTOMER_PROVIDED, or LEGACY_NOT_COLLECTED for older orders whose
+billingAddress is null. These fields are never public catalog data.

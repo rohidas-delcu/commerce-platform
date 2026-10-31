@@ -88,3 +88,13 @@ latest branch run before review. No architecture or business scope changed.
 Human Phase 0 review is still required. Do not merge, deploy or start Phase 1.
 See [implementation status](IMPLEMENTATION_STATUS.md) for next task and
 [setup/deployment prerequisites](setup-and-deployment.md) for reproduction.
+
+### Subsequent backend billing verification (2026-10-31)
+
+Phase0 remains merged; subsequent backend work is draft PR2. Cleanup predecessor
+f123d30 passed Actions https://github.com/rohidas-delcu/commerce-platform/actions/runs/41172855548.
+Billing migration27 was deployed and its populated upgrade rehearsal executed:
+original financial/order columns remain identical, older billing stays explicitly
+uncollected, deploy repetition/status/drift pass. Real HTTP/PG COD/SIM receipts,
+resume/reset, tenant privacy, payment guards and immutable billing tests passed.
+Current full regression evidence is maintained in IMPLEMENTATION_STATUS.md.

@@ -9,9 +9,15 @@ export interface Checkout {
   orderId?:string|null;
   id:string;cartId:string;status:CheckoutStatus;version:number;expiresAt:Date;
   contactEmail:string;contactName:string;shippingMethodId:string|null;
-  shippingAddress:AddressInput|null;snapshot:CheckoutSnapshot|null;
+  shippingAddress:AddressInput|null;billingAddress:AddressInput|null;snapshot:CheckoutSnapshot|null;
 }
-export interface CheckoutChanges {expectedVersion:number;contactEmail?:string;contactName?:string;shippingMethodId?:string;shippingAddress?:AddressInput;}
+export interface CheckoutChanges {expectedVersion:number;contactEmail?:string;contactName?:string;shippingMethodId?:string;shippingAddress?:AddressInput;billingAddress?:AddressInput;billingSameAsShipping?:boolean;}
+export function checkoutBilling(input:Pick<CheckoutChanges,'billingAddress'|'billingSameAsShipping'>){
+  if(input.billingSameAsShipping!==undefined&&typeof input.billingSameAsShipping!=='boolean'||input.billingSameAsShipping===true&&input.billingAddress!==undefined||input.billingSameAsShipping===false&&input.billingAddress===undefined)throw new DomainError('INVALID','Choose a billing address or explicitly use shipping, without conflicting settings.');
+  if(input.billingSameAsShipping===true)return{changed:true,address:null};
+  if(input.billingAddress!==undefined)return{changed:true,address:customerAddress(input.billingAddress)};
+  return{changed:false,address:null};
+}
 export function checkoutContact(email:string,name:string){
   let normalized:string;try{normalized=emailAddress(email);}catch{throw new DomainError('INVALID','Invalid contact email.');}
   if(typeof name!=='string'||!name.trim()||name.trim().length>100||/[\x00-\x1f]/.test(name))throw new DomainError('INVALID','Contact name required.');
@@ -23,7 +29,7 @@ export function checkoutVersion(checkout:Pick<Checkout,'status'|'version'|'expir
 }
 export function checkoutProjection(checkout:Checkout){
   const snapshot=checkout.snapshot,totals=snapshot?.totals;
-  return{id:checkout.id,orderId:checkout.orderId??null,cartId:checkout.cartId,status:checkout.status,version:checkout.version,expiresAt:checkout.expiresAt,contactEmail:checkout.contactEmail,contactName:checkout.contactName,shippingMethodId:checkout.shippingMethodId,shippingAddress:checkout.shippingAddress?customerAddress(checkout.shippingAddress):null,snapshot:snapshot&&totals?{
+  return{id:checkout.id,orderId:checkout.orderId??null,cartId:checkout.cartId,status:checkout.status,version:checkout.version,expiresAt:checkout.expiresAt,contactEmail:checkout.contactEmail,contactName:checkout.contactName,shippingMethodId:checkout.shippingMethodId,shippingAddress:checkout.shippingAddress?customerAddress(checkout.shippingAddress):null,billingAddress:checkout.billingAddress?customerAddress(checkout.billingAddress):checkout.shippingAddress?customerAddress(checkout.shippingAddress):null,billingSameAsShipping:checkout.billingAddress===null,snapshot:snapshot&&totals?{
     cartVersion:snapshot.cartVersion,currencyCode:snapshot.currencyCode,shippingMethodName:snapshot.shippingMethodName,
     totals:{subtotalMinor:totals.subtotalMinor,discountMinor:totals.discountMinor,shippingMinor:totals.shippingMinor,taxMinor:totals.taxMinor,totalMinor:totals.totalMinor,taxInclusive:totals.taxInclusive,taxBasisPoints:totals.taxBasisPoints,shippingMethodId:totals.shippingMethodId,policyVersion:totals.policyVersion,discountCode:totals.discountCode},
     items:snapshot.items.map(item=>({productId:item.productId,variantId:item.variantId,productName:item.productName,variantName:item.variantName,quantity:item.quantity,unitPriceMinor:item.unitPriceMinor,subtotalMinor:item.subtotalMinor}))

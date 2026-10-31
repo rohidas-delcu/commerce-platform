@@ -482,6 +482,7 @@ model StorePricing {
 }
 
 model Checkout {
+  billingAddress Json?
   payment PaymentAttempt?
   couponHolds CouponHold[]
   order Order?
@@ -521,6 +522,8 @@ model StoreOrderCounter {
   value BigInt @default(0)
 }
 model Order {
+  billingAddress Json?
+  billingAddressSource String @default("SHIPPING_DEFAULT")
   refunds Refund[]
   refundedMinor BigInt @default(0)
   payment PaymentAttempt?

@@ -53,7 +53,7 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   the bounded hold lifetime. Guest cart merge precedes this initial authenticated
   checkout API. COD placement now commits immutable orders/stock/outbox atomically;
   manual fulfillment/cash collection/cancellation now have verified APIs; other
-  development payments now work; online provider activation and refunds remain pending.
+  development payments now work; online provider activation remains pending; refund processing is delivered below.
 
 - COD order checkpoint: idempotent READY placement revalidates current cart,
   catalog, currency and policy; commits the hold, order/items, source checkout/cart
@@ -149,233 +149,47 @@ Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/2
   stay retained. Local upload/delete races are covered; live S3/lifecycle erasure is
   not verified. No legal data-retention policy has been silently adopted.
 
-## Actual checkpoint evidence
+## Current verification — billing checkpoint
 
-- `pnpm test`: 62 passed, 0 failed/skipped.
-- `pnpm typecheck`: passed. Production build passed through integration commands.
-- `pnpm test:integration`: 4 passed; memory HTTP/security/startup/shutdown.
-- Disposable PostgreSQL `pnpm test:postgres`: 31 passed, 0 failed/skipped. This
-  includes shared HTTP/startup checks, real merchant/customer journeys, repository
-  and SQL checks; these totals include shared suites, not31 independent purchase flows.
-- `NODE_ENV=test DATABASE_URL=... pnpm test:migrations`: passed. Creates its own
-  DB, seeds Phase 0 commerce, applies the earlier identity/account/inventory schema,
-  seeds existing merchant credentials/sessions, upgrades/repeats/status/drift,
-  verifies original commerce/identity/session values and unclaimed quarantine,
-  and drops only its own fixture DB. Populated zero-delivered/positive-due/cancelled
-  order fixtures also verify the exact correction DML twice, preserving financial
-  values and producing one audit entry. Original foundation migration is unchanged.
-- Executed PostgreSQL races: stock updates, last-unit reservations, commit/release,
-  last-owner removal, membership revocation vs catalog writes, default addresses.
-  Forced movement failures roll back counters/state; expiry is rechecked after lock waits.
-- `pnpm audit --prod --audit-level high`: no known vulnerabilities reported on
-  the locked dependency tree. This does not replace security review.
-- Frozen dependency install passed using `/workspace/.pnpm-store`; `pnpm audit --prod`
-  reported no known vulnerabilities with the SES SDK dependency included.
-- Prisma validation/generation, deployment/repeat/status/drift passed with26 migrations.
-- Targeted notification HTTP/PostgreSQL suite passed, including forced acknowledgement
-  rollback after file acceptance, concurrent claims, unknown/late receipts, capped retries,
-  exact receipt money, private note exclusion, dispatch references and tenant attempt FKs.
-- `pnpm worker:once identity 00000000-0000-0000-0000-000000000000` executed and closed
-  successfully with zero processed jobs (deliberate nonexistent fixture selector).
-- Expiry HTTP/PostgreSQL tests passed for closed/archived/suspended stores/accounts,
-  abandoned quota/stock/cart recovery, competing workers, busy-lock skipping,
-  tenant selectors, standalone release races and forced history failure rollback.
-- `pnpm worker:once maintenance 00000000-0000-0000-0000-000000000000` executed,
-  reported zero due fixture jobs and shut down successfully.
-- Payment HTTP/PostgreSQL suites passed: concurrent intent creation/confirmation,
-  scoped reads, price tampering, cart/checkout locks, exact paid order/delivery,
-  failure, timeout, delayed worker success, expired-hold late capture, mismatched
-  observations, forced order-insert rollback after capture and safe retry.
-- Full regression on current code:62 unit,4 memory HTTP and31 PostgreSQL tests passed;
-  typecheck and production build passed; no skipped or failed tests in these runs.
-  An earlier ad-hoc parallel PostgreSQL invocation hit shared loopback rate limits;
-  corrected sequential targeted/full executions passed. Do not weaken those limits.
-- `pnpm worker:once payments 00000000-0000-0000-0000-000000000000` executed a safe
-  empty fixture batch successfully. Prisma validation/generation, populated upgrade,
-  deployment/repeat/status/drift passed with the new payment migration.
-- Manual COD refund HTTP/PostgreSQL tests passed: partial/full balances, same-key and
-  concurrent over-refund protection, gross money/stock preservation, editor/foreign
-  store denial, customer-actor/tenant SQL constraints, private reference exclusion,
-  paginated history, immutable records and forced event failure rollback.
-- Simulated refund PostgreSQL/HTTP suites passed: pending/unknown budget protection,
-  exact partial/full amounts, duplicate/concurrent confirmation, explicit cancellation/
-  coupon restoration, customer/tenant privacy, durable receipt/finalization rollback,
-  late-capture repayment without orders and safe cart unlock. Provider TIMEOUT state
-  rollback was found and fixed; the uncertainty is now reported after provider commit.
-- `pnpm worker:once refunds 00000000-0000-0000-0000-000000000000` passed as an empty
-  fixture batch. Current full checks:60 unit/4 memory/30 PostgreSQL, typecheck/build,
-  Prisma validation/generation,24 migrations, populated upgrade/repeat/status/drift.
-- Closed-store finance HTTP/PostgreSQL suite passed for simulated repayment/cancel,
-  previously dispatched COD delivery/collection/cash return, editor/foreign denial,
-  account suspension/resume and blocked catalog/new fulfillment. Full regression on
-  this source:53 unit,4 memory HTTP,28 PostgreSQL; typecheck/build passed. Schema is
-  unchanged from the verified24-migration payment/refund checkpoint.
-- Payment-notice PostgreSQL/HTTP suite passed for scoped recipients, stale failure/
-  review suppression, no-order refund receipts, concurrent delivery deduplication,
-  private-field exclusion, tenant FKs and closed-store delivery. Current full checks:
-  54 unit/4 memory HTTP/29 PostgreSQL, typecheck/build, Prisma generation/validation,
-  25 migrations, populated upgrade/repeat/status/drift. Empty payment-notice CLI ran.
-- Razorpay candidate local checks passed:60 unit/4 memory HTTP/30 PostgreSQL,
-  typecheck/build. Fake HTTP verifies exact/authoritative state, raw HMAC, no retry or
-  private credential/error exposure. PostgreSQL fixtures preserve scoped deduplicated
-  capture/refund history and keep unverified HTTP gateway checkout disabled. These are
-  adapter contracts, not live provider or sandbox acceptance. Schema remains the
-  verified25-migration schema; no dependency/lockfile change in this slice.
-- Cleanup full checks passed:62 unit/4 memory HTTP/31 PostgreSQL, typecheck/build,
-  Prisma generation/validation,26 migrations, populated upgrade/repeat/status/drift,
-  and empty cleanup CLI. Real HTTP/local-file tests preserve referenced/complete/grace
-  assets, reclaim expired/tombstoned keys, fence retries and keep deletion private.
-- Latest pushed implementation before this cleanup checkpoint:
-  `859e80181a09faed04ebf6871eaba17199869f51` (Razorpay candidate), Actions SUCCESS:
-  https://github.com/rohidas-delcu/commerce-platform/actions/runs/41171236840
-  Cleanup local evidence above is current; inspect its CI after push.
+- `pnpm test`:63 passed,0 failed/skipped. `pnpm typecheck` passed.
+- `pnpm build`: passed. `pnpm test:integration`:4 passed,0 failed/skipped.
+- `DATABASE_URL=<disposable> pnpm test:postgres`:32 passed,0 failed/skipped.
+  Real HTTP, PostgreSQL, SQL constraints, concurrency and rollback; not32 standalone purchase journeys.
+- `pnpm db:validate`, `pnpm db:generate`: passed, client generated inside apps/api.
+- `pnpm db:deploy` twice, `pnpm db:status`, `pnpm db:drift`: passed with27 migrations.
+- `NODE_ENV=test DATABASE_URL=<disposable> pnpm test:migrations`: passed populated
+  Phase0/identity/session preservation, historical quarantine, exact pre-billing
+  financial/order-column preservation and repeated zero-total correction.
+- Billing HTTP/PG test passed COD/SIMULATOR receipts, resume/reset, hold release,
+  current payment edit guard, immutable snapshots and customer/public privacy.
+- Null/malformed domain addresses now produce INVALID instead of TypeError.
+- Latest preceding pushed implementation: f123d30d70f40294769d23ec780b907667cd713f.
+  Actions SUCCESS: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41172855548.
+  Billing local evidence above is current; inspect its CI after push.
 
 ## Remaining work and exact next task
 
-1. Commit/push verified cleanup and inspect remote CI.
-2. Exact next implementation task: fix the confirmed billing-address requirement
-   gap (BACKEND_REQUIREMENTS.md section10). Add validated resumable checkout billing,
-   explicit shipping-default vs customer-provided provenance and immutable order
-   snapshots. Preserve existing order IDs/money and label historical shipping defaults;
-   verify migration/backfill and COD/SIMULATOR receipts, privacy and concurrency guards.
-3. Deterministic seed/executable complete backend demo and CI demo execution, then
-   remaining contract/environment audit and final acceptance/report.
-4. Owned S3/SES/Razorpay configuration and provider adoption/activation/sandbox/security
+1. Finish and execute the isolated complete backend demo, wire its verify-and-exit
+   command into CI, then audit remaining API/configuration contracts.
+2. Final current-source install/audit/schema/migration/unit/type/build/HTTP/PG/demo
+   regression; update concise continuity docs and draft PR evidence; wait for green CI.
+3. Owned S3/SES/Razorpay configuration and provider adoption/activation/sandbox/security
    gates remain external limits. Legal personal/financial retention needs policy review;
    no automatic purge is implemented. No React, merge or production deployment.
 
 ## Explicit limits and release gates
 
 Production startup remains disabled until full acceptance/security review. Legacy
-`/v1/admin` demo headers are development-only and cannot reach real merchant stores.
-Customer identity, carts and transactional merchant operations require PostgreSQL; memory
-mode serves the isolated catalog/inventory demo, without simulated secure identity.
-Email delivery is now implemented as private local files or explicit SES provider
-acceptance; live SES delivery is not verified. Simulated capture is explicitly labeled, never gateway settlement. Live S3/SES/Razorpay require
-owned provider configuration and executed sandbox checks. No real payment claim.
-Overdue holds remain conservative until a trusted expiry batch runs; automatic
-expiry is opt-in via COMMERCE_WORKER_ENABLED. Retention/orphan cleanup remains pending. Tombstoned media stays private
-on delete failure. Cross-account legal ownership transfer stays disabled; frozen
-ownerless accounts need audited operator recovery. No automatic ownership mapping.
-Existing customer account/receipt access survives closure; shopping and new signup
-remain unavailable. Merchant business mutations remain subject to store/account status.
-No tax/legal compliance claim. Browser acceptance, cleanup/retention, breach-password
-policy and full security review remain production gates.
-
-Migration history now includes `20261031104000_media_cleanup` (private cleanup leases/check timestamps),
-`20261031103000_payment_notifications` (scoped failure/review/refund notices and exclusive-source attempts),
-`20261031102000_provider_refunds` (pending budgets, observed receipts and exact provider/order balances),
-`20261031101000_manual_cod_refunds` (immutable cash-return ledger and gross/refunded balance constraints),
-`20261031100000_development_payments` (durable intents, simulator/event history and matching-paid-order constraints),
-`20261030162000_worker_scan_indexes` (bounded due/lease scans),
-`20261030161000_notification_delivery` (leases and scoped attempt ledger),
-`20261030160000_store_branding` (nullable tenant-scoped logo reference),
-`20261030155000_coupon_redemption` (coupon quota leases/immutable usage ledgers)
-and `20261030155100_zero_amount_orders` (NOT_REQUIRED, preserving amounts/IDs),
-`20261030154000_manual_fulfillment` (command ledger, event data and cancellation
-movement reason) and `20261030153000_cod_orders` (immutable snapshots/items/events, staged outbox,
-exact money/tenant constraints and per-store counters),
-`20261030152000_checkout` (source cart/customer/store FK, active-cart uniqueness)
-and `20261030151000_store_pricing` (versioned JSON policy) and
-`20261030150000_carts` (additive cart/line FKs,
-owner/capability CHECKs and one active cart per customer). The earlier
-`20261030145000_customer_identity` preserves merchant scope; scoped email
-uniqueness replaces the global index atomically while preserving merchant credentials,
-IDs and sessions. Fresh cart verification uses disposable `commerce_cart_verified`;
-`commerce_merchant_fresh` was used during earlier migration development and is not
-the final cart migration verification database. See schema and migration SQL for CHECKs/triggers not modeled by Prisma.
-
-## Historical Phase 0 / design evidence (not current authorization)
-
-# Implementation status
-
-Last evidence update: 2026-10-30. **Phase 0 technical exit criteria met; human review pending.**
-No merge, production deployment or Phase 1 implementation is authorized.
-
-## Source and review references
-
-- Repository: `rohidas-delcu/commerce-platform`.
-- Branch: `feature/milestone-1-foundation`; target: `main`.
-- Verified implementation: `f84f71767e97a9e3f599d4a01f43dd7832f15f32`.
-- Draft PR: https://github.com/rohidas-delcu/commerce-platform/pull/1
-- Corrected-code Actions run: https://github.com/rohidas-delcu/commerce-platform/actions/runs/41046787135 (completed: success; every required verification step passed).
-- Documentation-only follow-up revisions are visible through `git log -- docs/`;
-  they do not change the tested implementation. Check the latest branch run before review.
-
-## Root cause and correction
-
-Prisma resolves generator output relative to `packages/database/prisma/schema.prisma`.
-Four parent segments resolved outside the checkout to `/workspace/apps/...`;
-three correctly resolve to `apps/api/src/generated/prisma` inside the checkout.
-Generation had succeeded in CI but placed the client outside the API, causing the
-missing-module error and consequent untyped transaction callback. The path is
-corrected and CI explicitly asserts the generated client exists. No `any`,
-suppression, copied client or verification bypass was used.
-
-## Actual verification on the corrected implementation
-
-Node.js 24.19.0; pnpm 11.25.0; PostgreSQL 17. All commands run from repository root.
-Database commands used a fresh disposable `commerce_phase0_verified` database.
-
-| Command/check | Outcome |
-| --- | --- |
-| `pnpm install --frozen-lockfile --store-dir /workspace/.pnpm-store` | Passed; lockfile unchanged. |
-| `pnpm db:validate` | Passed. |
-| `pnpm db:generate`; generated `client.ts` location assertion | Passed inside the intended API directory. |
-| `pnpm db:deploy` twice | Passed: initial migration applied; repeat had no pending migrations. |
-| `pnpm db:status` | Passed: schema up to date. |
-| `pnpm db:drift` | Passed: no difference detected. |
-| `pnpm test:database` with disposable `DATABASE_URL` | 1 passed; tenant references, uniqueness, exact money, checks and SQL rollback. |
-| `pnpm test` | 17 passed; 0 failed/skipped. |
-| `pnpm typecheck` | Passed for both database workspace and API. |
-| `pnpm build` | Passed; generated client compiled with API. |
-| `pnpm test:integration` | 4 passed; 0 failed/skipped, including real memory-backed HTTP, production refusal, startup failure and shutdown checks. |
-| `DATABASE_URL=<disposable URL> pnpm test:postgres` | 8 passed; 0 failed/skipped: HTTP, concurrent stock updates, forced adapter rollback, metadata versions and database constraints. |
-
-An initial memory run failed because two local build commands were accidentally
-run concurrently against the same `dist` directory. Sequential reruns on the
-current implementation passed. Do not run these build-producing suites in parallel.
-The PostgreSQL total includes four shared API/security/startup tests, three adapter
-tests and one schema test; it is not eight additional independent business flows.
-
-## Verified scope and limits
-
-Store/product/inventory foundation and both adapters now have executed coverage
-for ownership, cross-store references even under the same owner, scoped uniqueness,
-publication rules, exact money, atomic inventory/history, concurrency, rollback,
-request validation, safe errors, public field exclusions, development-only demo
-auth, startup/readiness/shutdown and sanitized logging. SQL CHECK constraints are
-verified separately because Prisma drift does not represent them.
-
-No current local test failures or technical environment blockers remain. Raw
-Actions log download from `results-receiver.actions.githubusercontent.com` was denied,
-but GitHub run/step metadata and PR creation are available. Production dependency
-audit previously reported no known vulnerabilities at `997edba`; it was not rerun
-for this path/test-only correction and is not a permanent security guarantee.
-
-## Phase 0 handoff (historical; current design task follows)
-
-Request human review of draft PR #1 and the migration/security/test evidence.
-The corrected-code Actions run succeeded. Confirm the latest documentation-only
-branch run is also green before review; its final result is reported in the PR.
-Do not merge automatically. After Phase 0 review, wait for explicit Phase 1 scope;
-real authentication, React, checkout, payments and additional business features
-remain outside current approval. Do not deploy to production.
-
-## Phase 1 design-only handoff — 2026-10-30
-
-Audited backend HEAD `36c998812d43c4fdcb7f74487a304b5ff9e72dab`.
-GitHub PR #1 is OPEN (not merged); fetched main is
-`3de3dc145a6c81d331b6861c3b7c138c21e2f9c1`. Do not assume Phase 0 merged.
-[Design pack](PHASE1_DESIGN.md) covers current contracts, recommended OIDC/session
-strategy, memberships/policies, onboarding, migration/rollback, API/screens,
-risks, planned E2E tests, work packages and product decisions P01–P10.
-No provider or proposed policy is approved. No Phase 1 implementation started.
-No application tests rerun; prior results above remain historical evidence.
-Only documentation/link checks apply to this revision.
-
-Exact next task: review/resolve P01–P10, including Phase 0 merge/review,
-identity authority and tenant/owner semantics, then explicitly authorize a bounded
-implementation package. Do not implement React or change production code now.
-Latest documentation commit: discover via `git log -- docs/PHASE1_DESIGN.md`;
-no new PR or merge was requested for this design-only continuation.
+`/v1/admin` demo headers require explicit development opt-in and cannot reach real
+merchant stores. Identity and transactional journeys require PostgreSQL; memory mode
+serves the isolated catalog/inventory demo. Local mail acceptance is verified; real
+SES delivery/bounce/complaint handling is not. Simulator capture/refund is explicitly
+development-only. Razorpay scoped adapter/signature/receipt contracts are verified
+with fakes, but activation/ingress/owned sandbox acceptance remain blocked as documented
+in PAYMENT_PROVIDER_BOUNDARY.md. S3 contract fakes are not owned-bucket verification.
+Expiry/cleanup require an opt-in worker or trusted CLI. Media cleanup preserves complete
+assets; financial/PII/security retention policy is not invented. Historical billing is
+honestly null with LEGACY_NOT_COLLECTED; existing money/IDs are preserved. Closed-store
+financial/account receipt access retains live account/session/membership authorization.
+Cross-account legal ownership transfer and ownerless-account recovery remain disabled.
+No tax/legal compliance claim, frontend implementation, merge or deployment.

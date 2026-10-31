@@ -2,7 +2,7 @@ import {refundProjection} from '../../refunds/domain/refunds.js';
 import {orderProjection,orderQuery,type OrderQuery} from '../../orders/domain/orders.js';
 import {DomainError} from '../../domain/commerce.js';
 import {customerAddress} from '../../customer/domain/customer.js';
-import {checkoutContact,checkoutProjection,type CheckoutChanges} from '../domain/checkout.js';
+import {checkoutContact,checkoutProjection,checkoutBilling,type CheckoutChanges} from '../domain/checkout.js';
 import type {CheckoutRepositoryPort,CheckoutContext} from './checkout.port.js';
 export class CheckoutService {
   constructor(private repository:CheckoutRepositoryPort){}
@@ -13,8 +13,8 @@ export class CheckoutService {
   }
   async get(c:CheckoutContext,id:string){return checkoutProjection(await this.repository.get(c,id));}
   async configure(c:CheckoutContext,id:string,input:CheckoutChanges){
-    if(input.contactEmail===undefined&&input.contactName===undefined&&input.shippingMethodId===undefined&&input.shippingAddress===undefined)throw new DomainError('INVALID','At least one checkout setting required.');
-    if(input.shippingAddress)customerAddress(input.shippingAddress);
+    if(input.contactEmail===undefined&&input.contactName===undefined&&input.shippingMethodId===undefined&&input.shippingAddress===undefined&&input.billingAddress===undefined&&input.billingSameAsShipping===undefined)throw new DomainError('INVALID','At least one checkout setting required.');
+    if(input.shippingAddress)customerAddress(input.shippingAddress);checkoutBilling(input);
     if(input.contactEmail!==undefined&&input.contactName!==undefined)checkoutContact(input.contactEmail,input.contactName);
     return checkoutProjection(await this.repository.configure(c,id,input));
   }

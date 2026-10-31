@@ -321,3 +321,15 @@ back off. Recheck accepted tombstones daily for late direct uploads. A local PUT
 finishes after deletion removes its bytes; a concurrent valid completion is preserved.
 S3 acceptance does not prove permanent version erasure: private-bucket/lifecycle/version
 policies and real provider checks remain deployment prerequisites.
+
+## Billing snapshots and historical provenance — implemented, 2026-10-31
+
+Checkout billing defaults to the current shipping address until a customer supplies
+an independently validated address; an explicit same-as-shipping flag resets that
+choice. Normal checkout version/payment/hold rules apply. Placement snapshots the
+resolved address and SHIPPING_DEFAULT or CUSTOMER_PROVIDED provenance atomically
+for both COD and simulation. Billing does not change the configured shipping-country
+tax calculation. Existing orders never collected billing: additive migration27
+preserves all old columns and labels their null address LEGACY_NOT_COLLECTED.
+New inserts cannot claim historical provenance; existing immutable snapshot guards
+protect billing too. No financial-trigger bypass or invented historical billing.
