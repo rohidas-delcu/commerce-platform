@@ -95,6 +95,9 @@ export class StorefrontCommerceController {
   @Get(':handle')
   store(@Param('handle') handle:string){return this.commerce.publicStore(handle);}
 
+  @Get(':handle/checkout-options')
+  checkoutOptions(@Param('handle') handle:string){return this.commerce.publicCheckoutOptions(handle);}
+
   @Get(":handle/products")
   products(@Param("handle") handle: string,@Query() query:PublicProductQueryDto) { return this.commerce.publicCatalog(handle,query); }
 

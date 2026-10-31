@@ -221,6 +221,14 @@ retention cleanup awaits the worker. Customer/guest APIs require PostgreSQL.
 
 ## Shipping/tax policy and estimates
 
+Public `GET /v1/storefront/:handle/checkout-options` requires a published store
+and returns `{currencyCode,countryCode,shipping,payments}`. The `shipping` array
+lists active `{id,name,countries,rateMinor,freeAboveMinor}` methods only. `payments`
+has COD and a simulator flag usable only in development. Private tax rates, policy
+versions and payment credentials are deliberately omitted. Always call server
+cart quote and durable checkout for authoritative prices and eligibility.
+
+
 Merchant `GET/PUT /v1/merchant/stores/:id/pricing`; writes need `store.settings`,
 Origin/CSRF and the current policy `version` (0 for initial creation). Shape:
 `{version,shipping:[{id,name,countries,rateMinor,freeAboveMinor,active}],

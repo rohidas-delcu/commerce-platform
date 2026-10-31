@@ -66,6 +66,12 @@ jobs:
         run: pnpm test:admin
       - name: Merchant admin production build
         run: pnpm build:admin
+      - name: Customer storefront TypeScript checks
+        run: pnpm typecheck:storefront
+      - name: Customer storefront contract and utility tests
+        run: pnpm test:storefront
+      - name: Customer storefront production build
+        run: pnpm build:storefront
       - name: Memory API integration tests
         run: pnpm test:integration
       - name: PostgreSQL API, repository and schema integration tests
