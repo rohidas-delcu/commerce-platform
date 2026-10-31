@@ -74,6 +74,14 @@ test('merchant signs up, verifies email, and completes initial store creation', 
 test('public guest cart, verified customer signup, COD checkout, merchant delivery, and private receipt', async ({ page, browser }) => {
   const { merchantEmail, customerEmail: otherCustomer, password } = await demoCredentials();
   const email = `customer-browser-${randomUUID().slice(0, 12)}@example.test`;
+  const authRequests: string[] = [];
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    // Only route and status metadata, never request/response bodies or tokens.
+    if (/\/(customer\/auth\/login|customer\/profile|cart(?:\/merge)?)$/.test(path)) {
+      authRequests.push(`${response.request().method()} ${path} ${response.status()}`);
+    }
+  });
 
   await test.step('Public product discovery and guest cart', async () => {
     await page.goto(shop);
@@ -113,7 +121,7 @@ test('public guest cart, verified customer signup, COD checkout, merchant delive
       // Safe CI diagnostic: log only the path, not query tokens, cookies,
       // credentials, email addresses, or shipping/contact values.
       const path = new URL(page.url()).pathname;
-      throw new Error(`Authenticated checkout did not open. Path: ${path}`, {
+      throw new Error(`Authenticated checkout did not open. Path: ${path}. Requests: ${authRequests.join(' | ')}`, {
         cause: error,
       });
     }
