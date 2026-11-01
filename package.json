@@ -17,6 +17,8 @@
     "build:storefront": "pnpm --filter @commerce/storefront build",
     "typecheck:storefront": "pnpm --filter @commerce/storefront typecheck",
     "test:storefront": "pnpm --filter @commerce/storefront test",
+    "test:browser": "playwright test",
+    "typecheck:browser": "tsc --project tests/browser/tsconfig.json",
     "build": "pnpm --filter @commerce/api build",
     "typecheck": "pnpm --filter @commerce/database typecheck && pnpm --filter @commerce/api typecheck",
     "test": "tsx --tsconfig apps/api/tsconfig.json --test apps/api/test/*.test.mjs",
@@ -35,6 +37,8 @@
     "demo:backend": "pnpm dev:setup && pnpm db:generate && pnpm build && node apps/api/scripts/demo-backend.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.19.2",
     "dotenv": "^17.0.0",
     "prisma": "^7.0.0",
     "tsx": "^4.23.15",

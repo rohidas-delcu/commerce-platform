@@ -11,7 +11,7 @@ permissions:
 jobs:
   api:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17-alpine
@@ -78,3 +78,9 @@ jobs:
         run: pnpm test:postgres
       - name: Complete disposable backend demonstration
         run: pnpm demo:backend --verify-and-exit
+      - name: Install Chromium for real-browser acceptance
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser suite TypeScript checks
+        run: pnpm typecheck:browser
+      - name: Merchant and customer real-browser acceptance
+        run: pnpm test:browser

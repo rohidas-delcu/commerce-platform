@@ -19,6 +19,7 @@ config({path:join(api,'.env'),quiet:true});
 if(process.env.NODE_ENV==='production')throw new Error('Development demonstration refuses production configuration.');
 const verify=process.argv.includes('--verify-and-exit');
 if(process.argv.slice(2).some(arg=>arg!=='--verify-and-exit'))throw new Error('Supported option: --verify-and-exit');
+const browserE2E=process.env.COMMERCE_BROWSER_E2E==='true';
 const original=new URL(process.env.DATABASE_URL??'postgresql://commerce:commerce@127.0.0.1:5432/commerce');
 if(!['postgres:','postgresql:'].includes(original.protocol)||!['127.0.0.1','localhost','[::1]'].includes(original.hostname))throw new Error('Demo requires a loopback PostgreSQL server with CREATE DATABASE privileges.');
 const name='delcu_demo_'+randomUUID().replaceAll('-',''),database=new URL(original);database.pathname='/'+name;database.searchParams.set('schema','public');
@@ -26,7 +27,7 @@ const adminUrl=new URL(original);adminUrl.pathname='/postgres';adminUrl.search='
 const privateDir=await mkdtemp(join(tmpdir(),'delcu-backend-demo-')),mailDir=join(privateDir,'mail');
 await mkdir(mailDir,{mode:0o700});
 const password=randomBytes(24).toString('base64url'),outboxKey=randomBytes(32).toString('hex');
-const env={...process.env,NODE_ENV:'development',DATA_DRIVER:'postgres',DATABASE_URL:database.toString(),DEMO_AUTH_ENABLED:'false',AUTH_OUTBOX_KEY:outboxKey,OBJECT_STORAGE:'local',DEV_STORAGE_DIR:join(privateDir,'media'),DEV_MAIL_DIR:mailDir,NOTIFICATION_PROVIDER:'development',COMMERCE_WORKER_ENABLED:'true',CORS_ORIGINS:'http://localhost:5173',MERCHANT_APP_URL:'http://localhost:5173',STOREFRONT_APP_URL:'http://localhost:5173'};
+const env={...process.env,NODE_ENV:'development',DATA_DRIVER:'postgres',DATABASE_URL:database.toString(),DEMO_AUTH_ENABLED:'false',AUTH_OUTBOX_KEY:outboxKey,OBJECT_STORAGE:'local',DEV_STORAGE_DIR:join(privateDir,'media'),DEV_MAIL_DIR:mailDir,NOTIFICATION_PROVIDER:'development',COMMERCE_WORKER_ENABLED:'true',CORS_ORIGINS:browserE2E?'http://localhost:5173,http://localhost:5174':'http://localhost:5173',MERCHANT_APP_URL:'http://localhost:5173',STOREFRONT_APP_URL:browserE2E?'http://localhost:5174':'http://localhost:5173'};
 let admin,created=false,child,childLogs='',stopRequested=false,resolveStop;
 const stopped=new Promise(resolve=>{resolveStop=resolve;});
 const stop=()=>{stopRequested=true;resolveStop();};process.on('SIGINT',stop);process.on('SIGTERM',stop);
@@ -66,7 +67,7 @@ try{
   }
   async function deliveredVerification(email){
     for(let i=0;i<150;i++){
-      for(const filename of (await readdir(mailDir)).filter(f=>f.startsWith('identity_')&&f.endsWith('.json'))){const message=JSON.parse(await readFile(join(mailDir,filename),'utf8'));if(message.to!==email)continue;const link=message.text.match(/http:\/\/localhost:5173\/\S+/)?.[0];if(link){const token=new URL(link).searchParams.get('token');if(token)return token;}}
+      for(const filename of (await readdir(mailDir)).filter(f=>f.startsWith('identity_')&&f.endsWith('.json'))){const message=JSON.parse(await readFile(join(mailDir,filename),'utf8'));if(message.to!==email)continue;const link=message.text.match(/http:\/\/localhost:517[34]\/\S+/)?.[0];if(link){const token=new URL(link).searchParams.get('token');if(token)return token;}}
       await delay(100);
     }
     throw new Error('Development mail worker did not deliver verification.');

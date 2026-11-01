@@ -126,13 +126,18 @@ function Workspace({identity,stores,accounts,onReload,onLogout}: {identity:Ident
 }
 
 export default function App() {
-  const queryClient=useQueryClient(),navigate=useNavigate();
+  const queryClient=useQueryClient(),navigate=useNavigate(),location=useLocation();
   const [signedOut,setSignedOut]=useState(false);
   useEffect(()=>{
-    const expired=()=>{api.clearSession();queryClient.clear();setSignedOut(true);navigate('/login');};
+    const expired=()=>{
+      api.clearSession();queryClient.clear();setSignedOut(true);
+      // A first-time visitor has no session by design. The initial /auth/me
+      // 401 must not eject them from signup/verification/password recovery.
+      if(!/^\/(login|signup|verify|forgot|reset)$/.test(location.pathname))navigate('/login');
+    };
     window.addEventListener('commerce:session-expired',expired);
     return()=>window.removeEventListener('commerce:session-expired',expired);
-  },[queryClient,navigate]);
+  },[queryClient,navigate,location.pathname]);
   const me=useQuery({queryKey:['merchant','me'],queryFn:()=>api.get<Identity>('/v1/auth/me'),enabled:!signedOut,retry:false});
   const authenticated=!signedOut&&!!me.data;
   const accounts=useQuery({queryKey:['merchant','accounts'],queryFn:()=>api.get<Page<MerchantAccount>>('/v1/merchant/accounts?limit=100'),enabled:authenticated,retry:false});

@@ -1,5 +1,10 @@
 # Backend verification
 
+**Browser continuation (2026-10-31):** `docs/BROWSER_E2E_STATUS.md` documents
+the Playwright/Chromium merchant and customer UI journeys, disposable PostgreSQL
+demo fixture and CI gates. Browser tests are distinct from the backend-only
+evidence below; consult that file for their latest real-run status.
+
 Use Node24, pnpm11.25.0 and the committed lockfile. Current actual outcomes and
 commit/CI provenance live in IMPLEMENTATION_STATUS.md. These commands were executed;
 counts are test-runner cases, not a claim of exhaustive or independent user journeys.

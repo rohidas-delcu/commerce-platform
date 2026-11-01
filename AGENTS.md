@@ -81,3 +81,13 @@ phase approval. `apps/storefront` belongs to `feature/commerce-storefront-ui`, s
 on admin PR #3. Read `docs/STOREFRONT_UI_STATUS.md` for test evidence, scope and
 remaining real browser/PostgreSQL acceptance. Do not automatically merge/deploy,
 enable live providers, or remove production startup guards.
+
+## Current browser acceptance continuation (2026-10-31)
+
+The user subsequently merged backend PR #2, merchant PR #3 and storefront PR
+#4, then authorized Phase 4 real-browser acceptance. Work on
+`feature/commerce-playwright-e2e` from merged main. Read
+`docs/BROWSER_E2E_STATUS.md` for the isolated demo fixture, Playwright flows,
+actual CI evidence, and remaining gates. The earlier stacked-PR/pending UI
+descriptions above are historical. Do not enable live payment providers,
+auto-merge/deploy, or upload sensitive traces/credentials as CI artifacts.
