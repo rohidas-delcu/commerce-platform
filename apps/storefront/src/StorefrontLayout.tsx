@@ -72,20 +72,28 @@ function Storefront({ handle }: { handle: string }) {
     const guest = profile ? null : cartQuery.data;
     await api.post(handle, '/customer/auth/login', { email, password });
     const current = await api.get<Profile>(handle, '/customer/profile');
-    // Guest capability remains in an HttpOnly cookie. Merge once against the
-    // authenticated cart using the pre-login version, never by copying client prices.
+
+    // Merge the guest capability on the server. Never copy client-supplied prices.
+    let authenticatedCart: Cart;
     if (guest?.items.length) {
       const owned = await api.post<Cart>(handle, '/cart');
-      await api.post<Cart>(handle, '/cart/merge', {
+      authenticatedCart = await api.post<Cart>(handle, '/cart/merge', {
         expectedVersion: owned.version,
         guestVersion: guest.version,
       });
+    } else {
+      try {
+        authenticatedCart = await api.get<Cart>(handle, '/cart');
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 404) throw error;
+        authenticatedCart = await api.post<Cart>(handle, '/cart');
+      }
     }
-    // Publish the authenticated identity only after the guest cart is merged.
-    // Otherwise account-route redirects can race the merge and render an
-    // empty authenticated bag in checkout.
+
+    // Publish both pieces of authenticated state together. Invalidating the
+    // guest query here can wait on a stale observer and delay the login redirect.
     qc.setQueryData(['shop', handle, 'profile'], current);
-    await refreshCart();
+    qc.setQueryData(['shop', handle, 'cart', current.id], authenticatedCart);
   }
   async function logout() {
     await api.post(handle, '/customer/auth/logout');
