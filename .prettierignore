@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+apps/api/src/generated/
+test-results/
+playwright-report/
+pnpm-lock.yaml
+.data/

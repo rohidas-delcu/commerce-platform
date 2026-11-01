@@ -74,6 +74,14 @@ test('merchant signs up, verifies email, and completes initial store creation', 
 test('public guest cart, verified customer signup, COD checkout, merchant delivery, and private receipt', async ({ page, browser }) => {
   const { merchantEmail, customerEmail: otherCustomer, password } = await demoCredentials();
   const email = `customer-browser-${randomUUID().slice(0, 12)}@example.test`;
+  const authRequests: string[] = [];
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    // Only route and status metadata, never request/response bodies or tokens.
+    if (/\/(customer\/auth\/login|customer\/profile|cart(?:\/merge)?)$/.test(path)) {
+      authRequests.push(`${response.request().method()} ${path} ${response.status()}`);
+    }
+  });
 
   await test.step('Public product discovery and guest cart', async () => {
     await page.goto(shop);
@@ -91,20 +99,32 @@ test('public guest cart, verified customer signup, COD checkout, merchant delive
 
   await test.step('Customer creates a verified account and the guest bag is merged', async () => {
     await page.getByRole('link', { name: 'Create an account' }).click();
+    await expect(page).toHaveURL(/\/account\/signup\?next=checkout$/);
     await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
     await page.getByLabel('Full name').fill('Browser Customer');
     await page.getByLabel('Email address').fill(email);
     await page.getByLabel('New password').fill(password);
     await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page).toHaveURL(/\/account\/verify\?.*next=checkout/);
     await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible();
     await page.getByLabel('Email token').fill(await mailToken(email));
     await page.getByRole('button', { name: 'Verify email' }).click();
     await expect(page.getByText('Email verified. You can now sign in.')).toBeVisible();
     await page.getByRole('link', { name: 'Sign in after verification' }).click();
+    await expect(page).toHaveURL(/\/account\/login\?next=checkout$/);
     await page.getByLabel('Email address').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Delivery details' })).toBeVisible();
+    try {
+      await expect(page.getByRole('heading', { name: 'Delivery details' })).toBeVisible();
+    } catch (error) {
+      // Safe CI diagnostic: log only the path, not query tokens, cookies,
+      // credentials, email addresses, or shipping/contact values.
+      const path = new URL(page.url()).pathname;
+      throw new Error(`Authenticated checkout did not open. Path: ${path}. Requests: ${authRequests.join(' | ')}`, {
+        cause: error,
+      });
+    }
     await expect(page.getByText('Everyday Trail Backpack')).toBeVisible();
   });
 

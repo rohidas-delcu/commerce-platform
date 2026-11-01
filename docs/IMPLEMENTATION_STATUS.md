@@ -1,5 +1,7 @@
 # Current backend implementation status — 2026-10-31
 
+> **Code-quality continuation (2026-10-31):** On `feature/commerce-code-quality` (based on Phase 4 PR #5), the user requested maintainable source formatting, lint enforcement, separated React modules, and TanStack Router instead of React Router. Merchant and storefront code have been refactored accordingly; `docs/CODE_QUALITY.md` describes the new boundaries and checks. Source formatting, ESLint, both frontend TypeScript checks, 3 admin tests and 4 storefront tests, and both production builds have passed locally. **The post-refactor full PostgreSQL/Chromium CI suite and human review are not yet verified.** This is not an approval to merge or deploy; live payment providers remain disabled.
+
 > **Current Phase 4 continuation (2026-10-31):** PR #2, #3 and #4 are now
 > merged into main. The Phase 4 real-browser suite lives on the separate
 > `feature/commerce-playwright-e2e` branch. It covers merchant onboarding,

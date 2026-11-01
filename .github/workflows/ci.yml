@@ -41,6 +41,10 @@ jobs:
           cache: pnpm
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Enforce source formatting
+        run: pnpm format:check
+      - name: Enforce lint and React hooks rules
+        run: pnpm lint
       - name: Validate schema and generate client
         run: |
           pnpm db:validate
