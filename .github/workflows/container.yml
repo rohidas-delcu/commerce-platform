@@ -36,8 +36,8 @@ jobs:
         run: docker build --tag commerce-api:${{ github.sha }} .
       - name: Exercise container liveness endpoint
         run: |
-          docker run --rm -d --name commerce-api-smoke -e NODE_ENV=development -e DATA_DRIVER=memory -e DEMO_AUTH_ENABLED=false -e HOST=0.0.0.0 -e PORT=3000 -e CORS_ORIGINS=http://localhost:5173 -p 127.0.0.1:3000:3000 commerce-api:${{ github.sha }}
-          trap 'docker logs commerce-api-smoke; docker rm -f commerce-api-smoke' EXIT
+          docker run -d --name commerce-api-smoke -e NODE_ENV=development -e DATA_DRIVER=memory -e DEMO_AUTH_ENABLED=false -e HOST=0.0.0.0 -e PORT=3000 -e CORS_ORIGINS=http://localhost:5173 -p 127.0.0.1:3000:3000 commerce-api:${{ github.sha }}
+          trap 'docker logs commerce-api-smoke || true; docker rm -f commerce-api-smoke || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:3000/health; then exit 0; fi
             sleep 1
