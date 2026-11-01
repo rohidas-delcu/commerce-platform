@@ -2,6 +2,7 @@ FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 RUN corepack enable
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/admin/package.json apps/admin/package.json
@@ -11,11 +12,12 @@ COPY packages/database/package.json packages/database/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm db:generate && pnpm build
+RUN DATABASE_URL='postgresql://build:build@127.0.0.1:5432/commerce?schema=public' pnpm db:generate && pnpm build
 
 FROM node:24-bookworm-slim AS runtime
 
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=staging \
     HOST=0.0.0.0 \
     PORT=3000
