@@ -1,5 +1,6 @@
 import { IdentityError, emailAddress, passwordPolicy, type BrowserSession, type IdentityAuthorityPort } from '../domain/identity.js';
 import type { IdentityRepositoryPort, IdentitySecretsPort } from './identity.port.js';
+import { isSecureRuntime } from '../../config/runtime.js';
 
 export interface IdentityRequest { headers: Record<string, string | string[] | undefined>; ip?: string; identitySession?: BrowserSession }
 export class IdentityService {
@@ -19,7 +20,7 @@ export class IdentityService {
     const cookie = request.headers.cookie;
     if (typeof cookie !== 'string') throw new IdentityError(401, 'Authentication required.');
     const baseName=this.options.baseCookieName??'delcu_session';
-    const name = process.env.NODE_ENV === 'production' ? '__Host-'+baseName : baseName;
+    const name = isSecureRuntime() ? '__Host-'+baseName : baseName;
     const values = cookie.split(';').map(c => c.trim()).filter(c => c.startsWith(`${name}=`));
     const value = values[0]?.slice(name.length+1);
     if (values.length !== 1 || !value || !/^[A-Za-z0-9_-]{43}$/.test(value)) throw new IdentityError(401, 'Authentication required.');

@@ -1,0 +1,11 @@
+node_modules
+dist
+.turbo
+.git
+.github
+.data
+coverage
+test-results
+playwright-report
+apps/api/.env
+deploy/staging/.env
