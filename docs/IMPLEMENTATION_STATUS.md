@@ -1,5 +1,11 @@
 # Current backend implementation status — 2026-10-31
 
+> **Staging foundation (2026-11-01):** A separate staging-only deployment
+> foundation is under review: container build/readiness, explicit fail-closed
+> staging configuration, non-publishing image artifacts and operator documentation.
+> It creates no cloud resources, does not deploy, and does not remove the production
+> startup block. See `STAGING_DEPLOYMENT.md` for the required external approvals.
+
 > **Code-quality continuation (2026-10-31):** On `feature/commerce-code-quality` (based on Phase 4 PR #5), the user requested maintainable source formatting, lint enforcement, separated React modules, and TanStack Router instead of React Router. Merchant and storefront code have been refactored accordingly; `docs/CODE_QUALITY.md` describes the new boundaries and checks. Source formatting, ESLint, both frontend TypeScript checks, 3 admin tests and 4 storefront tests, and both production builds have passed locally. **The post-refactor full PostgreSQL/Chromium CI suite and human review are not yet verified.** This is not an approval to merge or deploy; live payment providers remain disabled.
 
 > **Current Phase 4 continuation (2026-10-31):** PR #2, #3 and #4 are now

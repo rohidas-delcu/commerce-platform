@@ -1,9 +1,13 @@
 export class ConfigurationError extends Error {}
 
+export function isSecureRuntime(mode = process.env.NODE_ENV) {
+  return mode === 'staging' || mode === 'production';
+}
+
 export function readRuntimeConfig() {
   const mode = process.env.NODE_ENV;
-  if (!['development', 'test', 'production'].includes(mode ?? '')) {
-    throw new ConfigurationError('NODE_ENV must be development, test or production.');
+  if (!['development', 'test', 'staging', 'production'].includes(mode ?? '')) {
+    throw new ConfigurationError('NODE_ENV must be development, test, staging or production.');
   }
   if (mode === 'production') {
     throw new ConfigurationError('Production mode is disabled until backend acceptance and security review pass.');
@@ -14,6 +18,12 @@ export function readRuntimeConfig() {
   }
   if (process.env.DEMO_AUTH_ENABLED !== undefined && !['true', 'false'].includes(process.env.DEMO_AUTH_ENABLED)) {
     throw new ConfigurationError('DEMO_AUTH_ENABLED must be true or false.');
+  }
+  if (mode === 'staging') {
+    if (driver !== 'postgres') throw new ConfigurationError('Staging requires DATA_DRIVER=postgres.');
+    if (process.env.DEMO_AUTH_ENABLED !== 'false') throw new ConfigurationError('Staging requires DEMO_AUTH_ENABLED=false.');
+    if (process.env.OBJECT_STORAGE !== 's3') throw new ConfigurationError('Staging requires OBJECT_STORAGE=s3.');
+    if (process.env.NOTIFICATION_PROVIDER !== 'ses') throw new ConfigurationError('Staging requires NOTIFICATION_PROVIDER=ses.');
   }
   if (driver === 'postgres') {
     try {
@@ -37,5 +47,15 @@ export function readRuntimeConfig() {
       return !['http:', 'https:'].includes(url.protocol) || url.origin !== origin;
     } catch { return true; }
   })) throw new ConfigurationError('CORS_ORIGINS must contain comma-separated HTTP(S) origins.');
-  return { mode, driver, port, origins };
+  if (mode === 'staging' && origins.some(origin => !origin.startsWith('https://'))) {
+    throw new ConfigurationError('Staging CORS_ORIGINS must use HTTPS origins.');
+  }
+  const host = process.env.HOST ?? '127.0.0.1';
+  if (!['127.0.0.1', '0.0.0.0'].includes(host)) {
+    throw new ConfigurationError('HOST must be 127.0.0.1 or 0.0.0.0.');
+  }
+  if (mode === 'staging' && host !== '0.0.0.0') {
+    throw new ConfigurationError('Staging requires HOST=0.0.0.0 for container networking.');
+  }
+  return { mode, driver, port, origins, host };
 }

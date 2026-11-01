@@ -1,0 +1,53 @@
+name: Staging container build
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - apps/api/**
+      - packages/database/**
+      - deploy/staging/**
+      - package.json
+      - pnpm-lock.yaml
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - apps/api/**
+      - packages/database/**
+      - deploy/staging/**
+      - package.json
+      - pnpm-lock.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Build staging image artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build immutable candidate image
+        run: docker build --tag commerce-api:${{ github.sha }} .
+      - name: Exercise container liveness endpoint
+        run: |
+          docker run -d --name commerce-api-smoke -e NODE_ENV=development -e DATA_DRIVER=memory -e DEMO_AUTH_ENABLED=false -e HOST=0.0.0.0 -e PORT=3000 -e CORS_ORIGINS=http://localhost:5173 -p 127.0.0.1:3000:3000 commerce-api:${{ github.sha }}
+          trap 'docker logs commerce-api-smoke || true; docker rm -f commerce-api-smoke || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/health; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Export image artifact
+        run: docker save commerce-api:${{ github.sha }} --output commerce-api-${{ github.sha }}.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: commerce-api-image-${{ github.sha }}
+          path: commerce-api-${{ github.sha }}.tar
+          if-no-files-found: error
+          retention-days: 7

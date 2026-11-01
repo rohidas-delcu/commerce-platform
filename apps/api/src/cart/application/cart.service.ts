@@ -8,11 +8,12 @@ import type {BrowserSession} from '../../identity/domain/identity.js';
 import {cartProjection,cartQuantity,type Cart,type CartCapability} from '../domain/cart.js';
 import type {CartContext,CartRepositoryPort} from './cart.port.js';
 import {DomainError,type Product} from '../../domain/commerce.js';
+import { isSecureRuntime } from '../../config/runtime.js';
 export class CartService {
   constructor(private repository:CartRepositoryPort,private commerce:CommerceRepository,private secrets:IdentitySecretsPort){}
   async checkHealth(){if(process.env.DATA_DRIVER==='postgres')await this.repository.checkHealth();}
   capability(cookie:string|undefined,storeId:string):CartCapability|null{
-    const name=(process.env.NODE_ENV==='production'?'__Host-':'')+'delcu_cart_'+storeId;
+    const name=(isSecureRuntime()?'__Host-':'')+'delcu_cart_'+storeId;
     const cookies=(cookie??'').split(';').map(s=>s.trim()).filter(s=>s.startsWith(name+'='));if(cookies.length!==1)return null;
     const match=/^([a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})\.([A-Za-z0-9_-]{43})$/.exec(cookies[0].slice(name.length+1));return match?{id:match[1],digest:this.secrets.digest(match[2])}:null;
   }

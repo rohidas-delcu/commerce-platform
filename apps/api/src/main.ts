@@ -26,8 +26,8 @@ async function bootstrap() {
     SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
 
     const port = config.port;
-    await app.listen(port, "127.0.0.1");
-    Logger.log(`Commerce API listening on loopback port ${port} (${config.driver})`, "Bootstrap");
+    await app.listen(port, config.host);
+    Logger.log(`Commerce API listening on ${config.host}:${port} (${config.driver})`, "Bootstrap");
   } catch (error) {
     await app.close();
     throw error;

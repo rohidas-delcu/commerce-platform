@@ -72,13 +72,14 @@ variables take precedence. Never commit real connection URLs or credentials.
 
 | Variable | Requirement |
 | --- | --- |
-| `NODE_ENV` | Explicit `development` or `test`; unknown/unset values fail. Production always refuses startup pending real authentication. |
+| `NODE_ENV` | Explicit `development`, `test` or `staging`; unknown/unset values fail. Production always refuses startup pending real authentication. |
 | `DATA_DRIVER` | `memory` (default) or `postgres`; unknown drivers fail. |
 | `DEMO_AUTH_ENABLED` | `true` or `false`; demo headers accepted only with `true` and `NODE_ENV=development`. |
 | `DATABASE_URL` | PostgreSQL URL required in postgres mode and by Prisma CLI. Only the public schema is supported; other/empty schema parameters fail startup. |
 | `AUTH_OUTBOX_KEY` | Required in PostgreSQL mode: securely provisioned32byte lowercase hex encryption key. Missing/invalid fails startup; preserve it for queued mail. |
 | `PORT` | Integer 1–65535, default 3000; server binds only to `127.0.0.1`. |
 | `CORS_ORIGINS` | Comma-separated exact HTTP(S) origins, default `http://localhost:5173`; wildcards and paths rejected. |
+| `HOST` | `127.0.0.1` by default; staging requires `0.0.0.0` inside its container. |
 
 ```sh
 NODE_ENV=development DATA_DRIVER=memory DEMO_AUTH_ENABLED=true pnpm dev
@@ -112,6 +113,15 @@ acceptance is not verified. No React or additional microservice is included.
 
 Phase0 is merged. Full backend PR2 remains draft; do not merge/deploy automatically.
 Run the complete demo as documented in LOCAL_DEVELOPMENT.md before acceptance.
+
+## Staging foundation
+
+The reviewed container, required staging configuration, health checks and
+non-publishing image-artifact workflow are documented in `STAGING_DEPLOYMENT.md`.
+Staging is deliberately separate from production: it requires PostgreSQL, disabled
+demo authentication, S3, SES, HTTPS CORS origins and secure cookies, while production
+startup remains blocked. No cloud account, image registry, migration, or deployment is
+created by this repository.
 
 ## Notification provider prerequisites (not a production release)
 

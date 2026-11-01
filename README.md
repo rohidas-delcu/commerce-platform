@@ -55,6 +55,10 @@ Swagger is `/docs`, OpenAPI JSON `/docs-json` on the running loopback API.
 [lifecycles](docs/COMMERCE_LIFECYCLES.md) and
 [test guide](docs/BACKEND_E2E_TESTING.md) describe supported behavior.
 
+The [staging deployment foundation](docs/STAGING_DEPLOYMENT.md) supplies a
+non-publishing container build and configuration template only. It does not deploy
+or authorize production startup.
+
 ## Continue or review
 
 Read [AGENTS.md](AGENTS.md), [status](docs/IMPLEMENTATION_STATUS.md),
