@@ -6,11 +6,11 @@ Vite/React merchant workspace built against the session-authenticated PostgreSQL
 
 From repo root, use Node 24 / pnpm 11.25.0:
 
-1. Start backend with its configured PostgreSQL, allowed browser origin `http://127.0.0.1:5173`, and private email outbox. See `docs/LOCAL_DEVELOPMENT.md`.
+1. Start backend with its configured PostgreSQL, allowed browser origin `http://127.0.0.1:5173`, and private email outbox. Follow the complete [local run guide](../../docs/LOCAL_DEVELOPMENT.md).
 2. `pnpm install --frozen-lockfile`
 3. `pnpm dev:admin`, then visit `http://127.0.0.1:5173` (the API's `CORS_ORIGINS` must contain this exact origin).
 
-The Vite dev server proxies `/v1` and `/health` to `http://127.0.0.1:3000` by default. Set `ADMIN_API_TARGET` only to a trusted local development backend. All merchant mutations carry session cookies and the server-issued CSRF token. The API must be running in PostgreSQL mode; memory/demo impersonation does not support this UI.
+The Vite dev server proxies `/v1` and `/health` to `http://127.0.0.1:3000` by default. Copy `.env.example` to ignored `.env` to set `ADMIN_API_TARGET` for a trusted local development backend. All merchant mutations carry session cookies and the server-issued CSRF token. The API must be running in PostgreSQL mode; memory/demo impersonation does not support this UI. There is no default login: sign up, retrieve the local verification token from the private development mailbox, verify, then log in.
 
 ## Supported screens
 

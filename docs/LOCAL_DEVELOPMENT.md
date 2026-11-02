@@ -4,6 +4,39 @@ Base tools/database setup: [setup-and-deployment.md](setup-and-deployment.md).
 Use Node 24, pnpm 11.25.0 and `pnpm install --frozen-lockfile`. Never reset data.
 Apply additive migrations with `pnpm db:deploy`, generate with `pnpm db:generate`.
 
+## Run all applications locally
+
+The authenticated merchant and customer applications require PostgreSQL. There is
+no pre-created username or password: create an account, retrieve its development
+mail token locally, verify it, then sign in. Starting the API without a PostgreSQL
+configuration leaves catalog-only memory mode available, but identity endpoints
+correctly respond `503 Identity requires PostgreSQL`.
+
+1. Start a local PostgreSQL 17 instance and create the `commerce` database. The
+   safe local credentials used by the example URL are documented in
+   [setup-and-deployment.md](setup-and-deployment.md); do not reuse them outside
+   your computer.
+2. Run `pnpm dev:setup`. It creates ignored `apps/api/.env` from
+   `apps/api/.env.example` and generates a private `AUTH_OUTBOX_KEY`. Edit only
+   `DATABASE_URL` if your database differs. Copy `apps/admin/.env.example` and
+   `apps/storefront/.env.example` only when their Vite proxy should target a
+   non-default local API.
+3. Run `pnpm db:generate`, then `pnpm db:deploy`. `/health/ready` must return
+   success before opening either UI.
+4. Use three terminals: `pnpm dev`, `pnpm dev:admin`, and `pnpm dev:storefront`.
+   The admin is `http://127.0.0.1:5173`; the storefront is
+   `http://127.0.0.1:5174`; the API is `http://127.0.0.1:3000`.
+5. In the admin, choose **Create account**. The verification message is written
+   to the private `DEV_MAIL_DIR` (default `apps/api/.data/mail` when started
+   from the API workspace). Open the JSON file locally, use its one-time token
+   or link, then log in. Never paste its contents into tickets, chat, or Git.
+
+If the browser reports HTTP 500, inspect the API terminal first. A failed
+PostgreSQL connection, a database without deployed migrations, or a stale Vite
+proxy target are setup failures—not invalid credentials. Confirm the API startup
+line says `Commerce API listening ... (postgres)` and use `/health/ready` before
+retrying login.
+
 Identity endpoints require DATA_DRIVER=postgres. Memory commerce remains available;
 identity returns 503 rather than invent insecure memory persistence semantics.
 Run `pnpm dev:setup` to preserve local settings and generate a missing development
