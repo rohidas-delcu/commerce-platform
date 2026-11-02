@@ -16,7 +16,7 @@ test('notification money, safe text and application routes preserve exact values
 });
 test('private development mailbox deduplicates stable identity and rejects production',async()=>{
  const root=await mkdtemp(join(tmpdir(),'delcu-mail-unit-'));try{const transport=new DevelopmentMailer(root),message={id:'identity_'+randomUUID(),to:'fixture@example.test',subject:'Fixture',text:'Private fixture only'};
- const results=await Promise.all([transport.send(message),transport.send(message)]);assert.ok(results.every(x=>x.kind==='accepted'));assert.deepEqual(await readdir(root),[message.id+'.json']);assert.deepEqual(JSON.parse(await readFile(join(root,message.id+'.json'),'utf8')),message);assert.equal((await stat(join(root,message.id+'.json'))).mode&0o777,0o600);
+  const results=await Promise.all([transport.send(message),transport.send(message)]);assert.ok(results.every(x=>x.kind==='accepted'));assert.deepEqual(await readdir(root),[message.id+'.json']);assert.deepEqual(JSON.parse(await readFile(join(root,message.id+'.json'),'utf8')),message);if(process.platform!=='win32')assert.equal((await stat(join(root,message.id+'.json'))).mode&0o777,0o600);
  assert.equal((await transport.send({...message,to:'different@example.test'})).kind,'rejected');assert.equal((await transport.send({...message,id:'../../escape'})).kind,'rejected');
  const previous=process.env.NODE_ENV;process.env.NODE_ENV='production';try{assert.throws(()=>new DevelopmentMailer(root));}finally{if(previous===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=previous;}
  }finally{await rm(root,{recursive:true,force:true});}

@@ -74,7 +74,7 @@ export class MemoryCommerceRepository implements CommerceRepository {
   async searchProducts(storeId:string,query:Required<Pick<ProductQuery,'limit'|'offset'|'sort'>>&ProductQuery){
     const term=(query.query??'').toLowerCase();
     const rows=[...this.products.values()].filter(p=>p.storeId===storeId&&(!query.status||p.status===query.status)&&(!query.collection||p.collection.toLowerCase()===query.collection.toLowerCase())&&(!query.collectionId||this.collectionLinks.has(query.collectionId+':'+p.id))&&(!term||[p.name,p.handle,p.description].some(v=>v.toLowerCase().includes(term))));
-    rows.sort((a,b)=>{let result=0;if(query.collectionId&&query.collectionPosition)result=this.collectionLinks.get(query.collectionId+':'+a.id)!.position-this.collectionLinks.get(query.collectionId+':'+b.id)!.position;else if(query.sort==='price_asc'||query.sort==='price_desc'){result=BigInt(a.priceMinor)<BigInt(b.priceMinor)?-1:BigInt(a.priceMinor)>BigInt(b.priceMinor)?1:0;if(query.sort==='price_desc')result=-result;}else if(query.sort==='name')result=a.name<b.name?-1:a.name>b.name?1:0;else result=a.createdAt>b.createdAt?-1:a.createdAt<b.createdAt?1:0;return result||(a.id<b.id?-1:a.id>b.id?1:0);});
+    rows.sort((a,b)=>{let result:number;if(query.collectionId&&query.collectionPosition)result=this.collectionLinks.get(query.collectionId+':'+a.id)!.position-this.collectionLinks.get(query.collectionId+':'+b.id)!.position;else if(query.sort==='price_asc'||query.sort==='price_desc'){result=BigInt(a.priceMinor)<BigInt(b.priceMinor)?-1:BigInt(a.priceMinor)>BigInt(b.priceMinor)?1:0;if(query.sort==='price_desc')result=-result;}else if(query.sort==='name')result=a.name<b.name?-1:a.name>b.name?1:0;else result=a.createdAt>b.createdAt?-1:a.createdAt<b.createdAt?1:0;return result||(a.id<b.id?-1:a.id>b.id?1:0);});
     return clone(rows.slice(query.offset,query.offset+query.limit+1));
   }
   async productsForVariants(storeId:string,variantIds:string[]){return clone([...this.products.values()].filter(p=>p.storeId===storeId&&p.variants.some(v=>variantIds.includes(v.id))));}
@@ -87,8 +87,8 @@ export class MemoryCommerceRepository implements CommerceRepository {
       throw new DomainError("CONFLICT", "Product handle already exists in this store.");
     // Metadata writes must not replace inventory read before a concurrent adjustment.
     assertProductActivation({...product,variants:current.variants});
-    const saved = { ...product, version: current.version + 1, variants: current.variants };
-    this.products.set(product.id, clone(saved)); return clone(saved);
+    const updated = { ...product, version: current.version + 1, variants: current.variants };
+    this.products.set(product.id, clone(updated)); return clone(updated);
   }
 
   async createVariant(storeId:string,productId:string,variant:Variant){

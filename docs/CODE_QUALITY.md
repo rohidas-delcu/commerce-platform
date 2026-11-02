@@ -17,7 +17,7 @@ From the repository root on Node 24 with pnpm 11.25.0:
 pnpm install --frozen-lockfile
 pnpm format         # apply Prettier to admin and storefront source
 pnpm format:check   # required in CI
-pnpm lint           # required in CI (TypeScript and React Hooks)
+pnpm lint           # required in CI (backend TypeScript plus frontend/React Hooks)
 pnpm typecheck:admin
 pnpm typecheck:storefront
 pnpm test:admin
@@ -38,4 +38,6 @@ The full GitHub Actions pipeline additionally runs backend/domain/PostgreSQL/mig
 
 ## Scope and limitations
 
-This is a source-organization and tooling change, not a redesign or new feature. No database schema, backend pricing/checkout policy or production payment activation changes are intended. The current lint rule set targets merchant/storefront code; backend TypeScript remains subject to its existing typecheck/unit/integration pipeline. Further backend linting may be introduced separately after auditing existing rule violations.
+Repository attributes keep source and tool-configuration files on LF line endings across Windows and POSIX checkouts so the Prettier gate is reproducible for every contributor.
+
+This is a source-organization and tooling change, not a redesign or new feature. No database schema, backend pricing/checkout policy or production payment activation changes are intended. The lint rule set covers the API as well as both frontend applications. Backend rules reject unused code while allowing the intentionally security-focused control-character validation regular expressions used at trust boundaries; those expressions are exercised by domain tests. Typecheck, unit, integration and browser acceptance remain required in addition to linting.
