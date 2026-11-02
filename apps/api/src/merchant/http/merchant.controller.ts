@@ -3,12 +3,12 @@ import {CreateCouponDto,UpdateCouponDto,CouponQueryDto} from '../../pricing/http
 import {OrderQueryDto,OrderCommandDto,DispatchDto,CollectCodDto,CancelOrderDto,OrderNoteDto} from '../../orders/http/orders.dto.js';
 import {PricingDto} from '../../pricing/http/pricing.dto.js';
 import {ReservationDto} from '../../inventory/inventory.dto.js';
-import {ApiCookieAuth,ApiHeader,ApiOperation,ApiTags} from '@nestjs/swagger';
+import {ApiCookieAuth,ApiHeader,ApiTags} from '@nestjs/swagger';
 import {applyDecorators,Body,Controller,Get,Post,Patch,Put,Delete,Headers,Query,Req,Param,ParseUUIDPipe,UseGuards} from '@nestjs/common';
 import {MerchantPageDto,NameDto,StoreDto,SettingsDto,VersionDto,RoleDto,InviteDto,AcceptDto,StoreRoleDto,ReserveMediaDto,SetImagesDto} from './merchant.dto.js';
 import {IdentityGuard} from '../../identity/http/identity.controller.js';
 import type {IdentityRequest} from '../../identity/application/identity.service.js';
-import {CreateStoreDto,CreateProductDto,UpdateProductDto,StockAdjustmentDto,ProductQueryDto,VariantMetadataDto,UpdateVariantDto,CreateCollectionDto,UpdateCollectionDto,CollectionVersionDto,CollectionLinkDto,CollectionQueryDto} from '../../http/commerce.dto.js';
+import {CreateProductDto,UpdateProductDto,StockAdjustmentDto,ProductQueryDto,VariantMetadataDto,UpdateVariantDto,CreateCollectionDto,UpdateCollectionDto,CollectionVersionDto,CollectionLinkDto,CollectionQueryDto} from '../../http/commerce.dto.js';
 import {MerchantService} from '../application/merchant.service.js';
 const Mutation = () => applyDecorators(ApiHeader({name:'x-csrf-token',required:true,description:'Token from GET /v1/auth/csrf or the last login/rotation response.'}),ApiHeader({name:'Origin',required:true,description:'An explicitly allowlisted origin.'}));
 @ApiTags('Merchant')

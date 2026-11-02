@@ -1,5 +1,5 @@
 export {PageDto as MerchantPageDto} from '../../http/pagination.dto.js';
-import {IsString,MinLength,MaxLength,IsInt,Min,IsEmail,IsIn,IsUUID,ValidateIf,Matches,Max,IsArray,ArrayMaxSize,IsOptional,IsObject} from 'class-validator';
+import {IsString,MinLength,MaxLength,IsInt,Min,IsEmail,IsIn,IsUUID,ValidateIf,Matches,Max,IsArray,ArrayMaxSize,IsObject} from 'class-validator';
 import {CreateStoreDto} from '../../http/commerce.dto.js';
 
 export class NameDto {@IsString() @MinLength(1) @MaxLength(100) name!:string;}

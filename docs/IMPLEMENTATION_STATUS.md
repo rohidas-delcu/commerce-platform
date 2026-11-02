@@ -1,5 +1,13 @@
 # Current backend implementation status — 2026-10-31
 
+> **Code-quality hardening (2026-11-02):** The active follow-up makes the
+> existing formatting gate verifiable from a Windows checkout and extends ESLint
+> coverage to the API. It removes unused API code, preserves documented
+> control-character validation at untrusted-input boundaries, and makes the
+> development-mailbox permission assertion platform-aware. Local formatting,
+> linting, API/admin/storefront typechecks, and focused regressions pass; full
+> GitHub Actions verification remains required before merge.
+
 > **Staging foundation (2026-11-01):** A separate staging-only deployment
 > foundation is under review: container build/readiness, explicit fail-closed
 > staging configuration, non-publishing image artifacts and operator documentation.

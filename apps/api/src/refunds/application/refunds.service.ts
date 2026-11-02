@@ -1,7 +1,7 @@
 import {Logger} from '@nestjs/common';
 import {DomainError} from '../../domain/commerce.js';
 import {assertDevelopmentPayment} from '../../payments/domain/payments.js';
-import {refundProjection,type RefundProviderStatus} from '../domain/refunds.js';
+import type {RefundProviderStatus} from '../domain/refunds.js';
 import type {RefundProcessingPort,RefundProviderPort,DevelopmentRefundPort} from './refunds.port.js';
 export class RefundService {
  constructor(private repository:RefundProcessingPort,private provider:RefundProviderPort,private simulator?:DevelopmentRefundPort){}

@@ -17,4 +17,12 @@ export default defineConfig([
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['apps/api/src/**/*.ts'],
+    extends: [js.configs.recommended, tseslint.configs.recommended],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-control-regex': 'off',
+    },
+  },
 ]);

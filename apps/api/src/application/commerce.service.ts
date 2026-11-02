@@ -10,7 +10,7 @@ import { Inject, Injectable, Optional } from "@nestjs/common";
 import { COMMERCE_REPOSITORY, COMMERCE_AUTHORIZATION } from "./commerce.port.js";
 import type { CommerceRepository, CommerceAuthorizationPort } from "./commerce.port.js";
 import { DomainError, normalizeHandle, normalizeMoneyMinor, validateProductInput, productQuery, publicProduct, seoText, variantMetadata, collectionMetadata } from "../domain/commerce.js";
-import type { Product, Store, ProductQuery, Variant, Collection, CollectionQuery } from "../domain/commerce.js";
+import type { Product, Store, ProductQuery, Variant, CollectionQuery } from "../domain/commerce.js";
 
 @Injectable()
 export class CommerceService {
